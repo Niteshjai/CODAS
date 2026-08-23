@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Shield, Check, AlertTriangle, Sparkles, Users, ArrowUpRight } from 'lucide-react';
+import { Check, AlertTriangle, Sparkles, Users, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePlanStore } from '../store/planStore';
 import { toast } from 'sonner';

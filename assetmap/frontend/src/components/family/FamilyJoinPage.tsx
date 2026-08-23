@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Users } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { api } from '../../services/api';
 
 export default function FamilyJoinPage() {
