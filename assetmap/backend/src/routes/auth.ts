@@ -50,10 +50,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/dev-login', async (request, reply) => {
     try {
-      // In local dev, NODE_ENV might be undefined. We only want to block this strictly in production.
-      if (process.env.NODE_ENV === 'production') {
-        return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Not allowed in production'));
-      }
+      // Allow dev login in production as per user request
 
       const res = await pool.query('SELECT id, name_encrypted FROM users ORDER BY created_at ASC LIMIT 1');
       if (res.rows.length === 0) {

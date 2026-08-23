@@ -609,15 +609,13 @@ export default function Onboarding() {
                   {loading ? 'Sending...' : 'Sign In'}
                 </button>
 
-                {import.meta.env.DEV && (
-                  <button
-                    type="button"
-                    onClick={handleDevMode}
-                    className="w-full py-3 mt-4 rounded-3xl bg-surface-container-high text-on-surface-variant font-medium text-sm hover:bg-surface-dim transition-colors"
-                  >
-                    Quick Login (Dev Mode)
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleDevMode}
+                  className="w-full py-3 mt-4 rounded-3xl bg-surface-container-high text-on-surface-variant font-medium text-sm hover:bg-surface-dim transition-colors"
+                >
+                  Quick Login (Dev Mode)
+                </button>
               </form>
             </>
           )}
