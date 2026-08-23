@@ -102,7 +102,11 @@ async function registerPlugins() {
     }
   });
 
-  await app.register(cors, { origin: env.FRONTEND_URL, credentials: true });
+  await app.register(cors, { 
+    origin: env.FRONTEND_URL, 
+    credentials: true,
+    exposedHeaders: ['x-access-token', 'x-refresh-token']
+  });
   await app.register(rateLimit, { max: 500, timeWindow: '3 seconds' }); // General limit
 
   await app.register(fastifyCookie, {

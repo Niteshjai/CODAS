@@ -27,8 +27,10 @@ export async function issueTokenPair(
   await sessionStore.create(userId, sessionId, role)
   await sessionStore.storeRefreshToken(sessionId, refreshHash)
 
-  // Set cookies — never expose tokens in body
+  // Set cookies (fallback) and headers (for cross-domain)
   reply
     .setCookie('access_token', accessToken, { ...JWT_CONFIG.cookie, maxAge: 60 * 15 })
     .setCookie('refresh_token', refreshToken, { ...JWT_CONFIG.cookie, maxAge: 60 * 60 * 24 * 7, path: '/api/auth/refresh' })
+    .header('x-access-token', accessToken)
+    .header('x-refresh-token', refreshToken);
 }

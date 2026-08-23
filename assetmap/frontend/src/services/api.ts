@@ -28,7 +28,17 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
     },
   };
 
+  const storedToken = localStorage.getItem('access_token');
+  if (storedToken) {
+    config.headers = { ...config.headers, 'Authorization': `Bearer ${storedToken}` };
+  }
+
     let response = await fetch(url, config);
+
+    const newAccessToken = response.headers.get('x-access-token');
+    if (newAccessToken) {
+      localStorage.setItem('access_token', newAccessToken);
+    }
 
     // Interceptor: Handle 401
     if (response.status === 401) {
@@ -51,6 +61,7 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
       } catch (refreshError) {
         processQueue(refreshError as Error);
         sessionStorage.removeItem('authUser');
+        localStorage.removeItem('access_token');
         if (window.location.pathname !== '/') {
           window.location.href = '/';
         }
