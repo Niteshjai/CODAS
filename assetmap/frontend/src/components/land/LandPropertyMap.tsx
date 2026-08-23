@@ -88,7 +88,8 @@ const UNIT_LABELS: Record<LandUnit, string> = {
   cent: 'Cent',
 };
 
-function formatArea(acres: number, targetUnit: LandUnit): string {
+function formatArea(rawAcres: number | string, targetUnit: LandUnit): string {
+  const acres = Number(rawAcres) || 0;
   switch (targetUnit) {
     case 'hectares': return `${(acres * 0.404686).toFixed(2)} ha`;
     case 'sqft': return `${Math.round(acres * 43560).toLocaleString()} sq.ft`;
@@ -655,7 +656,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                         <div>
                           <p className="text-[11px] text-zinc-500 mb-1">Coordinates</p>
                           <p className="text-sm font-medium text-zinc-900 font-mono">
-                            {selectedParcel.latitude?.toFixed(4) || 'N/A'}, {selectedParcel.longitude?.toFixed(4) || 'N/A'}
+                            {Number(selectedParcel.latitude)?.toFixed(4) || 'N/A'}, {Number(selectedParcel.longitude)?.toFixed(4) || 'N/A'}
                           </p>
                         </div>
                         <div>

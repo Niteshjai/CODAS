@@ -55,18 +55,16 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Not allowed in production'));
       }
 
-      const testPhone = '+15550000000';
-      let { user, isNewUser } = await UserModel.findOrCreateByPhone(testPhone);
-
-      if (!user.id) {
-        user = await UserModel.registerWithAadhaar(testPhone, 'US', {
-          aadhaarHash: 'dev-mock-hash',
-          name: 'Developer User',
-          dob: '01/01/1990',
-          fathersName: 'Dev Father',
-          nationality: 'US'
-        });
+      const res = await pool.query('SELECT id, name_encrypted FROM users ORDER BY created_at ASC LIMIT 1');
+      if (res.rows.length === 0) {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'No seeded users found'));
       }
+      
+      const user = {
+        id: res.rows[0].id,
+        name: 'Nitesh', // We know the first user is Nitesh
+      };
+      const isNewUser = false;
 
       // Force dev user to be premium so Pro features can be tested in both frontend and backend
       await pool.query("UPDATE users SET subscription_tier = 'premium' WHERE id = $1", [user.id]);
