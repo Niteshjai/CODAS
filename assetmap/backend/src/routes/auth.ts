@@ -50,6 +50,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/dev-login', async (request, reply) => {
     try {
+      // In local dev, NODE_ENV might be undefined. We only want to block this strictly in production.
       if (process.env.NODE_ENV === 'production') {
         return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Not allowed in production'));
       }
@@ -91,7 +92,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       }));
     } catch (e: any) {
       logger.error('Dev login failed', { error: e ? e.stack || e.message || String(e) : 'Unknown error' });
-      return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, `DEV_LOGIN_FAILED: ${e?.message || e}`));
+      return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Dev login failed'));
     }
   });
 
@@ -100,7 +101,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/aadhaar/initiate', {
     schema: { body: AadhaarInitiateSchema },
-    config: { rateLimit: { max: 50, timeWindow: '3 seconds' } }
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { aadhaarNumber } = request.body as Record<string, any>;
@@ -122,7 +123,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/aadhaar/verify', {
     schema: { body: AadhaarVerifySchema },
-    config: { rateLimit: { max: 50, timeWindow: '3 seconds' } }
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { transactionId, otp, mobile } = request.body as Record<string, any>;
@@ -263,7 +264,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/phone/initiate', {
     schema: { body: PhoneInitiateSchema },
-    config: { rateLimit: { max: 50, timeWindow: '3 seconds' } }
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { countryCode, phoneNumber, channel = 'sms' } = request.body as Record<string, any>;
@@ -357,7 +358,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(400).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'OTP has expired. Please request a new one.'));
       }
 
-      const otpValid = txn.otp === otp || (process.env.MOCK_MODE === 'true' && otp === '123456');
+      const otpValid = txn.otp === otp;
 
       if (!otpValid) {
         await otpGuard.recordFailure(txn.phone);

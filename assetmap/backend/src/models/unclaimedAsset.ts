@@ -12,7 +12,7 @@ export interface UnclaimedAsset {
 
 export const UnclaimedAssetModel = {
   async findByUserId(userId: string): Promise<UnclaimedAsset[]> {
-    if (process.env.MOCK_MODE === 'true' || true) { // Force mock mode for this feature as requested
+    if (process.env.MOCK_MODE === 'true') {
       return [
         {
           id: 'mock-ua-1',
@@ -44,7 +44,7 @@ export const UnclaimedAssetModel = {
   },
   
   async findById(id: string): Promise<UnclaimedAsset | null> {
-      if (process.env.MOCK_MODE === 'true' || true) {
+      if (process.env.MOCK_MODE === 'true') {
         if (id === 'mock-ua-1') {
             return {
               id: 'mock-ua-1',

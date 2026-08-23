@@ -470,7 +470,7 @@ export default function Onboarding() {
   return (
     <main className="min-h-screen flex flex-col md:flex-row bg-surface font-body-md text-on-surface antialiased overflow-hidden selection:bg-brand-secondary/20">
       {/* Left Pane: Authentication */}
-      <section className="flex flex-col justify-center items-center px-margin py-lg z-10 bg-surface-container-lowest md:w-[40%] w-full relative">
+      <section className="flex flex-col justify-center items-center px-margin py-lg z-10 bg-[linear-gradient(145deg,#e4e4e7_0%,#d4d4d8_30%,#a1a1aa_60%,#d4d4d8_80%,#71717a_100%)] dark:bg-[linear-gradient(to_bottom_right,#0F1117,#151825,#0F1117)] md:w-[40%] w-full relative">
 
         {/* Top-Left Back Button */}
         {(step === 'otp' || step === 'pan' || step === 'aadhaar' || step === 'aadhaar_otp' || step === 'identity' || step === 'email') && (
@@ -502,9 +502,11 @@ export default function Onboarding() {
 
         <div className="w-full max-w-[380px] space-y-lg">
           {/* Brand Header */}
-          <div className="flex items-center gap-3 mb-lg">
-            <img src="/logo.png" alt="CODAS Logo" className="size-9 rounded-xl object-cover shadow-sm ring-1 ring-black/10" />
-            <h1 className="text-3xl font-bold text-zinc-900 tracking-tight">CODAS</h1>
+          <div className="flex items-center gap-3 mb-8">
+            <div className="size-10 rounded-2xl overflow-hidden bg-zinc-900 ring-1 ring-black/10 shadow-md grid place-items-center shrink-0">
+              <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
+            </div>
+            <h1 className="text-3xl font-bold font-display text-zinc-900 tracking-tight mt-1">CODAS</h1>
           </div>
 
           {step === 'phone' && (
@@ -518,16 +520,16 @@ export default function Onboarding() {
               {/* Form */}
               <form className="space-y-md" onSubmit={handleSendOtp} noValidate>
                 <div className="space-y-base relative" ref={dropdownRef}>
-                  <label className="font-label-md text-label-md text-on-surface-variant block" htmlFor="phone">Phone Number</label>
+                  <label className="font-label-md text-label-md text-on-surface-variant block" htmlFor="phone">Enter your phone number</label>
                   <div className="flex gap-base">
                     <button
                       type="button"
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 px-md py-[14px] bg-white border border-outline-variant rounded-lg font-body-md custom-focus transition-all hover:bg-surface-container"
+                      className="flex items-center gap-2 px-md py-[14px] bg-white/60 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md custom-focus transition-all hover:bg-white/80 dark:hover:bg-white/20 shrink-0 shadow-sm"
                     >
                       <img src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} alt={selectedCountry.name} className="w-6 h-[16px] shadow-sm rounded-[2px] object-cover border border-black/5" />
-                      <span className="font-body-md">{selectedCountry.code}</span>
-                      <span className="material-symbols-outlined text-xl text-on-surface-variant/70">expand_more</span>
+                      <span className="font-body-md text-zinc-900 dark:text-zinc-100">{selectedCountry.code}</span>
+                      <span className="material-symbols-outlined text-xl text-zinc-500">expand_more</span>
                     </button>
 
                     {/* Country Dropdown Menu */}
@@ -567,9 +569,9 @@ export default function Onboarding() {
                     )}
 
                     <input
-                      className="flex-1 px-md py-[14px] bg-white border border-outline-variant rounded-lg font-body-md custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary"
+                      className="flex-1 min-w-0 w-full px-md py-[14px] bg-white/60 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary shadow-sm"
                       id="phone"
-                      placeholder="Enter your mobile number"
+                      placeholder="Mobile number"
                       type="tel"
                       autoComplete="tel"
                       value={phoneNumber}

@@ -311,16 +311,16 @@ export const InsuranceAnalyzeSchema = {
       type: 'object',
       required: ['annualIncomePaise', 'age', 'dependentsCount', 'outstandingLoansPaise', 'monthlyExpensesPaise'],
       properties: {
-        annualIncomePaise: { type: 'number' },
-        age: { type: 'number' },
-        dependentsCount: { type: 'number' },
-        outstandingLoansPaise: { type: 'number' },
-        monthlyExpensesPaise: { type: 'number' }
+        annualIncomePaise: { type: 'integer', minimum: 0, maximum: 100000000000 },
+        age: { type: 'integer', minimum: 1, maximum: 120 },
+        dependentsCount: { type: 'integer', minimum: 0, maximum: 50 },
+        outstandingLoansPaise: { type: 'integer', minimum: 0 },
+        monthlyExpensesPaise: { type: 'integer', minimum: 0 }
       },
-      additionalProperties: true
+      additionalProperties: false
     }
   },
-  additionalProperties: true
+  additionalProperties: false
 };
 
 // ─────────────────────────────────────────────

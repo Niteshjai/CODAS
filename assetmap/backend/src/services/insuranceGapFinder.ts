@@ -344,10 +344,7 @@ export const insuranceGapFinder = {
       lifeGap, healthGap, termGap,
       gapSeverity, gapScore
     ])
-    
-    // In my original code there was no RETURNING id, so I can't use rows[0].id
-    // But wait! There is no RETURNING id in the query.
-    // Let me just not log the entityId for now, or add RETURNING id.
+
     await auditLogger.log(
       userId,
       'INSURANCE_GAP_ANALYSED' as any,
@@ -385,9 +382,12 @@ export const insuranceGapFinder = {
       SET affiliate_clicked = true,
           affiliate_click_at = NOW(),
           affiliate_partner = $2
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT 1
+      WHERE id = (
+        SELECT id FROM insurance_gap_analysis
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      )
     `, [userId, partner])
 
     await auditLogger.log(

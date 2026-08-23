@@ -22,7 +22,8 @@ export const insuranceRoutes: FastifyPluginAsync = async (fastify, opts) => {
 
   fastify.post('/analyze', {
     schema: { body: InsuranceAnalyzeSchema },
-    preHandler: [verifyAccessToken, planEnforcer.requireFeature('insurance_gap', pool)]
+    preHandler: [verifyAccessToken, planEnforcer.requireFeature('insurance_gap', pool)],
+    config: { rateLimit: { max: 10, timeWindow: '1 hour' } }
   }, async (request, reply) => {
     try {
       const userId = request.user!.id
@@ -38,14 +39,15 @@ export const insuranceRoutes: FastifyPluginAsync = async (fastify, opts) => {
   })
 
   fastify.post('/affiliate-click', {
-    preHandler: [verifyAccessToken, planEnforcer.requireFeature('insurance_gap', pool)]
+    preHandler: [verifyAccessToken, planEnforcer.requireFeature('insurance_gap', pool)],
+    config: { rateLimit: { max: 50, timeWindow: '1 hour' } }
   }, async (request, reply) => {
     try {
       const userId = request.user!.id
       const body = request.body as Record<string, any>
       const { partner, productType } = body
       await insuranceGapFinder.trackAffiliateClick(pool, userId, partner, productType)
-      return successResponse({ success: true })
+      return reply.send(successResponse({ success: true }))
     } catch (error) {
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to track affiliate click'))
