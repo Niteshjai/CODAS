@@ -14,8 +14,8 @@ const envSchema = z.object({
   
   // Secrets
   COOKIE_SECRET: z.string().min(16, 'COOKIE_SECRET must be at least 16 characters long'),
-  JWT_PRIVATE_KEY: z.string().min(100, 'JWT_PRIVATE_KEY must be provided'),
-  JWT_PUBLIC_KEY: z.string().min(100, 'JWT_PUBLIC_KEY must be provided'),
+  JWT_PRIVATE_KEY: z.string().min(100, 'JWT_PRIVATE_KEY must be provided').transform(val => val.replace(/\\n/g, '\n')),
+  JWT_PUBLIC_KEY: z.string().min(100, 'JWT_PUBLIC_KEY must be provided').transform(val => val.replace(/\\n/g, '\n')),
   ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
   AADHAAR_SALT: z.string().min(16, 'AADHAAR_SALT must be at least 16 characters'),
 
@@ -38,7 +38,7 @@ const envSchema = z.object({
   // Allowed Origins
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
 
-  UIDAI_PUBLIC_CERT: z.string().optional(),
+  UIDAI_PUBLIC_CERT: z.string().optional().transform(val => val ? val.replace(/\\n/g, '\n') : val),
 });
 
 const _env = envSchema.safeParse(process.env);
