@@ -85,24 +85,26 @@ export default function SpendDashboard() {
           
           {/* Main Chart */}
           <div className="lg:col-span-2 bg-white dark:bg-[#1A1D27] rounded-[32px] p-8 border border-zinc-100 dark:border-[#2E3148]">
-            <h2 className="text-xl font-display text-white mb-6">Expense Breakdown</h2>
+            <h2 className="text-xl font-display text-zinc-900 dark:text-white mb-6">Expense Breakdown</h2>
             <div className="flex flex-col gap-4">
-              {data.expenses.map((exp: any) => (
+              {data.expenses && data.expenses.length > 0 ? data.expenses.map((exp: any) => (
                 <div key={exp.category} className="flex justify-between items-center p-4 rounded-2xl bg-zinc-50 dark:bg-white/5">
                   <div className="flex items-center gap-4">
                     <div className="size-10 rounded-full bg-zinc-200 dark:bg-[#2E3148] flex items-center justify-center">
                       🏷️
                     </div>
                     <div>
-                      <div className="text-white font-medium">{exp.category}</div>
-                      <div className="text-xs text-zinc-400">{exp.transaction_count} transactions</div>
+                      <div className="text-zinc-900 dark:text-white font-medium">{exp.category}</div>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">{exp.transaction_count} transactions</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-white font-medium">₹{(exp.total_paise / 100).toLocaleString()}</div>
+                    <div className="text-zinc-900 dark:text-white font-medium">₹{(exp.total_paise / 100).toLocaleString()}</div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-8 text-zinc-500">No expenses recorded yet.</div>
+              )}
             </div>
           </div>
 
@@ -110,7 +112,7 @@ export default function SpendDashboard() {
           <div className="bg-white dark:bg-[#1A1D27] rounded-[32px] p-8 border border-zinc-100 dark:border-[#2E3148]">
             <div className="flex items-center gap-2 mb-6">
               <AlertTriangle className="size-5 text-amber-500" />
-              <h2 className="text-xl font-display text-white">AI Insights</h2>
+              <h2 className="text-xl font-display text-zinc-900 dark:text-white">AI Insights</h2>
             </div>
             
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-4">

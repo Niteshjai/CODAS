@@ -519,12 +519,14 @@ export default function Onboarding() {
 
         <div className="w-full max-w-[380px] space-y-lg">
           {/* Brand Header */}
-          <div className="flex items-center justify-center gap-3 -mt-16 mb-16">
-            <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-black/10 shadow-md grid place-items-center shrink-0">
-              <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
+          {step === 'phone' && (
+            <div className="flex items-center justify-center gap-3 mb-12">
+              <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-black/10 shadow-md grid place-items-center shrink-0">
+                <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
+              </div>
+              <h1 className="text-3xl font-bold font-display text-zinc-900 tracking-tight pb-1">CODAS</h1>
             </div>
-            <h1 className="text-3xl font-bold font-display text-zinc-900 tracking-tight pb-1">CODAS</h1>
-          </div>
+          )}
 
           {step === 'phone' && (
             <>
@@ -542,7 +544,7 @@ export default function Onboarding() {
                     <button
                       type="button"
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 px-md py-[14px] bg-white/60 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md custom-focus transition-all hover:bg-white/80 dark:hover:bg-white/20 shrink-0 shadow-sm"
+                      className="flex items-center gap-2 px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md custom-focus transition-all hover:bg-white/80 dark:hover:bg-white/20 shrink-0 shadow-sm"
                     >
                       <img src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} alt={selectedCountry.name} className="w-6 h-[16px] shadow-sm rounded-[2px] object-cover border border-black/5" />
                       <span className="font-body-md text-zinc-900 dark:text-zinc-100">{selectedCountry.code}</span>
@@ -586,7 +588,7 @@ export default function Onboarding() {
                     )}
 
                     <input
-                      className="flex-1 min-w-0 w-full px-md py-[14px] bg-white/60 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary shadow-sm"
+                      className="flex-1 min-w-0 w-full px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary shadow-sm"
                       id="phone"
                       placeholder="Mobile number"
                       type="tel"
@@ -683,7 +685,7 @@ export default function Onboarding() {
                 <button
                   type="button"
                   onClick={() => { setStep('phone'); setError(''); setTimerActive(false); setOtpDigits(Array(OTP_LENGTH).fill('')); }}
-                  className="w-full py-3 rounded-3xl text-sm font-medium text-on-surface-variant bg-black/5 hover:bg-black/10 transition-colors"
+                  className="w-full py-3 rounded-3xl text-sm font-medium text-on-surface-variant bg-white hover:bg-zinc-50 border border-outline-variant/50 transition-colors"
                 >
                   Change phone number
                 </button>
@@ -1161,7 +1163,7 @@ export default function Onboarding() {
 
         {/* Content Overlay */}
         <div className="relative z-20 px-8 lg:px-xl w-full max-w-2xl space-y-md pb-10 lg:pb-lg">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 lg:p-lg rounded-3xl space-y-base max-w-md min-w-[300px]">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 lg:p-lg rounded-3xl space-y-base max-w-md min-w-[300px] mx-auto">
             <h3 className="font-headline-xl text-white tracking-tight drop-shadow-sm">Strength in Every Move</h3>
             <p className="font-body-lg text-white/90 drop-shadow-sm">Experience the stability and precision of institutional-grade asset management.</p>
           </div>

@@ -29,6 +29,7 @@ Welcome to the AssetMap Frontend! This document explains the architecture, featu
 
 ### 4. Consumer Engagement & Security Suite
 - **Interactive Net Worth Tracker:** D3.js powered area chart tracking historical net worth over 6m/12m/24m periods, including all-time highs and percentage changes.
+- **Spend Analyser:** AI-powered categorization and insights into user spending habits. Tracks expenses, revenue, savings rates, and highlights high spend areas or new subscriptions.
 - **Asset Change Alerts (Live Feed):** Real-time feed of system-generated alerts for massive balance drops (>20%), newly linked fraudulent accounts, and sudden land registry changes.
 - **Alerts Bell:** Real-time unread notification indicator.
 - **Nominee Checker Dashboard:** Scans all linked financial accounts and visually flags those missing registered nominees (to comply with RBI Dec 2025 mandates).
@@ -46,9 +47,10 @@ src/
 │   ├── alerts/          # AlertBell and AlertsFeed
 │   ├── dashboard/       # Dashboard widgets and cards
 │   ├── dormant/         # Dormant accounts checker
-│   ├── map/             # Property/Estate map components
+│   ├── land/            # Land property maps and lists
 │   ├── networth/        # D3.js Net Worth Chart
-│   └── nominee/         # Nominee Checker
+│   ├── nominee/         # Nominee Checker
+│   └── spend/           # Spend Analyser UI
 ├── pages/               # Top-level route components (Login, Dashboard)
 ├── services/            # API communication logic (Axios instances)
 ├── store/               # Zustand global state (Auth, UI state)
@@ -63,6 +65,7 @@ src/
 - User inputs OTP -> `api.post('/auth/aadhaar/verify')`.
 - The backend sets `httpOnly` cookies containing the JWT.
 - Zustand store (`useAuthStore`) triggers `checkAuth()` to fetch the user's identity and update global state.
+- **Dev Mode:** Developers can bypass Aadhaar OTP by clicking "Quick Login (Dev Mode)" which securely logs into the seeded mock user.
 
 ### 2. The Dashboard & Data Fetching
 - Once authenticated, the user lands on the Dashboard.

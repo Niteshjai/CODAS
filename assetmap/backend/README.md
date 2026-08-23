@@ -35,9 +35,9 @@ Welcome to the AssetMap Backend! This document outlines the architecture, capabi
 
 ### 5. Automated Alerting & Notification Dispatcher
 - **Dormant Account Analysis Engine:** Calculates account inactivity strictly using 6+ months of transaction history. Flags >12mo inactivity and calculates exact IEPF 7-year transfer risk dates.
+- **Spend Analyser & Transaction Classification:** Automatically categorizes user transactions into expenses and revenue, calculating monthly trends, savings rates, and AI insights using `transactionClassifier`.
 - **Nominee Validation Engine:** Parses complex JSON financial schemas to verify if nominees are actively registered across all banks.
-- **MSG91 SMS Gateway Integration:** Dispatches critical SMS alerts. Rate-limited by Redis to max 3 messages per day/user to prevent spam.
-- **Firebase Push Notifications:** Directly pushes alerts to the user's mobile device via `fcm_token`.
+- **MSG91 SMS Gateway & Firebase:** Dispatches critical SMS/Push alerts. Rate-limited by Redis to max 3 messages per day/user to prevent spam.
 
 ### 6. PDF Generation (Python Microservice Hook)
 - Provides internal hooks to trigger a FastAPI Python microservice to generate and serve downloadable PDF Asset Reports.
@@ -52,7 +52,8 @@ src/
 │   ├── alerts.ts        # Engagement APIs (Nominees, Dormant, Net Worth)
 │   ├── assets.ts        # Financial Data APIs
 │   ├── auth.ts          # OKYC and session APIs
-│   └── land.ts          # Real estate APIs
+│   ├── land.ts          # Real estate APIs
+│   └── spend.ts         # Spend analyser and transaction APIs
 ├── services/            # Business Logic & 3rd Party Integrations
 │   ├── accountAggregator.ts
 │   ├── alertService.ts
@@ -68,15 +69,14 @@ src/
 - Before sending data to the frontend via API routes, use `decryptPII()`.
 - The database schema strictly uses `TEXT` for encrypted fields (e.g., `balance_encrypted`).
 
-### 2. Background Workers
-- The application relies heavily on `node-cron` to process data asynchronously.
-- Workers live in `src/workers` and are registered in `src/index.ts` *after* the server listens.
-- If a worker needs to do math on encrypted fields (like the Net Worth worker), it must fetch the rows, decrypt them in Node.js, compute the aggregate, and then insert the result back.
-
-### 3. Alerting System (MSG91 + Firebase)
-- Alerts are generated via `alertService.ts`.
-- The system prevents spam by using Redis limits (`sms:count:{userId}:{date}`).
-- Before sending an SMS, verify the limit is not breached.
+### 2. Development Mode & Seeding
+To easily test the application locally without needing valid Setu Sandbox credentials, you can use the built-in mock mode.
+- Set `MOCK_MODE=true` in `.env` to bypass database queries and return hardcoded mock API responses.
+- Set `MOCK_MODE=false` in `.env` to test against the real PostgreSQL database. You can instantly populate the database with rich test data using the dev seed script:
+```bash
+npm run seed:dev
+```
+*Note: This will truncate the database and create a test user (Nitesh, mobile: 9999999999) with mock land records, financial data, and unclaimed assets.*
 
 ## Running Locally
 ```bash

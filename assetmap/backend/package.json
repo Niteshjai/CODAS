@@ -10,7 +10,8 @@
     "test": "npx tsx tests/runAllTests.ts",
     "typecheck": "tsc --noEmit",
     "security:check": "npm audit --audit-level=high && npx snyk test",
-    "tunnel": "npx smee-client --url https://smee.io/assetmap-webhook --path /api/consent/callback --port 3000"
+    "tunnel": "npx smee-client --url https://smee.io/assetmap-webhook --path /api/consent/callback --port 3000",
+    "seed:dev": "npx tsx seed_dev_env.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
