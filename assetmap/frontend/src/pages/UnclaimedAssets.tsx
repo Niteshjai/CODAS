@@ -160,7 +160,7 @@ export default function UnclaimedAssets() {
         <div className="mt-8 bg-zinc-50 border border-zinc-200/60 rounded-xl p-4 flex items-start gap-3">
           <Scale className="size-4 text-zinc-400 mt-0.5 shrink-0" strokeWidth={1.75} />
           <p className="text-[11px] text-zinc-500 leading-relaxed">
-            AssetMap Recovery Services assists with document preparation and submission tracking. We do not provide legal advice. Recovery is subject to government processing timelines outside our control. Success fee is charged only on confirmed credit to your account.
+            Codas Recovery Services assists with document preparation and submission tracking. We do not provide legal advice. Recovery is subject to government processing timelines outside our control. Success fee is charged only on confirmed credit to your account.
           </p>
         </div>
       </div>

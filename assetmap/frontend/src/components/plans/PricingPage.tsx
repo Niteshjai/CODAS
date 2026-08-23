@@ -85,7 +85,7 @@ export const PricingPage: React.FC = () => {
 
   const handleSubscribe = async (planId: string, cycle: 'monthly' | 'yearly') => {
     if (planId === 'b2b') {
-      window.location.href = 'mailto:sales@assetmap.com';
+      window.location.href = 'mailto:sales@codas.com';
       return;
     }
 
@@ -109,7 +109,7 @@ export const PricingPage: React.FC = () => {
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TGSZH6paEbrqVv',
         subscription_id: subId,
-        name: 'AssetMap',
+        name: 'Codas',
         description: `Upgrade to ${planId.toUpperCase()}`,
         handler: async function (response: any) {
           try {

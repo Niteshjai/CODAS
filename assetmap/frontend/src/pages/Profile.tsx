@@ -42,7 +42,7 @@ export default function Profile() {
             </div>
             
             <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-2xl font-display font-semibold text-zinc-900">{user?.name || 'AssetMap User'}</h2>
+              <h2 className="text-2xl font-display font-semibold text-zinc-900">{user?.name || 'Codas User'}</h2>
               <p className="text-sm text-zinc-600 flex items-center justify-center sm:justify-start gap-1.5 mt-1">
                 <ShieldCheck className="size-4 text-emerald-600" /> KYC Verified
               </p>

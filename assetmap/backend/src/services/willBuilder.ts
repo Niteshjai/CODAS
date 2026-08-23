@@ -11,11 +11,11 @@ import axios from 'axios'
 
 const WILL_DISCLAIMER = `
 IMPORTANT NOTICE: This document is an asset allocation record
-created using AssetMap and is NOT a substitute for a formally
+created using Codas and is NOT a substitute for a formally
 drafted legal will. It is intended to assist you in organizing
 your assets and communicating your wishes. For a legally valid
 will under the Indian Succession Act 1925, please consult a
-qualified lawyer. AssetMap Pvt. Ltd. does not provide legal
+qualified lawyer. Codas Pvt. Ltd. does not provide legal
 advice and this document creates no legal obligations.
 `.trim()
 

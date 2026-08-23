@@ -146,7 +146,7 @@ export default function ConsentFlow() {
         <div className="text-center mb-8 md:mb-12 mt-4">
           <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 mb-2">Grant Data Access</h1>
           <p className="text-zinc-600 text-base">
-            Choose what financial data AssetMap can securely access on your behalf via the Account Aggregator network.
+            Choose what financial data Codas can securely access on your behalf via the Account Aggregator network.
           </p>
         </div>
 

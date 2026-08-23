@@ -133,7 +133,45 @@ export const insuranceGapFinder = {
       AND policy_status = 'ACTIVE'
     `, [userId])
 
-    const policies = result.rows
+    // Also fetch any manual insurance policies
+    const manualResult = await pool.query(`
+      SELECT asset_category as type, asset_name as name, current_value_paise
+      FROM manual_assets
+      WHERE user_id = $1 AND is_active = true
+      AND asset_category IN ('INSURANCE_POLICIES', 'INSURANCE', 'HEALTH_INSURANCE', 'LIFE_INSURANCE', 'TERM_INSURANCE')
+    `, [userId]).catch(() => ({ rows: [] }))
+
+    // Also fetch AA canonical insurance assets
+    const canonicalResult = await pool.query(`
+      SELECT asset_class as type, institution_name as name, current_value_paise
+      FROM canonical_assets
+      WHERE user_id = $1 AND is_active = true
+      AND asset_class ILIKE '%INSUR%'
+    `, [userId]).catch(() => ({ rows: [] }))
+
+    const mapPolicyType = (type: string) => {
+      const t = type.toUpperCase();
+      if (t.includes('HEALTH')) return 'HEALTH';
+      if (t.includes('TERM')) return 'TERM';
+      if (t.includes('CRITICAL')) return 'CRITICAL_ILLNESS';
+      return 'LIFE';
+    }
+
+    const manualPolicies = manualResult.rows.map(m => ({
+      policy_type: mapPolicyType(m.type),
+      sum_assured_paise: m.current_value_paise,
+      policy_status: 'ACTIVE',
+      plan_name: m.name
+    }))
+
+    const canonicalPolicies = canonicalResult.rows.map(c => ({
+      policy_type: mapPolicyType(c.type),
+      sum_assured_paise: c.current_value_paise,
+      policy_status: 'ACTIVE',
+      plan_name: c.name
+    }))
+
+    const policies = [...result.rows, ...manualPolicies, ...canonicalPolicies]
 
     // Aggregate coverage by type
     const lifeCover  = policies
@@ -361,6 +399,44 @@ export const insuranceGapFinder = {
       undefined,
       { partner, productType }
     )
+  },
+
+  async getLatestAnalysis(pool: Pool, userId: string): Promise<any | null> {
+    const res = await pool.query(`
+      SELECT * FROM insurance_gap_analysis
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [userId]);
+    if (res.rows.length === 0) return null;
+    const row = res.rows[0];
+    return {
+      profile: {
+        annualIncomePaise: Number(row.annual_income_paise),
+        age: Number(row.age),
+        dependentsCount: Number(row.dependents_count),
+        outstandingLoansPaise: Number(row.outstanding_loans_paise),
+        monthlyExpensesPaise: Number(row.monthly_expenses_paise)
+      },
+      analysis: {
+        hasTermPlan: row.has_term_plan,
+        hasHealthCover: row.has_health_cover,
+        hasCriticalIllness: row.has_critical_illness,
+        totalLifeCoverPaise: Number(row.total_life_cover_paise),
+        totalHealthCoverPaise: Number(row.total_health_cover_paise),
+        totalTermCoverPaise: Number(row.total_term_cover_paise),
+        recommendedLifePaise: Number(row.recommended_life_paise),
+        recommendedHealthPaise: Number(row.recommended_health_paise),
+        recommendedTermPaise: Number(row.recommended_term_paise),
+        lifeGapPaise: Number(row.life_gap_paise),
+        healthGapPaise: Number(row.health_gap_paise),
+        termGapPaise: Number(row.term_gap_paise),
+        gapSeverity: row.gap_severity,
+        gapScore: row.gap_score,
+        gaps: [],
+        recommendations: []
+      }
+    };
   }
 }
 

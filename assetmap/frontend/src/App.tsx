@@ -23,7 +23,6 @@ import AncestralSearchPage from './components/ancestral/AncestralSearchPage';
 import TwoFactorSettings from './pages/Settings/TwoFactorSettings';
 import TOTPSetup from './pages/Settings/TOTPSetup';
 import EmailSetup from './pages/Settings/EmailSetup';
-import TrustedDevices from './pages/Settings/TrustedDevices';
 import './index.css';
 
 function ScrollToTop() {
@@ -92,9 +91,9 @@ export default function App() {
             <Route path="/settings/2fa" element={<ProtectedRoute><TwoFactorSettings /></ProtectedRoute>} />
             <Route path="/settings/2fa/totp" element={<ProtectedRoute><TOTPSetup /></ProtectedRoute>} />
             <Route path="/settings/2fa/email" element={<ProtectedRoute><EmailSetup /></ProtectedRoute>} />
-            <Route path="/settings/2fa/devices" element={<ProtectedRoute><TrustedDevices /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
             <Route path="/unclaimed" element={<ProtectedRoute><UnclaimedAssets /></ProtectedRoute>} />
+            <Route path="/nominee" element={<ProtectedRoute><NomineeUpdatePage /></ProtectedRoute>} />
             <Route path="/nominee/update" element={<ProtectedRoute><NomineeUpdatePage /></ProtectedRoute>} />
             <Route path="/family/join" element={<ProtectedRoute><FamilyJoinPage /></ProtectedRoute>} />
             <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />

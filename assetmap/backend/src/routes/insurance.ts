@@ -7,6 +7,19 @@ import { InsuranceAnalyzeSchema } from '../utils/validators'
 import { planEnforcer } from '../plans/planEnforcer'
 
 export const insuranceRoutes: FastifyPluginAsync = async (fastify, opts) => {
+  fastify.get('/latest', {
+    preHandler: [verifyAccessToken]
+  }, async (request, reply) => {
+    try {
+      const userId = request.user!.id
+      const latest = await insuranceGapFinder.getLatestAnalysis(pool, userId)
+      return reply.send(successResponse(latest))
+    } catch (error) {
+      request.log.error(error)
+      return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to fetch latest analysis'))
+    }
+  })
+
   fastify.post('/analyze', {
     schema: { body: InsuranceAnalyzeSchema },
     preHandler: [verifyAccessToken, planEnforcer.requireFeature('insurance_gap', pool)]
@@ -17,7 +30,7 @@ export const insuranceRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const profile = body.profile
 
       const result = await insuranceGapFinder.analyzeGaps(pool, userId, profile)
-      return successResponse(result)
+      return reply.send(successResponse(result))
     } catch (error) {
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to analyze insurance gaps'))

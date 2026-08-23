@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { ArrowLeft, BookOpen, MessageCircle, FileText, ExternalLink, Mail, Check, X, Send, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 
 const SUPPORT_OPTIONS = [
-  { id: 'guides', title: 'User Guides', desc: 'Step-by-step tutorials on using AssetMap.', icon: <BookOpen className="size-5 text-sky-500" /> },
+  { id: 'guides', title: 'User Guides', desc: 'Step-by-step tutorials on using Codas.', icon: <BookOpen className="size-5 text-sky-500" /> },
   { id: 'faqs', title: 'FAQs', desc: 'Answers to commonly asked questions.', icon: <FileText className="size-5 text-emerald-500" /> },
   { id: 'chat', title: 'Live Chat', desc: 'Chat with our support team in real-time.', icon: <MessageCircle className="size-5 text-amber-500" /> },
   { id: 'contact', title: 'Email Support', desc: 'Send us an email for complex queries.', icon: <Mail className="size-5 text-rose-500" /> },
@@ -219,7 +219,7 @@ export default function Help() {
                 <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-zinc-100 rounded-full transition"><X className="size-4"/></button>
               </div>
               <div className="p-6 flex flex-col gap-3">
-                {['Getting Started with AssetMap', 'How to Link your Bank Accounts safely', 'Understanding your Net Worth Chart', 'Exporting your data for Tax Filing'].map((guide, i) => (
+                {['Getting Started with Codas', 'How to Link your Bank Accounts safely', 'Understanding your Net Worth Chart', 'Exporting your data for Tax Filing'].map((guide, i) => (
                   <button key={i} onClick={() => showToast(`Opening guide: ${guide}`)} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 bg-white transition text-left group">
                     <span className="text-sm font-medium text-zinc-700 group-hover:text-zinc-900 transition">{guide}</span>
                     <ExternalLink className="size-4 text-zinc-400 group-hover:text-zinc-600 shrink-0" />
@@ -239,7 +239,7 @@ export default function Help() {
                     <div className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 border-2 border-zinc-900"></div>
                   </div>
                   <div>
-                    <h3 className="font-medium text-sm">AssetMap Support</h3>
+                    <h3 className="font-medium text-sm">Codas Support</h3>
                     <p className="text-[10px] text-white/60">Typically replies in a few minutes</p>
                   </div>
                 </div>

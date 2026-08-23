@@ -33,7 +33,7 @@ export default function Report() {
     if (pdfUrl) {
       const a = document.createElement('a');
       a.href = pdfUrl;
-      a.download = `AssetMap-Report-${new Date().toISOString().split('T')[0]}.pdf`;
+      a.download = `Codas-Report-${new Date().toISOString().split('T')[0]}.pdf`;
       a.click();
     }
   }

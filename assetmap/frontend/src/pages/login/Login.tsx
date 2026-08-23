@@ -502,9 +502,9 @@ export default function Onboarding() {
 
         <div className="w-full max-w-[380px] space-y-lg">
           {/* Brand Header */}
-          <div className="flex items-center gap-base mb-lg">
-            <span className="material-symbols-outlined text-primary text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-            <h1 className="text-3xl font-bold text-primary tracking-tight">FinTrust</h1>
+          <div className="flex items-center gap-3 mb-lg">
+            <img src="/logo.png" alt="CODAS Logo" className="size-9 rounded-xl object-cover shadow-sm ring-1 ring-black/10" />
+            <h1 className="text-3xl font-bold text-zinc-900 tracking-tight">CODAS</h1>
           </div>
 
           {step === 'phone' && (

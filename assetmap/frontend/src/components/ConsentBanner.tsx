@@ -15,7 +15,7 @@ export default function ConsentBanner({ consents, onRevoke }: Props) {
   if (activeConsents.length === 0 && consents.length === 0) return null;
 
   async function handleRevoke(consentId: string) {
-    if (!confirm('Are you sure you want to revoke this consent? AssetMap will no longer be able to fetch your financial data.')) return;
+    if (!confirm('Are you sure you want to revoke this consent? Codas will no longer be able to fetch your financial data.')) return;
     setRevoking(consentId);
     try {
       await revokeConsentApi(consentId);

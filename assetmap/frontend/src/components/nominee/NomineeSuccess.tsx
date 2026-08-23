@@ -66,7 +66,7 @@ export default function NomineeSuccess({ summary, onGoBack }: NomineeSuccessProp
       <div className="bg-zinc-100/80 rounded-xl p-4 w-full max-w-[512px] mb-8 flex items-start gap-3 text-left">
         <Shield className="size-5 text-zinc-400 shrink-0 mt-0.5" />
         <p className="text-xs text-zinc-500 leading-relaxed">
-          AssetMap facilitates nominee updates on your behalf where permitted by law.
+          Codas facilitates nominee updates on your behalf where permitted by law.
           For banks, EPFO, and insurers, you will complete a simple OTP step inside our app.
           We never store your banking passwords or government portal credentials.
         </p>

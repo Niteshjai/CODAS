@@ -11,7 +11,7 @@ import RecoverySuccess from './RecoverySuccess'
 import { ArrowLeft, Scale, Briefcase, TrendingUp, Clock, CheckCircle2, Loader2 } from 'lucide-react'
 
 const LEGAL_DISCLAIMER =
-  'AssetMap Recovery Services assists with document preparation and ' +
+  'Codas Recovery Services assists with document preparation and ' +
   'submission tracking. We do not provide legal advice. Recovery is ' +
   'subject to government processing timelines outside our control. ' +
   'Success fee is charged only on confirmed credit to your account.'

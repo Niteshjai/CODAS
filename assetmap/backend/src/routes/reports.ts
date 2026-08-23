@@ -20,7 +20,7 @@ async function generatePDF(data: any): Promise<Buffer> {
     doc.on('error', reject);
 
     // Title
-    doc.fontSize(24).font('Helvetica-Bold').fillColor('#111827').text(`Asset Report — ${data.name}`, { align: 'center' });
+    doc.fontSize(24).font('Helvetica-Bold').fillColor('#111827').text(`Codas Asset Report — ${data.name}`, { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(12).font('Helvetica').fillColor('#6b7280').text(`Generated: ${data.generated_at}`, { align: 'center' });
     doc.moveDown(2);
@@ -132,7 +132,7 @@ const reportsRoutes: FastifyPluginAsync = async (fastify, opts) => {
       // For development, return the PDF directly
       if (process.env.NODE_ENV !== 'production') {
         reply.header('Content-Type', 'application/pdf');
-        reply.header('Content-Disposition', `attachment; filename="AssetMap-Report-${reportId}.pdf"`);
+        reply.header('Content-Disposition', `attachment; filename="Codas-Report-${reportId}.pdf"`);
         return reply.send(pdfBuffer);
       }
 
@@ -175,7 +175,7 @@ const reportsRoutes: FastifyPluginAsync = async (fastify, opts) => {
         const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
         const s3 = new S3Client({ region: process.env.AWS_REGION || 'ap-south-1' });
         const command = new GetObjectCommand({
-          Bucket: process.env.S3_BUCKET_DOCUMENTS || 'assetmap-docs',
+          Bucket: process.env.S3_BUCKET_DOCUMENTS || 'codas-docs',
           Key: result.rows[0].s3_key
         });
         const presignedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
@@ -197,7 +197,7 @@ const reportsRoutes: FastifyPluginAsync = async (fastify, opts) => {
       
       const pdfBuffer = await generatePDF(mockPayload);
       reply.header('Content-Type', 'application/pdf');
-      reply.header('Content-Disposition', `attachment; filename="AssetMap-Report-${reportId}.pdf"`);
+      reply.header('Content-Disposition', `attachment; filename="Codas-Report-${reportId}.pdf"`);
       return reply.send(pdfBuffer);
     } catch (error) {
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to download report'));

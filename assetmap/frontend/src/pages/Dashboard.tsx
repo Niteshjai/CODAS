@@ -195,7 +195,7 @@ export default function Dashboard() {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'AssetMap-Report.pdf');
+      link.setAttribute('download', 'Codas-Report.pdf');
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
@@ -301,33 +301,34 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-foreground font-sans bg-[linear-gradient(145deg,#e4e4e7_0%,#d4d4d8_30%,#a1a1aa_60%,#d4d4d8_80%,#71717a_100%)] dark:bg-[linear-gradient(to_bottom_right,#0F1117,#151825,#0F1117)]">
       <div className="flex">
-        <aside className={`fixed top-4 left-0 h-[calc(100vh-32px)] hidden md:flex flex-col items-center pt-16 pb-4 gap-2 transition-all duration-300 shrink-0 rounded-[28px] z-20 ${isSidebarOpen ? 'ml-4 w-[180px] bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27]/95 dark:via-[#21253A]/95 dark:to-[#1A1D27]/95 backdrop-blur-xl shadow-[8px_0_30px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[8px_0_30px_rgba(0,0,0,0.3)] border border-zinc-300 dark:border-[#2E3148]' : 'ml-2 w-16'}`}>
+        <aside className={`fixed top-4 left-0 h-[calc(100vh-32px)] hidden md:flex flex-col items-center pt-16 pb-3 transition-all duration-300 shrink-0 rounded-[28px] z-30 ${isSidebarOpen ? 'ml-4 w-[216px] overflow-hidden bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27]/95 dark:via-[#21253A]/95 dark:to-[#1A1D27]/95 backdrop-blur-xl shadow-[8px_0_30px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[8px_0_30px_rgba(0,0,0,0.3)] border border-zinc-300 dark:border-[#2E3148]' : 'ml-2 w-16 overflow-visible'}`}>
           {/* Stylish vertical line (only show when closed, as open state is a distinct card) */}
-          {!isSidebarOpen && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-[75%] bg-gradient-to-b from-transparent via-zinc-400/60 dark:via-zinc-600/40 to-transparent"></div>}
+          {!isSidebarOpen && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-[75%] bg-gradient-to-b from-transparent via-zinc-400/60 dark:via-zinc-600/40 to-transparent pointer-events-none"></div>}
 
           <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col gap-1.5 transition-all duration-300">
-            <div className="size-10 rounded-full bg-zinc-900 grid place-items-center shrink-0">
-              <span className="text-lime-300 font-display text-xl leading-none font-bold">A</span>
+            <div className="size-10 rounded-2xl overflow-hidden bg-zinc-900 ring-1 ring-white/10 shadow-md grid place-items-center shrink-0">
+              <img src="/logo.png" alt="Codas" className="size-full object-cover" />
             </div>
           </div>
-          <div className={`flex items-center w-full ${isSidebarOpen ? 'px-5 justify-start' : 'justify-center'}`}>
+          <div className={`flex items-center w-full shrink-0 ${isSidebarOpen ? 'px-4 justify-start' : 'justify-center'}`}>
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2 rounded-md bg-white dark:bg-[#21253A] shadow-sm hover:bg-zinc-100 dark:hover:bg-[#2E3148] transition-colors text-zinc-900 dark:text-zinc-200 active:scale-95"
               aria-label="Toggle Sidebar"
+              title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
               <Menu className="size-5" strokeWidth={1.75} />
             </button>
           </div>
 
-          <div className={`h-px bg-zinc-300/60 dark:bg-zinc-600/40 transition-all duration-500 ease-out mt-1.5 ${isSidebarOpen ? 'w-32' : 'w-8'}`} />
+          <div className={`h-px shrink-0 bg-zinc-300/60 dark:bg-zinc-600/40 transition-all duration-500 ease-out mt-1.5 ${isSidebarOpen ? 'w-40' : 'w-8'}`} />
 
-          <nav className="flex flex-col mt-1 w-full px-2 overflow-visible">
+          <nav className={`flex-1 min-h-0 flex flex-col mt-1 w-full px-2 ${isSidebarOpen ? 'overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'overflow-visible'}`}>
             {tabs.map(t => {
               if (t.isHeader) {
                 return (
-                  <div key={t.key} className={`flex items-center px-4 transition-all duration-300 whitespace-nowrap ${isSidebarOpen ? 'opacity-100 mt-2 mb-0.5' : 'opacity-0 h-0 overflow-hidden mt-0 mb-0'}`}>
-                    <span className="text-[12px] font-medium tracking-wide text-zinc-500/80 dark:text-zinc-500">
+                  <div key={t.key} className={`flex items-center px-3 transition-all duration-300 whitespace-nowrap ${isSidebarOpen ? 'opacity-100 mt-2.5 mb-1' : 'opacity-0 h-0 overflow-hidden mt-0 mb-0'}`}>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500/90 dark:text-zinc-400">
                       {t.label}
                     </span>
                   </div>
@@ -339,7 +340,7 @@ export default function Dashboard() {
               return (
                 <div
                   key={t.key}
-                  className="w-full flex flex-col mt-0.5"
+                  className="w-full flex flex-col mt-0.5 relative"
                   onMouseEnter={t.key === 'family' && isSidebarOpen ? () => setIsFamilyMenuOpen(true) : undefined}
                   onMouseLeave={t.key === 'family' && isSidebarOpen ? () => setIsFamilyMenuOpen(false) : undefined}
                 >
@@ -360,21 +361,21 @@ export default function Dashboard() {
                       }}
                       aria-label={t.label}
                       className={
-                        `flex items-center transition-all duration-300 ease-in-out active:scale-95 rounded-xl relative ${isSidebarOpen ? 'w-full px-3 py-1.5' : 'w-10 h-10 justify-center mx-auto'} ` +
+                        `flex items-center transition-all duration-300 ease-in-out active:scale-95 rounded-xl relative ${isSidebarOpen ? 'w-full px-3.5 py-1.5' : 'w-10 h-10 justify-center mx-auto'} ` +
                         (activeTab === t.key
-                          ? "bg-zinc-900 dark:bg-white/15 text-white font-semibold"
+                          ? "bg-zinc-900 dark:bg-white/15 text-white font-semibold shadow-sm"
                           : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium")
                       }
                     >
                       <div className={`shrink-0 ${isLocked ? 'opacity-50' : ''}`}>{t.icon}</div>
                       <span
-                        className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isLocked ? 'opacity-50' : ''} ${isSidebarOpen ? 'max-w-[130px] opacity-100 ml-3' : 'max-w-0 opacity-0 ml-0'
+                        className={`text-[13px] whitespace-nowrap overflow-hidden text-ellipsis transition-all duration-300 ease-in-out ${isLocked ? 'opacity-50' : ''} ${isSidebarOpen ? 'max-w-[155px] opacity-100 ml-3 text-left' : 'max-w-0 opacity-0 ml-0'
                           }`}
                       >
                         {t.label.replace(/ \(\d+\)/, '')}
                       </span>
                       {isLocked && isSidebarOpen && (
-                        <div className="ml-auto flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-600">
+                        <div className="ml-auto flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-600 shrink-0">
                           <Lock className="size-3" strokeWidth={2.5} />
                         </div>
                       )}
@@ -385,8 +386,9 @@ export default function Dashboard() {
                       )}
                     </button>
                     {!isSidebarOpen && (
-                      <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
-                        {t.label.replace(/ \(\d+\)/, '')}
+                      <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+14px)] px-3 py-1.5 bg-zinc-900/95 dark:bg-[#1A1D27]/95 text-white text-xs font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 whitespace-nowrap z-50 shadow-2xl border border-white/10 backdrop-blur-md flex items-center gap-1.5">
+                        <span>{t.label.replace(/ \(\d+\)/, '')}</span>
+                        {isLocked && <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider ml-1">(PRO)</span>}
                       </div>
                     )}
                   </div>
@@ -411,14 +413,14 @@ export default function Dashboard() {
           </nav>
 
           {/* Bottom Actions */}
-          <div className={`mt-auto mb-1 flex flex-col gap-1 p-1.5 bg-white/40 dark:bg-white/5 shadow-sm ring-1 ring-black/5 dark:ring-white/5 backdrop-blur-md rounded-2xl ${isSidebarOpen ? 'mx-1 w-[calc(100%-8px)]' : 'mx-1 w-[calc(100%-8px)]'}`}>
+          <div className={`mt-auto shrink-0 mb-1 flex flex-col gap-1 p-1.5 bg-white/50 dark:bg-white/5 shadow-sm ring-1 ring-black/5 dark:ring-white/5 backdrop-blur-md rounded-2xl ${isSidebarOpen ? 'mx-2 w-[calc(100%-16px)]' : 'mx-1 w-[calc(100%-8px)]'}`}>
             <div className="relative group">
               <button
                 onClick={() => navigate('/pricing')}
-                className={`flex items-center justify-center bg-lime-300 hover:bg-lime-400 text-black rounded-xl text-[13px] font-bold shadow-[0_0_12px_rgba(190,242,100,0.3)] transition-all active:scale-95 ${isSidebarOpen ? 'w-full px-3 py-2 gap-2' : 'w-9 h-9 mx-auto p-0 gap-0'}`}
+                className={`flex items-center justify-center bg-lime-300 hover:bg-lime-400 text-black rounded-xl text-[13px] font-bold shadow-[0_0_12px_rgba(190,242,100,0.3)] transition-all active:scale-95 ${isSidebarOpen ? 'w-full px-3 py-1.5 gap-2' : 'w-9 h-9 mx-auto p-0 gap-0'}`}
               >
                 <Crown className="size-[18px] shrink-0" />
-                <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'max-w-[100px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
+                <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'max-w-[120px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
                   {user?.subscriptionTier === 'premium' ? 'Manage Plan' : 'Upgrade'}
                 </span>
               </button>
@@ -432,10 +434,10 @@ export default function Dashboard() {
             <div className="relative group">
               <button
                 onClick={handleLogout}
-                className={`flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100/80 dark:hover:bg-white/10 rounded-xl text-[13px] font-medium transition-all active:scale-95 ${isSidebarOpen ? 'w-full px-3 py-2 gap-2' : 'w-9 h-9 mx-auto p-0 gap-0'}`}
+                className={`flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100/80 dark:hover:bg-white/10 rounded-xl text-[13px] font-medium transition-all active:scale-95 ${isSidebarOpen ? 'w-full px-3 py-1.5 gap-2' : 'w-9 h-9 mx-auto p-0 gap-0'}`}
               >
                 <LogOut className="size-[18px] shrink-0" />
-                <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'max-w-[100px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
+                <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'max-w-[120px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
                   Log out
                 </span>
               </button>
@@ -459,18 +461,18 @@ export default function Dashboard() {
         </aside>
 
         {/* ════════ MAIN ════════ */}
-        <main className={`flex-1 min-w-0 px-6 md:px-10 pt-2 pb-8 md:pt-4 md:pb-10 transition-all duration-300 ${isSidebarOpen ? 'md:ml-[196px]' : 'md:ml-[72px]'}`}>
+        <main className={`flex-1 min-w-0 px-6 md:px-10 pt-2 pb-8 md:pt-4 md:pb-10 transition-all duration-300 ${isSidebarOpen ? 'md:ml-[232px]' : 'md:ml-[76px]'}`}>
 
           {/* Top bar */}
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 mb-8 sm:mb-10" style={{ minHeight: '56px' }}>
             <div className="flex min-w-0 items-center gap-3 w-full sm:w-auto">
               <div className={`min-w-0 flex items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 w-full sm:w-auto justify-between ${isSidebarOpen ? 'px-4 sm:px-6 py-1.5 gap-2' : 'px-5 sm:px-8 py-2 sm:py-2.5 gap-4'}`}>
 
-                {/* LEFT - AssetMap */}
+                {/* LEFT - CODAS */}
                 <div className="flex-1 flex items-center justify-start">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <span className="size-3 rounded-full bg-lime-300 shadow-[0_0_10px_rgba(190,242,100,0.8)] animate-pulse"></span>
-                    <span className="text-base font-semibold tracking-wide whitespace-nowrap">AssetMap</span>
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <span className="size-2.5 sm:size-3 rounded-full bg-lime-300 shadow-[0_0_12px_rgba(190,242,100,0.9)] animate-pulse shrink-0"></span>
+                    <span className="text-[17px] font-bold font-display tracking-widest whitespace-nowrap text-white">CODAS</span>
                   </div>
                 </div>
 
@@ -998,13 +1000,13 @@ function ProfileMenu({ name, onLogout }: { name: string; onLogout: () => void })
         <img src={advisor1} alt={name} width={32} height={32} className="size-8 rounded-full object-cover" />
         <span className="hidden sm:flex flex-col items-start leading-tight">
           <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{name}</span>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">AssetMap</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Codas</span>
         </span>
         <ChevronDown className={"size-3.5 text-zinc-500 dark:text-zinc-400 transition " + (open ? "rotate-180" : "")} strokeWidth={2} />
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#21253A] rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/10 py-2 z-30">
-          <div className="px-4 py-3 border-b border-zinc-100 dark:border-[#2E3148]"><p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{name}</p><p className="text-xs text-zinc-500 dark:text-zinc-400">AssetMap User</p></div>
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-[#2E3148]"><p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{name}</p><p className="text-xs text-zinc-500 dark:text-zinc-400">Codas User</p></div>
           <MenuItem onClick={() => { setOpen(false); navigate('/profile'); }} icon={<UserRound className="size-4" strokeWidth={1.75} />}>My Profile</MenuItem>
           <MenuItem onClick={() => { setOpen(false); navigate('/settings'); }} icon={<Settings className="size-4" strokeWidth={1.75} />}>Account Settings</MenuItem>
           <MenuItem onClick={() => { setOpen(false); navigate('/help'); }} icon={<HelpCircle className="size-4" strokeWidth={1.75} />}>Help & Support</MenuItem>

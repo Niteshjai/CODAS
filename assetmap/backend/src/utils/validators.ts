@@ -305,7 +305,21 @@ export const LoanAssessSchema = {
 
 export const InsuranceAnalyzeSchema = {
   type: 'object',
-  properties: {},
+  required: ['profile'],
+  properties: {
+    profile: {
+      type: 'object',
+      required: ['annualIncomePaise', 'age', 'dependentsCount', 'outstandingLoansPaise', 'monthlyExpensesPaise'],
+      properties: {
+        annualIncomePaise: { type: 'number' },
+        age: { type: 'number' },
+        dependentsCount: { type: 'number' },
+        outstandingLoansPaise: { type: 'number' },
+        monthlyExpensesPaise: { type: 'number' }
+      },
+      additionalProperties: true
+    }
+  },
   additionalProperties: true
 };
 

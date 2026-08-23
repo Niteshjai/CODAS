@@ -303,7 +303,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
           const toNumber = isWhatsApp ? `whatsapp:${fullPhone}` : fullPhone;
 
           await twilioClient.messages.create({
-            body: `Your AssetMap verification code is: ${otp}. It expires in 60 seconds.`,
+            body: `Your Codas verification code is: ${otp}. It expires in 60 seconds.`,
             from: fromNumber,
             to: toNumber
           });
