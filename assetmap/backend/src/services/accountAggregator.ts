@@ -378,9 +378,9 @@ export async function fetchFinancialData(
           item.currency,
         ]
       );
-      
+
       const accountId = insertRes.rows[0].id;
-      
+
       // Simulate incremental transactions fetch by inserting 2 mock transactions with current timestamp
       if (item.fiType === 'DEPOSIT') {
         await TransactionModel.bulkInsert(accountId, userId, [

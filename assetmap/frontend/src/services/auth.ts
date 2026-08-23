@@ -80,11 +80,12 @@ export interface IdentityData {
   aadhaarLast4: string;
 }
 
-export async function registerPan(registrationToken: string, panNumber: string, dob: string) {
+export async function registerPan(registrationToken: string, panNumber: string, panName: string, dob: string) {
   const res = await api.post<ApiResponse<{ message: string }>>('/auth/register/pan', {
     registrationToken,
     panNumber,
-    dob,
+    panName,
+    dob
   });
   return res.data.data!;
 }

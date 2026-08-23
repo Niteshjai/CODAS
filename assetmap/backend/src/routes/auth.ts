@@ -466,10 +466,10 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
     config: { rateLimit: { max: 10, timeWindow: '3 seconds' } }
   }, async (request, reply) => {
     try {
-      const { registrationToken, panNumber, dob } = request.body as Record<string, any>;
+      const { registrationToken, panNumber, panName, dob } = request.body as Record<string, any>;
 
-      if (!registrationToken || !panNumber || !dob) {
-        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Registration token, PAN number, and date of birth are required.'));
+      if (!registrationToken || !panNumber || !panName || !dob) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Registration token, PAN number, Name, and date of birth are required.'));
       }
 
       const regData = await otpStore.getPendingRegistration(registrationToken);
@@ -484,9 +484,28 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Invalid PAN format. Expected: ABCDE1234F'));
       }
 
-      // Store PAN + DOB in the pending registration
+      // Verify PAN against Sandbox.co.in
+      const { verifyPanDetails } = await import('../services/pan');
+      const panResult = await verifyPanDetails(cleanPan, panName, dob);
+      
+      if (!panResult.isValid) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, panResult.message || 'Invalid PAN details provided.'));
+      }
+
+      // Check strict matches returned by Sandbox API
+      if (process.env.MOCK_MODE !== 'true') {
+        if (panResult.nameMatch === false) {
+           return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, `Name mismatch. PAN is registered to: ${panResult.fullName}`));
+        }
+        if (panResult.dobMatch === false) {
+           return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Date of Birth does not match the PAN records.'));
+        }
+      }
+
+      // Store PAN + DOB + Verified Name in the pending registration
       regData.panData = {
         panNumber: cleanPan,
+        panName: panResult.fullName || panName,
         dob: dob,
       };
       await otpStore.updatePendingRegistration(registrationToken, regData);

@@ -1,28 +1,16 @@
 import axios from 'axios';
 import { randomUUID, randomInt } from 'crypto';
-import { pool, kvStore } from '../db/connection';
-import { encryptPII, hashAadhaar, hashSHA256 } from '../utils/encryption';
+import { kvStore } from '../db/connection';
+import { hashAadhaar } from '../utils/encryption';
 import { logger } from '../utils/logger';
-import { auditLogger } from './auditLogger';
-import {
-  generateSessionKey,
-  encryptSessionKey,
-  createPidXml,
-  encryptPid,
-  buildSignedAuthXml,
-  buildSignedOtpXml,
-  buildSignedKycXml
-} from './uidaiCrypto';
-import { uidaiHttpsAgent } from './uidai.service';
 
 // ═══════════════════════════════════════════════════════════════
-// Aadhaar OKYC Service
-// Implements UIDAI sandbox OKYC flow
+// Aadhaar OKYC Service (Powered by Sandbox.co.in)
 // NEVER logs or stores raw Aadhaar numbers
 // ═══════════════════════════════════════════════════════════════
 
 interface OKYCInitiateResponse {
-  transactionId: string;
+  transactionId: string; // The reference_id from Sandbox
   message: string;
 }
 
@@ -31,7 +19,7 @@ interface EKYCData {
   dob: string;
   gender: string;
   address: string;
-  photo?: string; // base64
+  photo?: string; // base64 or URL
 }
 
 interface OKYCVerifyResponse {
@@ -39,11 +27,33 @@ interface OKYCVerifyResponse {
   ekycData: EKYCData;
 }
 
-const UIDAI_API_URL = process.env.UIDAI_API_URL || 'https://developer.uidai.gov.in';
+const SANDBOX_API_BASE_URL = process.env.SANDBOX_API_BASE_URL || 'https://api.sandbox.co.in';
+
+/**
+ * Helper function to retrieve JWT token from Sandbox
+ */
+export async function getSandboxToken(): Promise<string> {
+  const apiKey = process.env.SANDBOX_API_KEY;
+  const apiSecret = process.env.SANDBOX_API_SECRET;
+  
+  if (!apiKey || !apiSecret) {
+    throw new Error('Sandbox API credentials are not configured');
+  }
+
+  const response = await axios.post(`${SANDBOX_API_BASE_URL}/authenticate`, null, {
+    headers: {
+      'x-api-key': apiKey,
+      'x-api-secret': apiSecret,
+      'x-api-version': process.env.SANDBOX_API_VERSION || '1.0.0',
+      'accept': 'application/json'
+    }
+  });
+
+  return response.data?.access_token;
+}
 
 /**
  * Step 1: Initiate Aadhaar OKYC — generate OTP
- * The Aadhaar number is ONLY used for the API call, never stored or logged.
  */
 export async function initiateOKYC(
   aadhaarNumber: string,
@@ -51,6 +61,7 @@ export async function initiateOKYC(
 ): Promise<OKYCInitiateResponse> {
   const transactionId = randomUUID();
 
+  // In mock mode, skip real API call
   if (process.env.MOCK_MODE === 'true') {
     const mockOtp = String(randomInt(100000, 999999));
     logger.info(`[MOCK] Aadhaar OTP for ${aadhaarNumber}: ${mockOtp}`);
@@ -60,54 +71,43 @@ export async function initiateOKYC(
       300,
       JSON.stringify({
         aadhaarHash: hashAadhaar(aadhaarNumber),
+        aadhaarNumber, // Needed for mock verify
         status: 'OTP_SENT',
         mockOtp: mockOtp,
         createdAt: new Date().toISOString(),
       })
     );
-
     return {
       transactionId,
-      message: 'OTP sent successfully (Mock Mode)',
+      message: 'Mock OTP sent successfully',
     };
   }
 
   try {
-    // Construct URL per UIDAI OTP 2.5 spec: https://<host>/<ver>/<ac>/<uid[0]>/<uid[1]>/<asalk>
-    const auaCode = process.env.UIDAI_AUA_CODE || 'public';
-    const licenseKey = process.env.UIDAI_LICENSE_KEY || '';
-    const uid0 = aadhaarNumber[0] || '0';
-    const uid1 = aadhaarNumber[1] || '0';
+    const token = await getSandboxToken();
 
-    // Following UIDAI API spec format: <host>/<ver>/<ac>/<uid[0]>/<uid[1]>/<asalk>
-    const otpUrl = `${UIDAI_API_URL}/uidotp/2.5/${auaCode}/${uid0}/${uid1}/${licenseKey}`;
-
-    // Build Signed OTP XML for /otp/ endpoint
-    const privateKey = process.env.UIDAI_PRIVATE_KEY || '';
-    const signedOtpXml = buildSignedOtpXml(
-      aadhaarNumber,
-      auaCode,
-      process.env.UIDAI_ASA_CODE || 'public',
-      licenseKey,
-      privateKey
-    );
-
-    // In production, this calls the actual UIDAI OTP API
-    const response = await axios.post(
-      otpUrl,
-      signedOtpXml,
-      {
-        headers: {
-          'Content-Type': 'application/xml',
-        },
-        httpsAgent: uidaiHttpsAgent, // Use our custom certificate agent
-        timeout: 30000,
+    const response = await axios.post(`${SANDBOX_API_BASE_URL}/kyc/aadhaar/okyc/otp`, {
+      '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.otp.request',
+      aadhaar_number: aadhaarNumber,
+      consent: 'Y',
+      reason: 'KYC verification for asset management',
+    }, {
+      headers: {
+        'Authorization': token, // Sandbox API expects token without Bearer prefix
+        'x-api-key': process.env.SANDBOX_API_KEY,
+        'x-api-version': process.env.SANDBOX_API_VERSION || '1.0.0',
+        'Content-Type': 'application/json'
       }
-    );
+    });
+
+    const referenceId = response.data?.data?.reference_id;
+    if (!referenceId) {
+      throw new Error('Sandbox API did not return a reference_id');
+    }
 
     // Store transaction in Redis (5 min TTL for OTP validity)
     await kvStore.setex(
-      `okyc:txn:${transactionId}`,
+      `okyc:txn:${referenceId}`,
       300,
       JSON.stringify({
         aadhaarHash: hashAadhaar(aadhaarNumber),
@@ -117,12 +117,11 @@ export async function initiateOKYC(
     );
 
     return {
-      transactionId,
+      transactionId: referenceId, // Use Sandbox's reference_id as our transactionId
       message: response.data?.message || 'OTP sent successfully',
     };
   } catch (error: any) {
-    logger.error('OKYC initiation failed', {
-      transactionId,
+    logger.error('OKYC initiation failed via Sandbox', {
       error: error.message,
       response: error.response?.data
     });
@@ -132,7 +131,6 @@ export async function initiateOKYC(
 
 /**
  * Step 2: Verify OTP and complete OKYC
- * Receives e-KYC data, hashes Aadhaar, encrypts PII, issues JWT.
  */
 export async function verifyOKYC(
   transactionId: string,
@@ -167,109 +165,53 @@ export async function verifyOKYC(
     };
   }
 
-  let ekycData: EKYCData;
-
   try {
-    const aadhaarNum = transaction.aadhaarNumber || '000000000000';
-    const uid0 = aadhaarNum[0] || '0';
-    const uid1 = aadhaarNum[1] || '0';
-    const auaCode = process.env.UIDAI_AUA_CODE || 'public';
-    const licenseKey = process.env.UIDAI_LICENSE_KEY || '';
-    
-    // Following UIDAI API spec format: <host>/<ver>/<ac>/<uid[0]>/<uid[1]>/<asalk>
-    const kycUrl = `${UIDAI_API_URL}/uidkyc/2.5/${auaCode}/${uid0}/${uid1}/${licenseKey}`;
+    const token = await getSandboxToken();
 
-    // 1. Generate PID with OTP
-    const sessionKey = generateSessionKey();
-    const skeyEncrypted = encryptSessionKey(sessionKey);
-    const pidXml = createPidXml(otp);
-    const { encryptedPid, hmac } = encryptPid(pidXml, sessionKey);
-
-    // 2. Build Signed Auth XML
-    const privateKey = process.env.UIDAI_PRIVATE_KEY || '';
-    const signedAuthXml = buildSignedAuthXml(
-      aadhaarNum,
-      auaCode,
-      process.env.UIDAI_ASA_CODE || 'public',
-      licenseKey,
-      privateKey,
-      skeyEncrypted,
-      encryptedPid,
-      hmac
-    );
-
-    // 3. Wrap in Kyc block
-    const signedKycXml = buildSignedKycXml(privateKey, signedAuthXml);
-
-    // Production: Call UIDAI verify API
-    const response = await axios.post(
-      kycUrl,
-      signedKycXml,
-      {
-        headers: {
-          'Content-Type': 'application/xml',
-        },
-        httpsAgent: uidaiHttpsAgent, // Use our custom certificate agent
-        timeout: 30000,
+    const response = await axios.post(`${SANDBOX_API_BASE_URL}/kyc/aadhaar/okyc/otp/verify`, {
+      '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.request',
+      reference_id: transactionId,
+      otp: otp,
+    }, {
+      headers: {
+        'Authorization': token,
+        'x-api-key': process.env.SANDBOX_API_KEY,
+        'x-api-version': process.env.SANDBOX_API_VERSION || '1.0.0',
+        'Content-Type': 'application/json'
       }
-    );
-
-    ekycData = parseEKYCResponse(response.data);
-  } catch (error: any) {
-    logger.error('OKYC verify failed', {
-      transactionId,
-      error: error.message,
-      response: error.response?.data
     });
+
+    const kycData = response.data?.data;
+    if (!kycData) {
+      throw new Error('Sandbox API returned empty KYC data');
+    }
+
+    // Clean up transaction
+    await kvStore.del(`okyc:txn:${transactionId}`);
+
+    // Map Sandbox response to EKYCData
+    return {
+      aadhaarHash: transaction.aadhaarHash,
+      ekycData: {
+        name: kycData.name || '',
+        dob: kycData.dob || '',
+        gender: kycData.gender || 'U',
+        address: [kycData.split_address?.house, kycData.split_address?.street, kycData.split_address?.city, kycData.split_address?.state, kycData.split_address?.pincode].filter(Boolean).join(', '),
+        photo: kycData.photo_link || kycData.photo,
+      }
+    };
+
+  } catch (error: any) {
+    logger.error('Aadhaar API verify failed via Sandbox', { 
+      transactionId, 
+      error: error.message,
+      response: error.response?.data 
+    });
+    
+    if (error.response?.status === 422 || error.response?.status === 400) {
+       throw new Error('Invalid OTP. Please check and try again.');
+    }
+    
     throw new Error('Failed to verify Aadhaar OKYC. Please try again.');
   }
-
-  // Hash Aadhaar (from the stored hash in transaction)
-  const aadhaarHash = transaction.aadhaarHash;
-
-  // Clear OTP transaction from Redis
-  await kvStore.del(`okyc:txn:${transactionId}`);
-
-  // We no longer log or create user here, we just return the verified data
-  // so the caller (auth.ts) can proceed with the multi-step registration.
-
-  return {
-    aadhaarHash,
-    ekycData,
-  };
-}
-
-/**
- * Parse e-KYC XML/JSON response from UIDAI.
- */
-function parseEKYCResponse(responseData: any): EKYCData {
-  // UIDAI returns e-KYC data in XML format
-  // This parser handles both XML and JSON responses
-  if (responseData.ekyc || responseData.UidData) {
-    const data = responseData.ekyc || responseData.UidData;
-    return {
-      name: data.name || data.poi?.name || '',
-      dob: data.dob || data.poi?.dob || '',
-      gender: data.gender || data.poi?.gender || '',
-      address: formatAddress(data.address || data.poa || {}),
-      photo: data.photo || data.pht || undefined,
-    };
-  }
-
-  return {
-    name: responseData.name || '',
-    dob: responseData.dob || '',
-    gender: responseData.gender || '',
-    address: responseData.address || '',
-  };
-}
-
-function formatAddress(poa: any): string {
-  if (typeof poa === 'string') return poa;
-  const parts = [
-    poa.house, poa.street, poa.landmark,
-    poa.locality, poa.district, poa.state,
-    poa.pincode,
-  ].filter(Boolean);
-  return parts.join(', ');
 }

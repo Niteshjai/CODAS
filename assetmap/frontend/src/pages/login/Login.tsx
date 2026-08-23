@@ -75,6 +75,8 @@ export default function Onboarding() {
   const [panDobYear, setPanDobYear] = useState(() => sessionStorage.getItem('login_pan_dob_year') || '');
   const [panDobMonth, setPanDobMonth] = useState(() => sessionStorage.getItem('login_pan_dob_month') || '');
   const [panDobDay, setPanDobDay] = useState(() => sessionStorage.getItem('login_pan_dob_day') || '');
+  const [panName, setPanName] = useState(() => sessionStorage.getItem('login_pan_name') || '');
+  const [panConsent, setPanConsent] = useState(false);
 
   // Email state
   const [emailAddress, setEmailAddress] = useState(() => sessionStorage.getItem('login_email') || '');
@@ -272,6 +274,8 @@ export default function Onboarding() {
 
   const isPanValid = /^[A-Z]{5}\d{4}[A-Z]$/.test(panNumber.toUpperCase());
   const isPanDobValid = panDobYear !== '' && panDobMonth !== '' && panDobDay !== '';
+  const isPanNameValid = panName.trim().length >= 2;
+  const isPanStepValid = isPanValid && isPanDobValid && isPanNameValid && panConsent;
 
   async function handlePanSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -283,12 +287,25 @@ export default function Onboarding() {
       setError('Please enter your date of birth as per PAN.');
       return;
     }
+    if (!isPanNameValid) {
+      setError('Please enter your name as it appears on your PAN card.');
+      return;
+    }
+    if (!panConsent) {
+      setError('Please provide consent to verify your PAN details.');
+      return;
+    }
     setError('');
     setLoading(true);
 
     try {
       const dob = `${panDobYear}-${panDobMonth.padStart(2, '0')}-${panDobDay.padStart(2, '0')}`;
-      await registerPan(registrationToken, panNumber.toUpperCase(), dob);
+      await registerPan(registrationToken, panNumber.toUpperCase(), panName, dob);
+      
+      // Save for subsequent loads if they refresh
+      sessionStorage.setItem('login_pan_name', panName);
+      sessionStorage.setItem('login_pan', panNumber.toUpperCase());
+      
       setStep('aadhaar');
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Failed to save PAN details.');
@@ -512,9 +529,9 @@ export default function Onboarding() {
           {step === 'phone' && (
             <>
               {/* Intro */}
-              <div className="space-y-xs">
-                <h2 className="font-headline-lg text-headline-lg text-on-surface">Welcome Back</h2>
-                <p className="font-body-md text-on-surface-variant">Securely manage your assets and track your growth.</p>
+              <div className="space-y-2 group cursor-default">
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 transition-all duration-300 group-hover:to-brand-secondary">Welcome Back</h2>
+                <p className="text-base tracking-tight text-on-surface-variant leading-relaxed">Securely manage your assets and track your growth.</p>
               </div>
 
               {/* Form */}
@@ -525,7 +542,7 @@ export default function Onboarding() {
                     <button
                       type="button"
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 px-md py-[14px] bg-white/60 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md custom-focus transition-all hover:bg-white/80 dark:hover:bg-white/20 shrink-0 shadow-sm"
+                      className="flex items-center gap-2 px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md custom-focus transition-all hover:bg-gray-50 dark:hover:bg-white/20 shrink-0 shadow-sm"
                     >
                       <img src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} alt={selectedCountry.name} className="w-6 h-[16px] shadow-sm rounded-[2px] object-cover border border-black/5" />
                       <span className="font-body-md text-zinc-900 dark:text-zinc-100">{selectedCountry.code}</span>
@@ -569,7 +586,7 @@ export default function Onboarding() {
                     )}
 
                     <input
-                      className="flex-1 min-w-0 w-full px-md py-[14px] bg-white/60 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary shadow-sm"
+                      className="flex-1 min-w-0 w-full px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary shadow-sm"
                       id="phone"
                       placeholder="Mobile number"
                       type="tel"
@@ -710,7 +727,7 @@ export default function Onboarding() {
           )}
 
           {step === 'pan' && (
-            <form onSubmit={handlePanSubmit} className="space-y-lg animate-fade-in">
+            <form onSubmit={handlePanSubmit} className="space-y-4 animate-fade-in">
               {/* Step Indicator */}
               <div className="space-y-2">
                 <span className="text-sm font-semibold text-brand-secondary">Step 1 of 5</span>
@@ -723,12 +740,29 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="space-y-xs">
+              <div className="space-y-1">
                 <h2 className="font-headline-lg text-headline-lg text-on-surface">Let's get started</h2>
-                <p className="font-body-md text-on-surface-variant">Enter your PAN details and date of birth to continue</p>
+                <p className="text-sm tracking-tight text-on-surface-variant">Enter your PAN details and date of birth to continue</p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-on-surface" htmlFor="pan-name">Name <span className="text-on-surface-variant font-normal">(as per PAN)</span></label>
+                  <input
+                    id="pan-name"
+                    type="text"
+                    value={panName}
+                    onChange={(e) => {
+                      setPanName(e.target.value);
+                      setError('');
+                    }}
+                    placeholder="Arjun Sharma"
+                    className="w-full h-[40px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium uppercase"
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-on-surface" htmlFor="pan-input">PAN</label>
                   <input
@@ -738,7 +772,7 @@ export default function Onboarding() {
                     onChange={(e) => setPanNumber(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
                     placeholder="ABCDE1234F"
                     maxLength={10}
-                    className="w-full h-[56px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.15em] font-medium uppercase"
+                    className="w-full h-[40px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.15em] font-medium uppercase"
                     autoComplete="off"
                     required
                   />
@@ -752,7 +786,7 @@ export default function Onboarding() {
                     <select
                       value={panDobYear}
                       onChange={(e) => setPanDobYear(e.target.value)}
-                      className="flex-[1.3] h-[56px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-[1.3] h-[40px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Year</option>
@@ -763,18 +797,18 @@ export default function Onboarding() {
                     <select
                       value={panDobMonth}
                       onChange={(e) => setPanDobMonth(e.target.value)}
-                      className="flex-1 h-[56px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-1 h-[40px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Month</option>
-                      {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
                         <option key={m} value={String(i + 1)}>{m}</option>
                       ))}
                     </select>
                     <select
                       value={panDobDay}
                       onChange={(e) => setPanDobDay(e.target.value)}
-                      className="flex-[0.8] h-[56px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-[0.8] h-[40px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Day</option>
@@ -786,12 +820,26 @@ export default function Onboarding() {
                 </div>
               </div>
 
+              <div className="flex items-start gap-3 mt-3">
+                <input
+                  type="checkbox"
+                  id="pan-consent"
+                  checked={panConsent}
+                  onChange={(e) => setPanConsent(e.target.checked)}
+                  className="mt-3 w-5 h-5 rounded border-outline-variant text-brand-secondary focus:ring-brand-secondary/20 cursor-pointer"
+                  required
+                />
+                <label htmlFor="pan-consent" className="text-xs text-on-surface-variant leading-relaxed cursor-pointer select-none">
+                  I hereby give my consent to verify my PAN details with the Income Tax Department database for the purpose of identity verification and fetching my financial assets.
+                </label>
+              </div>
+
               {error && <ErrorBanner message={error} />}
 
               <button
                 type="submit"
-                disabled={loading || !isPanValid || !isPanDobValid}
-                className="w-full bg-brand-secondary text-on-brand-secondary font-headline-md py-md rounded-3xl shadow-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
+                disabled={loading || !isPanStepValid}
+                className="w-full bg-brand-secondary text-on-brand-secondary font-headline-md py-3 rounded-3xl shadow-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
               >
                 {loading ? 'Saving...' : 'Continue'}
               </button>
@@ -1112,7 +1160,7 @@ export default function Onboarding() {
 
         {/* Content Overlay */}
         <div className="relative z-20 px-8 lg:px-xl w-full max-w-2xl space-y-md pb-10 lg:pb-lg">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 lg:p-lg rounded-3xl space-y-base max-w-md min-w-[300px]">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 lg:p-lg rounded-3xl space-y-base max-w-md min-w-[300px] ml-12 lg:ml-24">
             <h3 className="font-headline-xl text-white tracking-tight drop-shadow-sm">Strength in Every Move</h3>
             <p className="font-body-lg text-white/90 drop-shadow-sm">Experience the stability and precision of institutional-grade asset management.</p>
           </div>

@@ -343,10 +343,11 @@ export const FrontendLogSchema = {
 
 export const RegisterPanSchema = {
   type: 'object',
-  required: ['registrationToken', 'panNumber', 'dob'],
+  required: ['registrationToken', 'panNumber', 'panName', 'dob'],
   properties: {
     registrationToken: { type: 'string' },
     panNumber: { type: 'string', pattern: '^[A-Z]{5}\\d{4}[A-Z]$' },
+    panName: { type: 'string', minLength: 2 },
     dob: { type: 'string', minLength: 1 }
   },
   additionalProperties: false
