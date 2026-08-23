@@ -93,14 +93,19 @@ export async function connectRedis(): Promise<boolean> {
   } catch (err) {
     redisAvailable = false;
 
-    // Always fallback to in-memory store if Redis is unavailable, even in production, to prevent crashing
-    logger.warn('Redis unavailable — falling back to in-memory store for sessions and cache', {
-      error: (err as Error).message,
-    });
-    try {
-      redis.disconnect();
-    } catch (e) { }
-    return false;
+    if (process.env.NODE_ENV === 'development') {
+      logger.warn('Redis unavailable — falling back to in-memory store for sessions and cache', {
+        error: (err as Error).message,
+      });
+      try {
+        redis.disconnect();
+      } catch {
+        // ignore cleanup errors
+      }
+      return false;
+    }
+
+    throw err;
   }
 }
 

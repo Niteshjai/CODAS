@@ -61,7 +61,7 @@ jobs:
         azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         action: "upload"
-        app_location: "/assetmap/frontend" # Where frontend source is located
+        app_location: "assetmap/frontend" # Where frontend source is located
         api_location: "" # No Azure functions in this repo
         output_location: "dist" # Folder where Vite outputs build
       env:
