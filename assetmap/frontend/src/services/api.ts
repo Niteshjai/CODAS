@@ -19,19 +19,21 @@ function processQueue(error: Error | null) {
 
 async function customFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   const url = `${API_BASE_URL}/api${endpoint}`;
-  const config: RequestInit = {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  };
+  const headers = new Headers(options.headers || {});
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   const storedToken = localStorage.getItem('access_token');
   if (storedToken) {
-    config.headers = { ...config.headers, 'Authorization': `Bearer ${storedToken}` };
+    headers.set('Authorization', `Bearer ${storedToken}`);
   }
+
+  const config: RequestInit = {
+    ...options,
+    credentials: 'include',
+    headers,
+  };
 
     let response = await fetch(url, config);
 
