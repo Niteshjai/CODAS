@@ -395,8 +395,9 @@ export default function Onboarding() {
         setUser(result.user);
         setStep('success');
       }
-    } catch {
-      setError('Dev login failed');
+    } catch (err: any) {
+      console.error("DEV LOGIN ERROR:", err);
+      setError(`Dev login failed: ${err.message || JSON.stringify(err)}`);
     } finally {
       setLoading(false);
     }
