@@ -777,7 +777,8 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   fastify.post('/refresh', {
     config: { rateLimit: { max: 100, timeWindow: '3 seconds' } }
   }, async (request, reply) => {
-    const refreshToken = request.cookies['refresh_token'];
+    // Try x-refresh-token header first (LocalStorage flow), then fall back to cookies
+    const refreshToken = (request.headers['x-refresh-token'] as string) || request.cookies['refresh_token'];
 
     if (!refreshToken) {
       return reply.status(401).send(errorResponse(ERROR_CODES.TOKEN_INVALID, 'Refresh token required'));

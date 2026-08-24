@@ -41,6 +41,10 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
     if (newAccessToken) {
       localStorage.setItem('access_token', newAccessToken);
     }
+    const newRefreshToken = response.headers.get('x-refresh-token');
+    if (newRefreshToken) {
+      localStorage.setItem('refresh_token', newRefreshToken);
+    }
 
     // Interceptor: Handle 401
     if (response.status === 401) {
@@ -57,13 +61,19 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
 
       isRefreshing = true;
       try {
-        await customFetch('/auth/refresh', { method: 'POST', body: "{}" });
+        const storedRefresh = localStorage.getItem('refresh_token');
+        await customFetch('/auth/refresh', {
+          method: 'POST',
+          body: '{}',
+          headers: storedRefresh ? { 'x-refresh-token': storedRefresh } : {},
+        });
         processQueue(null);
         response = await fetch(url, config);
       } catch (refreshError) {
         processQueue(refreshError as Error);
         sessionStorage.removeItem('authUser');
         localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         if (window.location.pathname !== '/') {
           window.location.href = '/';
         }

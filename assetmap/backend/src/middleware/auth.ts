@@ -12,15 +12,28 @@ export async function verifyAccessToken(
   }
 
   try {
-    const token = request.cookies['access_token']
+    // Try Authorization header first (LocalStorage flow), then fall back to cookies
+    const authHeader = request.headers['authorization'];
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : request.cookies['access_token'];
+
     if (!token) {
       reply.status(401).send({ success: false, error: { code: 'NO_TOKEN', message: 'Authentication required' } })
       return
     }
 
-    const payload = await request.jwtVerify<{ sub: string; role: string; sessionId: string; type: string }>({
-      onlyCookie: true,
-    })
+    let payload: { sub: string; role: string; sessionId: string; type: string };
+
+    if (authHeader?.startsWith('Bearer ')) {
+      // Verify from raw token (Authorization header)
+      payload = request.server.jwt.verify<{ sub: string; role: string; sessionId: string; type: string }>(token);
+    } else {
+      // Verify from cookie
+      payload = await request.jwtVerify<{ sub: string; role: string; sessionId: string; type: string }>({
+        onlyCookie: true,
+      });
+    }
 
     if (payload.type !== 'access') {
       reply.status(401).send({ success: false, error: { code: 'WRONG_TOKEN_TYPE', message: 'Invalid token type' } })
