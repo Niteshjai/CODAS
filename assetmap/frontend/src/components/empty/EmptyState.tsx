@@ -1,8 +1,8 @@
-import React, { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface Props {
   title:       string
-  description: string
+  description: ReactNode
   icon?:       ReactNode
   action?:     ReactNode
   fullHeight?: boolean

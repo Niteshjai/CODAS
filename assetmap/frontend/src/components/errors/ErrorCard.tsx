@@ -1,6 +1,5 @@
 import { AppError } from '../../errors/AppError'
 import { RetryButton } from '../feedback/RetryButton'
-import React from 'react'
 
 interface Props {
   error:   Error | AppError

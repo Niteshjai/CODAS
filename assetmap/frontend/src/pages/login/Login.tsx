@@ -137,7 +137,7 @@ export default function Onboarding() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // ── Derived ──
-  const isPhoneValid = phoneNumber.replace(/\D/g, '').length >= Math.min(selectedCountry.maxLen, 7);
+  
   const isOtpComplete = otpDigits.every((d) => d !== '');
   const filteredCountries = COUNTRIES.filter(
     (c) =>

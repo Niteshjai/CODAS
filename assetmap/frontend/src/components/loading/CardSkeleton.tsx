@@ -1,5 +1,4 @@
 import { Skeleton } from './Skeleton'
-import React from 'react'
 
 interface Props { rows?: number }
 

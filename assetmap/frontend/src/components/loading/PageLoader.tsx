@@ -1,5 +1,4 @@
 import { Spinner } from '../ui/Spinner'
-import React from 'react'
 
 interface Props {
   message?: string

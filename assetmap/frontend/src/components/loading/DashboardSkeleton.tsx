@@ -1,5 +1,4 @@
 import { Skeleton } from './Skeleton'
-import React from 'react'
 
 export function DashboardSkeleton() {
   return (

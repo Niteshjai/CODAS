@@ -1,5 +1,4 @@
 import { Skeleton } from './Skeleton'
-import React from 'react'
 
 export function ChartSkeleton() {
   return (
@@ -19,7 +18,7 @@ export function ChartSkeleton() {
       </div>
       <div style={{ display:'flex', alignItems:'flex-end',
                    gap:6, height:140 }}>
-        {[70,45,90,60,80,50,75,65,85,55,70,80].map((h, i) => (
+        {[70,45,90,60,80,50,75,65,85,55,70,80].map((_, i) => (
           <Skeleton
             key={i}
             width="100%"

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { AncestralSearchForm }  from './AncestralSearchForm'
 import { AncestralResultCard }  from './AncestralResultCard'
 import { OfflineGuide }         from './OfflineGuide'
-import { Map, ArrowLeft, Loader2, Search, FileX } from 'lucide-react'
+import { Map, ArrowLeft, Loader2, FileX } from 'lucide-react'
 
 type Stage = 'form' | 'searching' | 'results' | 'no_results' | 'offline'
 

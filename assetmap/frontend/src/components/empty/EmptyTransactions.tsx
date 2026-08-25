@@ -1,5 +1,4 @@
 import { EmptyState } from './EmptyState'
-import React from 'react'
 
 export function EmptyTransactions() {
   return (

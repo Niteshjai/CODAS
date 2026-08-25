@@ -1,5 +1,4 @@
 import { useNetworkStore } from '../../store/networkStore'
-import React from 'react'
 
 export function OfflineBanner() {
   const { isOnline, offlineSince } = useNetworkStore()
