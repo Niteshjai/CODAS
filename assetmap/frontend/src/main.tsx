@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './styles/skeleton.css'
 import App from './App'
 import { initErrorLogger } from './utils/errorLogger'
 import { Toaster } from './components/ui/sonner'

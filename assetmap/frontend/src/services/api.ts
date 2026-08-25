@@ -1,3 +1,5 @@
+import { useToastStore } from '../store/toastStore'
+import { AppError } from '../errors/AppError'
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 let isRefreshing = false;
@@ -35,7 +37,20 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
     headers,
   };
 
-    let response = await fetch(url, config);
+    let response;
+    try {
+      response = await fetch(url, config);
+    } catch (err) {
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        useToastStore.getState().add({
+          type: 'error',
+          title: 'Connection failed',
+          message: 'Check your internet and try again.',
+        });
+        throw AppError.network();
+      }
+      throw err;
+    }
 
     const newAccessToken = response.headers.get('x-access-token');
     if (newAccessToken) {
@@ -68,7 +83,19 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
           headers: storedRefresh ? { 'x-refresh-token': storedRefresh } : {},
         });
         processQueue(null);
-        response = await fetch(url, config);
+        try {
+          response = await fetch(url, config);
+        } catch (err) {
+          if (err instanceof TypeError && err.message.includes('fetch')) {
+            useToastStore.getState().add({
+              type: 'error',
+              title: 'Connection failed',
+              message: 'Check your internet and try again.',
+            });
+            throw AppError.network();
+          }
+          throw err;
+        }
       } catch (refreshError) {
         processQueue(refreshError as Error);
         sessionStorage.removeItem('authUser');
@@ -89,6 +116,16 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
           detail: { message: 'This feature is not available on your current plan.' }
         }));
       }
+
+      // Show toast for server errors
+      if (response.status >= 500) {
+        useToastStore.getState().add({
+          type: 'error',
+          title: 'Server Error',
+          message: 'Something went wrong on our end. Please try again.',
+        });
+      }
+
       const errorData = await response.json().catch(() => ({}));
       throw { response: { status: response.status, data: errorData } };
     }

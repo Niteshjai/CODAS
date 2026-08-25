@@ -520,14 +520,12 @@ export default function Onboarding() {
 
         <div className="w-full max-w-[380px] space-y-lg">
           {/* Brand Header */}
-          {step === 'phone' && (
-            <div className="flex items-center justify-center gap-3 mb-12">
-              <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-black/10 shadow-md grid place-items-center shrink-0">
-                <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
-              </div>
-              <h1 className="text-3xl font-bold font-display text-zinc-900 tracking-tight pb-1">CODAS</h1>
+          <div className="flex items-center justify-center gap-3 -mt-8 mb-16">
+            <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-black/10 shadow-md grid place-items-center shrink-0">
+              <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
             </div>
-          )}
+            <h1 className="text-3xl font-bold font-display text-zinc-900 tracking-tight pb-1">CODAS</h1>
+          </div>
 
           {step === 'phone' && (
             <>
@@ -622,52 +620,59 @@ export default function Onboarding() {
           )}
 
           {step === 'otp' && (
-            <>
+            <div className="space-y-4">
               {/* Intro */}
-              <div className="space-y-xs">
-                <h2 className="font-headline-lg text-headline-lg text-on-surface">Security Check</h2>
-                <div className="font-body-md text-on-surface-variant flex items-center whitespace-nowrap gap-1">
-                  Enter the 6-digit code sent to
-                  <span className="inline-flex items-center gap-1.5 font-medium text-on-surface ml-1 whitespace-nowrap">
+              <div className="space-y-1.5 group cursor-default">
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 transition-all duration-300 group-hover:to-brand-secondary">Security Check</h2>
+                <p className="text-sm md:text-base tracking-tight text-on-surface-variant leading-relaxed">
+                  Enter the 6-digit code sent to{' '}
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 ml-1">
                     {authChannel === 'whatsapp' && (
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-[18px] h-[18px]" />
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-4 h-4" />
                     )}
                     {selectedCountry.code} {phoneNumber}
                   </span>
-                </div>
+                </p>
               </div>
 
-              <div className="space-y-md">
-                <div className="flex gap-2 justify-between mt-1" onPaste={handleOtpPaste}>
-                  {otpDigits.map((digit, i) => (
-                    <input
-                      key={i}
-                      ref={(el) => { otpRefs.current[i] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(i, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      className={`w-[40px] h-[48px] md:w-[46px] md:h-[54px] text-center text-xl font-bold rounded-lg border outline-none transition-all ${digit ? 'border-brand-secondary bg-brand-secondary/5 text-brand-secondary' : 'border-outline-variant bg-white text-on-surface'
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex gap-2 justify-between" onPaste={handleOtpPaste}>
+                    {otpDigits.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => { otpRefs.current[i] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                        className={`w-11 h-12 md:w-12 md:h-13 text-center text-xl font-bold rounded-xl border backdrop-blur-md outline-none transition-all shadow-sm ${
+                          digit
+                            ? 'border-brand-secondary bg-brand-secondary/10 text-brand-secondary ring-1 ring-brand-secondary'
+                            : 'border-black/10 dark:border-white/10 bg-white dark:bg-white/10 text-zinc-900 dark:text-zinc-100'
                         } focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20`}
-                    />
-                  ))}
-                </div>
+                      />
+                    ))}
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  {timerActive && timeLeft > 0 ? (
-                    <span className="font-label-md text-on-surface-variant">Code expires in <span className="font-bold text-brand-secondary">{formatTimer(timeLeft)}</span></span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleResend}
-                      disabled={loading || resendCount >= MAX_RESENDS}
-                      className="text-sm font-semibold text-brand-secondary hover:brightness-110 disabled:opacity-50 transition-colors"
-                    >
-                      Resend Code {resendCount > 0 && `(${MAX_RESENDS - resendCount})`}
-                    </button>
-                  )}
+                  <div className="flex items-center justify-between pt-0.5">
+                    {timerActive && timeLeft > 0 ? (
+                      <span className="text-xs md:text-sm font-medium text-on-surface-variant">
+                        Code expires in <span className="font-bold text-brand-secondary">{formatTimer(timeLeft)}</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResend}
+                        disabled={loading || resendCount >= MAX_RESENDS}
+                        className="text-xs md:text-sm font-semibold text-brand-secondary hover:brightness-110 disabled:opacity-50 transition-colors"
+                      >
+                        Resend Code {resendCount > 0 && `(${MAX_RESENDS - resendCount})`}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {error && <ErrorBanner message={error} />}
@@ -676,7 +681,7 @@ export default function Onboarding() {
                   type="button"
                   onClick={handleVerifyOtp}
                   disabled={loading || !isOtpComplete}
-                  className="w-full bg-brand-secondary text-on-brand-secondary font-headline-md py-md rounded-3xl shadow-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
+                  className="w-full bg-brand-secondary text-on-brand-secondary font-headline-md py-3 rounded-3xl shadow-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-85 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
                   {isVerifying ? 'Verifying...' : 'Verify'}
                 </button>
@@ -684,29 +689,29 @@ export default function Onboarding() {
                 <button
                   type="button"
                   onClick={() => { setStep('phone'); setError(''); setTimerActive(false); setOtpDigits(Array(OTP_LENGTH).fill('')); }}
-                  className="w-full py-3 rounded-3xl text-sm font-medium text-on-surface-variant bg-white hover:bg-zinc-50 border border-outline-variant/50 transition-colors"
+                  className="w-full py-2.5 rounded-3xl bg-surface-container-high text-on-surface-variant font-medium text-sm hover:bg-surface-dim transition-colors"
                 >
                   Change phone number
                 </button>
 
                 {/* Other Options */}
                 {authChannel === 'sms' && (
-                  <div className="pt-4 border-t border-outline-variant/30 text-center">
-                    <p className="text-sm text-on-surface-variant mb-4">Other login options</p>
+                  <div className="pt-3 border-t border-black/10 dark:border-white/10 text-center space-y-2">
+                    <p className="text-xs text-on-surface-variant">Other login options</p>
                     <div className="flex gap-3 justify-center">
                       <button
                         type="button"
                         onClick={(e) => handleSendOtp(e, 'whatsapp')}
-                        className="flex-1 py-3 rounded-2xl border border-outline-variant/50 shadow-sm text-sm font-medium text-[#191c1e] bg-white hover:bg-[#f7f9fb] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-2xl bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-sm text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:bg-white/80 dark:hover:bg-white/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                       >
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-5 h-5" />
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-4 h-4" />
                         WhatsApp
                       </button>
                     </div>
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {step === '2fa' && (
@@ -728,10 +733,10 @@ export default function Onboarding() {
           )}
 
           {step === 'pan' && (
-            <form onSubmit={handlePanSubmit} className="space-y-lg animate-fade-in">
+            <form onSubmit={handlePanSubmit} className="space-y-3.5 animate-fade-in">
               {/* Step Indicator */}
-              <div className="space-y-2">
-                <span className="text-sm font-semibold text-brand-secondary">Step 1 of 5</span>
+              <div className="space-y-1.5">
+                <span className="text-xs md:text-sm font-semibold text-brand-secondary">Step 1 of 5</span>
                 <div className="flex gap-1 h-1">
                   <div className="flex-1 rounded-full bg-brand-secondary"></div>
                   <div className="flex-1 rounded-full bg-outline-variant/30"></div>
@@ -742,14 +747,14 @@ export default function Onboarding() {
               </div>
 
               {/* Intro */}
-              <div className="space-y-2 group cursor-default">
+              <div className="space-y-1 group cursor-default">
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 transition-all duration-300 group-hover:to-brand-secondary">Welcome Back</h2>
-                <p className="text-base tracking-tight text-on-surface-variant leading-relaxed">Securely manage your assets and track your growth.</p>
+                <p className="text-sm md:text-base tracking-tight text-on-surface-variant leading-relaxed">Securely manage your assets and track your growth.</p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-on-surface" htmlFor="pan-name">Name <span className="text-on-surface-variant font-normal">(as per PAN)</span></label>
+                  <label className="text-xs md:text-sm font-medium text-on-surface" htmlFor="pan-name">Name <span className="text-on-surface-variant font-normal">(as per PAN)</span></label>
                   <input
                     id="pan-name"
                     type="text"
@@ -759,14 +764,14 @@ export default function Onboarding() {
                       setError('');
                     }}
                     placeholder="Arjun Sharma"
-                    className="w-full h-[40px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium uppercase"
+                    className="w-full h-[38px] px-3.5 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium uppercase"
                     autoComplete="off"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-on-surface" htmlFor="pan-input">PAN</label>
+                  <label className="text-xs md:text-sm font-medium text-on-surface" htmlFor="pan-input">PAN</label>
                   <input
                     id="pan-input"
                     type="text"
@@ -774,21 +779,21 @@ export default function Onboarding() {
                     onChange={(e) => setPanNumber(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
                     placeholder="ABCDE1234F"
                     maxLength={10}
-                    className="w-full h-[40px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.15em] font-medium uppercase"
+                    className="w-full h-[38px] px-3.5 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.15em] font-medium uppercase"
                     autoComplete="off"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-on-surface">
+                  <label className="text-xs md:text-sm font-medium text-on-surface">
                     Date of birth <span className="text-on-surface-variant font-normal">(as per PAN)</span>
                   </label>
                   <div className="flex gap-2">
                     <select
                       value={panDobYear}
                       onChange={(e) => setPanDobYear(e.target.value)}
-                      className="flex-[1.3] h-[40px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-[1.3] h-[38px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Year</option>
@@ -799,7 +804,7 @@ export default function Onboarding() {
                     <select
                       value={panDobMonth}
                       onChange={(e) => setPanDobMonth(e.target.value)}
-                      className="flex-1 h-[40px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-1 h-[38px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Month</option>
@@ -810,7 +815,7 @@ export default function Onboarding() {
                     <select
                       value={panDobDay}
                       onChange={(e) => setPanDobDay(e.target.value)}
-                      className="flex-[0.8] h-[40px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-[0.8] h-[38px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Day</option>
@@ -822,13 +827,13 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 mt-3">
+              <div className="flex items-start gap-2.5 pt-1">
                 <input
                   type="checkbox"
                   id="pan-consent"
                   checked={panConsent}
                   onChange={(e) => setPanConsent(e.target.checked)}
-                  className="mt-3 w-5 h-5 rounded border-outline-variant text-brand-secondary focus:ring-brand-secondary/20 cursor-pointer"
+                  className="mt-0.5 w-4 h-4 rounded border-outline-variant text-brand-secondary focus:ring-brand-secondary/20 cursor-pointer"
                   required
                 />
                 <label htmlFor="pan-consent" className="text-xs text-on-surface-variant leading-relaxed cursor-pointer select-none">
@@ -1138,7 +1143,7 @@ export default function Onboarding() {
                 <span className="material-symbols-outlined text-[64px] text-brand-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               </div>
               <h2 className="font-headline-lg text-headline-lg text-on-surface">Verified</h2>
-              <p className="font-body-md text-on-surface-variant">Entering FinTrust Global...</p>
+              <p className="font-body-md text-on-surface-variant">Entering Codas...</p>
             </div>
           )}
 
@@ -1170,7 +1175,7 @@ export default function Onboarding() {
 
         {/* Global Footer Anchor */}
         <footer className="absolute bottom-base left-0 w-full px-xl hidden md:flex justify-between items-center z-30 opacity-60">
-          <span className="font-label-sm text-white">© 2024 FinTrust Global. All rights reserved.</span>
+          <span className="font-label-sm text-white">© 2024 Codas. All rights reserved.</span>
           <div className="flex gap-md">
             <a className="font-label-sm text-white hover:underline transition-all" href="#">Privacy Policy</a>
             <a className="font-label-sm text-white hover:underline transition-all" href="#">Terms of Service</a>

@@ -2,6 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useEffect } from 'react';
 import { useAssetStore } from './store/assetStore';
 import { getSession } from './services/auth';
+import { ErrorBoundary } from './errors/ErrorBoundary';
+import { ToastContainer } from './components/feedback/Toast';
+import { OfflineBanner } from './components/feedback/OfflineBanner';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 import Login from './pages/login/Login';
 import ConsentFlow from './pages/ConsentFlow';
 import Dashboard from './pages/Dashboard';
@@ -33,6 +37,11 @@ function ScrollToTop() {
   }, [pathname, search]);
 
   return null;
+}
+
+function NetworkManager() {
+  useNetworkStatus();
+  return <OfflineBanner />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -73,38 +82,43 @@ function SessionBootstrap({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ScrollToTop />
-      <SessionBootstrap>
-        <div className="min-h-screen">
-          <Routes>
-            <Route path="/" element={<Login />} />
-            <Route path="/consent" element={<ProtectedRoute><ConsentFlow /></ProtectedRoute>} />
-            <Route path="/consent/callback" element={<ProtectedRoute><ConsentFlow /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/asset/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-            <Route path="/broker/:id" element={<ProtectedRoute><BrokerPortfolio /></ProtectedRoute>} />
-            <Route path="/estate" element={<ProtectedRoute><EstateFiling /></ProtectedRoute>} />
-            <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/settings/2fa" element={<ProtectedRoute><TwoFactorSettings /></ProtectedRoute>} />
-            <Route path="/settings/2fa/totp" element={<ProtectedRoute><TOTPSetup /></ProtectedRoute>} />
-            <Route path="/settings/2fa/email" element={<ProtectedRoute><EmailSetup /></ProtectedRoute>} />
-            <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
-            <Route path="/unclaimed" element={<ProtectedRoute><UnclaimedAssets /></ProtectedRoute>} />
-            <Route path="/nominee" element={<ProtectedRoute><NomineeUpdatePage /></ProtectedRoute>} />
-            <Route path="/nominee/update" element={<ProtectedRoute><NomineeUpdatePage /></ProtectedRoute>} />
-            <Route path="/family/join" element={<ProtectedRoute><FamilyJoinPage /></ProtectedRoute>} />
-            <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
-            <Route path="/billing" element={<ProtectedRoute><BillingDashboard /></ProtectedRoute>} />
-            <Route path="/insurance/gap" element={<ProtectedRoute><InsuranceGapFinder /></ProtectedRoute>} />
-            <Route path="/loan/eligibility" element={<ProtectedRoute><LoanEligibility /></ProtectedRoute>} />
-            <Route path="/ancestral" element={<ProtectedRoute><AncestralSearchPage /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </SessionBootstrap>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ScrollToTop />
+        <NetworkManager />
+        <ToastContainer />
+        <SessionBootstrap>
+          <div className="min-h-screen">
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route path="/consent" element={<ProtectedRoute><ConsentFlow /></ProtectedRoute>} />
+              <Route path="/consent/callback" element={<ProtectedRoute><ConsentFlow /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/asset/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+              <Route path="/broker/:id" element={<ProtectedRoute><BrokerPortfolio /></ProtectedRoute>} />
+              <Route path="/estate" element={<ProtectedRoute><EstateFiling /></ProtectedRoute>} />
+              <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/settings/2fa" element={<ProtectedRoute><TwoFactorSettings /></ProtectedRoute>} />
+              <Route path="/settings/2fa/totp" element={<ProtectedRoute><TOTPSetup /></ProtectedRoute>} />
+              <Route path="/settings/2fa/email" element={<ProtectedRoute><EmailSetup /></ProtectedRoute>} />
+              <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
+              <Route path="/unclaimed" element={<ProtectedRoute><UnclaimedAssets /></ProtectedRoute>} />
+              <Route path="/nominee" element={<ProtectedRoute><NomineeUpdatePage /></ProtectedRoute>} />
+              <Route path="/nominee/update" element={<ProtectedRoute><NomineeUpdatePage /></ProtectedRoute>} />
+              <Route path="/family/join" element={<ProtectedRoute><FamilyJoinPage /></ProtectedRoute>} />
+              <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
+              <Route path="/billing" element={<ProtectedRoute><BillingDashboard /></ProtectedRoute>} />
+              <Route path="/insurance/gap" element={<ProtectedRoute><InsuranceGapFinder /></ProtectedRoute>} />
+              <Route path="/loan/eligibility" element={<ProtectedRoute><LoanEligibility /></ProtectedRoute>} />
+              <Route path="/ancestral" element={<ProtectedRoute><AncestralSearchPage /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </SessionBootstrap>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
+

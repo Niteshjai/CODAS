@@ -142,7 +142,7 @@ export default function NetWorthChart({
         .attr('transform', `translate(0,${height})`)
         .call(
           d3.axisBottom(x)
-            .ticks(filteredData.length > 12 ? 8 : 5)
+            .ticks(width / 80)
             .tickFormat(d3.timeFormat('%b %y') as any)
             .tickSize(0)
         )

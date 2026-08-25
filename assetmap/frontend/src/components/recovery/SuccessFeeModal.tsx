@@ -73,11 +73,25 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
   const [step, setStep] = useState<'review' | 'agreement' | 'loading'>('review')
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState('')
+  const [identifier, setIdentifier] = useState('')
+
+  const getIdentifierInfo = () => {
+    if (recoveryType === 'epf_balance' || recoveryType === 'epf_pension') return { label: 'UAN Number', key: 'uanNumber' }
+    if (recoveryType === 'iepf_shares' || recoveryType === 'iepf_dividend') return { label: 'Demat Account Number', key: 'accountNumber' }
+    if (recoveryType === 'mutual_fund') return { label: 'Folio Number', key: 'folioNumber' }
+    if (recoveryType === 'insurance_maturity') return { label: 'Policy Number', key: 'policyNumber' }
+    return { label: 'Account Number', key: 'accountNumber' }
+  }
 
   const recoveryType = mapAssetType(asset.type)
   const fee = calculateFeePreview(asset.estimatedValue, recoveryType)
 
   const handleStartRecovery = async () => {
+    if (!identifier.trim()) {
+      setError(`Please provide your ${getIdentifierInfo().label}.`)
+      return
+    }
+
     if (!agreed) {
       setError('You must agree to the terms.')
       return
@@ -91,8 +105,9 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
       const result = await initiateRecoveryCase({
         recoveryType,
         assetDescription:    asset.type,
-        institutionName:     asset.sourceInstitution,
+        institutionName:     asset.sourceInstitution || 'Unknown Institution',
         estimatedValuePaise: asset.estimatedValue * 100,
+        [getIdentifierInfo().key]: identifier.trim(),
       })
 
       // Step 2: Auto-accept fee agreement
@@ -205,8 +220,23 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
             </div>
           )}
 
+          {/* Identifier Input */}
+          <div className="space-y-1.5 pt-2 mt-4">
+            <label className="text-sm font-semibold text-zinc-900 block">
+              {getIdentifierInfo().label} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-[#10b981] focus:border-transparent outline-none transition text-[15px]"
+              placeholder={`Enter your ${getIdentifierInfo().label.toLowerCase()}`}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              disabled={step === 'loading'}
+            />
+          </div>
+
           {/* Agreement checkbox */}
-          <label className="flex items-start gap-3 cursor-pointer group">
+          <label className="flex items-start gap-3 cursor-pointer group mt-4">
             <input
               type="checkbox"
               className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#10b981] focus:ring-[#10b981] cursor-pointer"

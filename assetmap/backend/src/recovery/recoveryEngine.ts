@@ -91,6 +91,9 @@ export const recoveryEngine = {
         dematId: params.accountNumber,
         folioNumber: params.folioNumber,
         uanNumber: params.uanNumber,
+        bankName: params.institutionName,
+        accountNumber: params.accountNumber,
+        policyNumber: params.policyNumber,
       } as any)
       if (!validation.valid) {
         throw new Error(`Validation failed: ${validation.errors.join(', ')}`)

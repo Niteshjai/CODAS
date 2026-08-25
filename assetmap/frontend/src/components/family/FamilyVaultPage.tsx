@@ -129,18 +129,18 @@ export default function FamilyVaultPage() {
   return (
     <div className="space-y-6 w-full animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-zinc-200/60 dark:border-[#2E3148]">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
-            <Users className="size-7 text-lime-500 shrink-0" />
+          <h1 className="font-display text-3xl md:text-4xl leading-tight tracking-tighter text-zinc-900 dark:text-zinc-100 font-light flex items-center gap-3">
+            <Users className="size-7 sm:size-8 text-zinc-900 dark:text-white shrink-0" />
             {vault.vault_name}
-          </h2>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
+          </h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             Consolidated family assets, shared savings goals & estate protection
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/10">
+        <div className="flex gap-3 shrink-0 items-center">
+          <span className="text-xs font-medium px-4 py-2 rounded-full bg-white dark:bg-[#1A1D27] text-zinc-600 dark:text-zinc-300 border border-zinc-200/50 dark:border-[#2E3148] shadow-sm">
             {vault.members?.filter((m: any) => m.status !== 'removed').length || 1} / {vault.max_members || 5} Members
           </span>
           <InviteMember vault={vault} />

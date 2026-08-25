@@ -11,12 +11,12 @@ export default function FamilyEstateScore() {
   const isMedium = score >= 40 && score < 70;
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#1A1D27] border border-zinc-200/70 dark:border-[#2E3148] p-6 shadow-sm">
+    <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148]">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <Shield className="size-4 text-lime-500" />
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+          <Shield className="size-4 text-zinc-400 dark:text-zinc-500" />
           Estate & Nominee Readiness
-        </h3>
+        </h2>
       </div>
       
       {/* Circular score gauge */}

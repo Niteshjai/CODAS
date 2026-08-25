@@ -18,18 +18,18 @@ export default function FamilyNetWorth() {
   const activeMembersCount = netWorth.members?.length || 1;
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#1A1D27] border border-zinc-200/70 dark:border-[#2E3148] p-6 shadow-sm">
+    <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148]">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-            <TrendingUp className="size-3.5 text-lime-500" />
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1 flex items-center gap-2">
+            <TrendingUp className="size-4 text-zinc-400 dark:text-zinc-500" />
             Combined Net Worth
-          </span>
-          <p className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mt-1">
+          </h2>
+          <p className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mt-1">
             {formatCurrency(totalRupees)}
           </p>
         </div>
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200/50 dark:border-[#2E3148] bg-zinc-50 dark:bg-white/5 px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
           <Users className="size-3.5" />
           {activeMembersCount} {activeMembersCount === 1 ? 'Member' : 'Members'} Active
         </div>

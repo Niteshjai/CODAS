@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssetStore } from '../store/assetStore';
+import { ErrorBoundary } from '../errors/ErrorBoundary';
 import { getAssetSummary, getFinancialAssets, getLandRecords, getConsents, getAuditLog, type LandRecord } from '../services/assets';
 import { api } from '../services/api';
 import { logout } from '../services/auth';
@@ -113,6 +114,11 @@ export default function Dashboard() {
   const hasFetched = useRef(false);
   const { hasFeature, fetchPlanStatus } = usePlanStore();
   const { vault } = useFamilyStore();
+  const [loadError, setLoadError] = useState<Error | null>(null);
+
+  if (loadError) {
+    throw loadError;
+  }
 
   useEffect(() => {
     fetchPlanStatus();
@@ -170,9 +176,13 @@ export default function Dashboard() {
       }
 
       try { const audit = await getAuditLog(); setAuditLogs(audit.logs); } catch { /* ok */ }
-    } catch (err) { console.error('Load failed', err); }
+    } catch (err) { 
+      console.error('Load failed', err);
+      setLoadError(err instanceof Error ? err : new Error('Failed to load dashboard data'));
+    }
     finally { setLoadingAssets(false); }
   }, [setLoadingAssets, navigate]);
+
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -462,11 +472,11 @@ export default function Dashboard() {
 
         {/* ════════ MAIN ════════ */}
         <main className={`flex-1 min-w-0 px-6 md:px-10 pt-2 pb-8 md:pt-4 md:pb-10 transition-all duration-300 ${isSidebarOpen ? 'md:ml-[232px]' : 'md:ml-[76px]'}`}>
-
-          {/* Top bar */}
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 mb-8 sm:mb-10" style={{ minHeight: '56px' }}>
-            <div className="flex min-w-0 items-center gap-3 w-full sm:w-auto">
-              <div className={`min-w-0 flex items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 w-full sm:w-auto justify-between ${isSidebarOpen ? 'px-4 sm:px-6 py-1.5 gap-2' : 'px-5 sm:px-8 py-2 sm:py-2.5 gap-4'}`}>
+          <ErrorBoundary>
+            {/* Top bar */}
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 mb-8 sm:mb-10" style={{ minHeight: '56px' }}>
+              <div className="flex min-w-0 items-center gap-3 w-full sm:w-auto">
+                <div className={`min-w-0 flex items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 w-full sm:w-auto justify-between ${isSidebarOpen ? 'px-4 sm:px-6 py-1.5 gap-2' : 'px-5 sm:px-8 py-2 sm:py-2.5 gap-4'}`}>
 
                 {/* LEFT - CODAS */}
                 <div className="flex-1 flex items-center justify-start">
@@ -515,7 +525,7 @@ export default function Dashboard() {
 
           {/* Heading + CTA */}
           {activeTab === 'overview' && (
-            <div className="flex flex-wrap items-center justify-between gap-y-4 gap-x-6 mb-16">
+            <div className="flex flex-wrap items-center justify-between gap-y-4 gap-x-6 mb-8">
               <h1 className="font-display text-4xl sm:text-5xl lg:text-[4rem] leading-[0.9] tracking-tighter text-zinc-900 dark:text-zinc-100 truncate font-light min-w-[200px] flex-1">Welcome, {firstName}</h1>
               <div className="flex items-center gap-3 shrink-0">
                 <button
@@ -583,7 +593,7 @@ export default function Dashboard() {
                     const totalDiscovered = summary?.totalWithLand || summary?.totalNetWorth || 0;
 
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6 items-start">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 items-start">
                         {/* Card 1: TOTAL ASSETS DISCOVERED */}
                         <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27] dark:via-[#21253A] dark:to-[#1A1D27] shadow-[inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-none backdrop-blur-xl rounded-[24px] p-6 border border-zinc-300 dark:border-[#2E3148] flex flex-col justify-between min-h-[220px]">
                           <div className="flex justify-between items-start">
@@ -675,7 +685,7 @@ export default function Dashboard() {
                         {/* Consumer Engagement Suite */}
                         {dataConsents.engagement && (
                           <>
-                            <div className="flex flex-col gap-5 h-full">
+                            <div className="flex flex-col gap-4 h-full">
                               <div className="bg-[#18181b] dark:bg-[#1A1D27] text-white rounded-[24px] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_1px_2px_rgba(0,0,0,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-zinc-800/80 dark:border-[#2E3148] flex flex-col justify-between flex-1 min-h-[140px]">
                                 <div className="flex justify-between items-start">
                                   <span className="text-[13px] font-medium text-zinc-400 uppercase tracking-wide">
@@ -905,6 +915,7 @@ export default function Dashboard() {
               <WillBuilder />
             </div>
           )}
+          </ErrorBoundary>
         </main>
       </div>
 

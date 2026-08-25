@@ -238,10 +238,15 @@ export const RecoveryCaseSchema = {
   type: 'object',
   required: ['recoveryType', 'assetDescription', 'estimatedValuePaise'],
   properties: {
-    recoveryType: { type: 'string', enum: ['epf_transfer', 'epf_withdrawal', 'life_insurance', 'bank_account', 'mutual_funds'] },
+    recoveryType: { type: 'string', enum: ['iepf_shares', 'iepf_dividend', 'epf_balance', 'epf_pension', 'mutual_fund', 'dormant_bank', 'insurance_maturity', 'ppf_balance'] },
     assetDescription: { type: 'string', minLength: 5, maxLength: 500 },
     estimatedValuePaise: { type: 'number' },
-    institutionName: { type: 'string' }
+    institutionName: { type: 'string' },
+    uanNumber: { type: 'string' },
+    accountNumber: { type: 'string' },
+    folioNumber: { type: 'string' },
+    policyNumber: { type: 'string' },
+    isin: { type: 'string' }
   },
   additionalProperties: false
 };

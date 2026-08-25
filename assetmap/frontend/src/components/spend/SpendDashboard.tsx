@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layers, RotateCw, ChevronDown, PieChart, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Layers, RotateCw, ChevronDown, PieChart, TrendingUp, AlertTriangle, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
 
 export default function SpendDashboard() {
@@ -31,30 +31,43 @@ export default function SpendDashboard() {
     }
   };
 
-  if (loading) return <div className="p-8 text-white">Loading Spend Analytics...</div>;
-  if (!data) return <div className="p-8 text-white">No data found.</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 animate-in fade-in duration-300">
+        <Loader2 className="size-6 animate-spin text-zinc-400 dark:text-zinc-500" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 animate-in fade-in duration-300">
+        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No data found.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto pb-20 fade-in">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both w-full max-w-[1400px] mx-auto pb-20">
       
       {/* ════════ HEADER ════════ */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-display text-zinc-900 dark:text-zinc-100 tracking-tight">Spend Analyser</h1>
-          <p className="text-sm text-zinc-500 mt-1">AI-powered categorization and insights</p>
+          <h1 className="font-display text-3xl md:text-4xl leading-tight tracking-tighter text-zinc-900 dark:text-zinc-100 font-light">Spend Analyser</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">AI-powered categorization and insights</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={reclassify} className="flex items-center gap-2 px-4 py-2 rounded-full border border-zinc-200 dark:border-[#2E3148] text-sm hover:bg-zinc-50 dark:hover:bg-white/5 transition text-zinc-300">
+        <div className="flex gap-3 shrink-0">
+          <button onClick={reclassify} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#1A1D27] hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200 dark:border-[#2E3148] text-zinc-800 dark:text-zinc-200 text-sm font-medium transition active:scale-95 shadow-sm">
             <RotateCw className="size-4" /> Reclassify
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#E5F3FF] dark:bg-[#1A2744] text-[#0066FF] text-sm font-medium hover:bg-blue-100 dark:hover:bg-[#203155] transition">
+          <button className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-sm font-medium transition-all active:scale-95 shadow-lg shadow-zinc-900/20 dark:shadow-none">
             This Month <ChevronDown className="size-4" />
           </button>
         </div>
       </div>
 
       {/* ════════ TABS ════════ */}
-      <div className="flex gap-8 border-b border-zinc-200 dark:border-[#2E3148] mb-8">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-8 pb-1">
         {[
           { id: 'overview', label: 'Overview', icon: PieChart },
           { id: 'transactions', label: 'Transactions', icon: Layers },
@@ -64,17 +77,14 @@ export default function SpendDashboard() {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as any)}
-            className={`flex items-center gap-2 pb-4 text-sm font-medium transition-colors relative ${
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap transition active:scale-95 ${
               activeTab === t.id 
-                ? 'text-[#0066FF]' 
-                : 'text-zinc-500 hover:text-zinc-300'
+                ? 'bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900' 
+                : 'bg-white dark:bg-[#1A1D27] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200/50 dark:border-[#2E3148]'
             }`}
           >
             <t.icon className="size-4" />
             {t.label}
-            {activeTab === t.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066FF] rounded-t-full" />
-            )}
           </button>
         ))}
       </div>
@@ -84,22 +94,22 @@ export default function SpendDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Main Chart */}
-          <div className="lg:col-span-2 bg-white dark:bg-[#1A1D27] rounded-[32px] p-8 border border-zinc-100 dark:border-[#2E3148]">
-            <h2 className="text-xl font-display text-zinc-900 dark:text-white mb-6">Expense Breakdown</h2>
+          <div className="lg:col-span-2 bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148]">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-6">Expense Breakdown</h2>
             <div className="flex flex-col gap-4">
               {data.expenses && data.expenses.length > 0 ? data.expenses.map((exp: any) => (
-                <div key={exp.category} className="flex justify-between items-center p-4 rounded-2xl bg-zinc-50 dark:bg-white/5">
+                <div key={exp.category} className="flex justify-between items-center p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/5">
                   <div className="flex items-center gap-4">
                     <div className="size-10 rounded-full bg-zinc-200 dark:bg-[#2E3148] flex items-center justify-center">
                       🏷️
                     </div>
                     <div>
-                      <div className="text-zinc-900 dark:text-white font-medium">{exp.category}</div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">{exp.transaction_count} transactions</div>
+                      <div className="text-zinc-900 dark:text-white font-medium text-sm">{exp.category}</div>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{exp.transaction_count} transactions</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-zinc-900 dark:text-white font-medium">₹{(exp.total_paise / 100).toLocaleString()}</div>
+                    <div className="text-zinc-900 dark:text-white font-semibold">₹{(exp.total_paise / 100).toLocaleString()}</div>
                   </div>
                 </div>
               )) : (
@@ -109,10 +119,10 @@ export default function SpendDashboard() {
           </div>
 
           {/* Insights Panel */}
-          <div className="bg-white dark:bg-[#1A1D27] rounded-[32px] p-8 border border-zinc-100 dark:border-[#2E3148]">
+          <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148]">
             <div className="flex items-center gap-2 mb-6">
               <AlertTriangle className="size-5 text-amber-500" />
-              <h2 className="text-xl font-display text-zinc-900 dark:text-white">AI Insights</h2>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">AI Insights</h2>
             </div>
             
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-4">
@@ -134,13 +144,13 @@ export default function SpendDashboard() {
       )}
       
       {activeTab === 'budgets' && (
-        <div className="p-8 text-zinc-400 bg-white/5 rounded-3xl text-center border border-white/10">
+        <div className="py-20 px-8 text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1A1D27] rounded-2xl text-center shadow-sm border border-zinc-200/50 dark:border-[#2E3148]">
           Budgets UI coming soon...
         </div>
       )}
 
       {activeTab === 'subscriptions' && (
-        <div className="p-8 text-zinc-400 bg-white/5 rounded-3xl text-center border border-white/10">
+        <div className="py-20 px-8 text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1A1D27] rounded-2xl text-center shadow-sm border border-zinc-200/50 dark:border-[#2E3148]">
           Subscriptions UI coming soon...
         </div>
       )}
@@ -157,9 +167,9 @@ function TransactionList() {
   }, []);
 
   return (
-    <div className="bg-white dark:bg-[#1A1D27] rounded-[32px] border border-zinc-100 dark:border-[#2E3148] overflow-hidden">
+    <div className="bg-white dark:bg-[#1A1D27] rounded-2xl border border-transparent shadow-sm dark:border-[#2E3148] overflow-hidden">
       <table className="w-full text-left">
-        <thead className="bg-zinc-50 dark:bg-white/5 text-xs text-zinc-500 uppercase tracking-wider">
+        <thead className="bg-zinc-50/50 dark:bg-white/5 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-b border-zinc-100 dark:border-white/10">
           <tr>
             <th className="px-6 py-4 font-medium">Date</th>
             <th className="px-6 py-4 font-medium">Merchant</th>

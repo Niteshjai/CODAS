@@ -44,9 +44,9 @@ export default function InviteMember({ vault, trigger }: { vault: any, trigger?:
         <button
           onClick={() => setIsOpen(true)}
           disabled={isFull}
-          className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 px-5 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 shadow-lg shadow-zinc-900/20 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <UserPlus className="size-3.5" />
+          <UserPlus className="size-4" />
           <span>Invite Member</span>
         </button>
       )}
