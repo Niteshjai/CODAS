@@ -42,30 +42,30 @@ export function AncestralSearchForm({ onSubmit }: Props) {
   }
 
   return (
-    <div style={{ background: 'var(--surface-1)', padding: '24px', borderRadius: '12px', border: '0.5px solid var(--border)' }}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27]/95 dark:via-[#21253A]/95 dark:to-[#1A1D27]/95 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl rounded-[28px] p-5 sm:p-6 border border-zinc-300 dark:border-[#2E3148] space-y-4 text-left">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>Ancestor's Name *</label>
+          <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Ancestor's Name *</label>
           <input
             name="ancestorName"
             value={formData.ancestorName}
             onChange={handleChange}
             required
             placeholder="e.g. Ramesh Kumar Sharma"
-            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+            className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition"
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>Relationship *</label>
+            <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Relationship *</label>
             <select
               name="relationship"
               value={formData.relationship}
               onChange={handleChange}
               required
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition appearance-none"
             >
               <option value="">Select...</option>
               <option value="grandfather">Grandfather</option>
@@ -78,13 +78,13 @@ export function AncestralSearchForm({ onSubmit }: Props) {
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>State *</label>
+            <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">State *</label>
             <select
               name="state"
               value={formData.state}
               onChange={handleChange}
               required
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition appearance-none"
             >
               <option value="">Select State...</option>
               {states.map(s => (
@@ -94,63 +94,53 @@ export function AncestralSearchForm({ onSubmit }: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>District</label>
+            <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">District</label>
             <input
               name="district"
               value={formData.district}
               onChange={handleChange}
               placeholder="e.g. Pune"
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition"
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>Taluka / Tehsil</label>
+            <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Taluka / Tehsil</label>
             <input
               name="taluka"
               value={formData.taluka}
               onChange={handleChange}
               placeholder="e.g. Haveli"
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition"
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>Village</label>
+            <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Village</label>
             <input
               name="village"
               value={formData.village}
               onChange={handleChange}
               placeholder="e.g. Wagholi"
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition"
             />
           </div>
         </div>
         
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}>Additional Clues (Optional)</label>
+          <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">Additional Clues (Optional)</label>
           <textarea
             name="additionalClues"
             value={formData.additionalClues}
             onChange={handleChange}
             placeholder="Any other details like approximate decade (1980s), nearby landmarks, survey numbers, etc."
-            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '0.5px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)', minHeight: '80px', resize: 'vertical' }}
+            className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition min-h-[80px] resize-y"
           />
         </div>
 
         <button
           type="submit"
-          style={{
-            padding: '12px',
-            borderRadius: '8px',
-            background: 'var(--primary)',
-            color: 'white',
-            border: 'none',
-            fontWeight: 600,
-            fontSize: '14px',
-            cursor: 'pointer',
-            marginTop: '8px'
-          }}
+          className="w-full py-2.5 px-6 rounded-2xl bg-lime-300 hover:bg-lime-400 text-zinc-950 font-bold text-base shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-2"
         >
           Search Land Records
         </button>

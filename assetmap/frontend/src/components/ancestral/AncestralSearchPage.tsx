@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { AncestralSearchForm }  from './AncestralSearchForm'
 import { AncestralResultCard }  from './AncestralResultCard'
 import { OfflineGuide }         from './OfflineGuide'
+import { Map, ArrowLeft, Loader2, Search, FileX } from 'lucide-react'
 
 type Stage = 'form' | 'searching' | 'results' | 'no_results' | 'offline'
 
@@ -21,15 +22,14 @@ export default function AncestralSearchPage() {
       })
       if (!res.ok) throw new Error('Network error or server restarting')
       const data = await res.json()
-    if (!data.success) {
-      if (data.error?.code === 'PLAN_GATE') {
-        // Show upgrade prompt
-        window.dispatchEvent(new CustomEvent('plan-gate', { detail: data.error }))
-        setStage('form')
-        return
+      if (!data.success) {
+        if (data.error?.code === 'PLAN_GATE') {
+          window.dispatchEvent(new CustomEvent('plan-gate', { detail: data.error }))
+          setStage('form')
+          return
+        }
+        throw new Error(data.error?.message)
       }
-      throw new Error(data.error?.message)
-    }
       setSearchId(data.data.searchId)
     } catch (err: any) {
       console.error(err)
@@ -50,16 +50,16 @@ export default function AncestralSearchPage() {
         if (!res.ok) return // Ignore transient errors (e.g. server restart)
         const data = await res.json()
 
-      if (data.data?.isComplete) {
-        setSearchData(data.data)
-        if (data.data.search_method === 'offline_guide') {
-          setStage('offline')
-        } else if (data.data.hasResults) {
-          setStage('results')
-        } else {
-          setStage('no_results')
-        }
-        return
+        if (data.data?.isComplete) {
+          setSearchData(data.data)
+          if (data.data.search_method === 'offline_guide') {
+            setStage('offline')
+          } else if (data.data.hasResults) {
+            setStage('results')
+          } else {
+            setStage('no_results')
+          }
+          return
         }
         setPollCount(c => c + 1)
       } catch (err) {
@@ -103,177 +103,156 @@ export default function AncestralSearchPage() {
   }
 
   return (
-    <div style={{ maxWidth:700, margin:'0 auto', padding:'20px 16px' }}>
-
+    <div className="w-full max-w-[1400px] mx-auto pt-2 pb-0 relative flex flex-col max-h-[calc(100vh-180px)] overflow-hidden">
+      
       {/* Header */}
-      <div style={{ marginBottom:24 }}>
-        <h1 style={{ fontSize:22, fontWeight:500,
-                    color:'var(--text-primary)', marginBottom:6 }}>
-          Find lost ancestral property
-        </h1>
-        <p style={{ fontSize:13.5, color:'var(--text-secondary)',
-                   lineHeight:1.6 }}>
-          Search government land records by your ancestor's name.
-          No documents needed — just tell us what you know.
-        </p>
-      </div>
-
-      {/* Stage: Form */}
-      {stage === 'form' && (
-        <AncestralSearchForm onSubmit={handleSearch} />
+      {stage === 'form' ? (
+        <div className="w-full max-w-3xl shrink-0">
+          <div className="flex flex-col items-start text-left gap-1 mb-4">
+            <h1 className="text-[26px] font-sans font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center justify-start gap-2.5">
+              <Map className="size-7 text-lime-500" />
+              Find Lost Ancestral Property
+            </h1>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-1 text-sm">
+              Search government land records by your ancestor's name. No documents needed.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full flex items-center justify-start px-0 pt-1 mb-4 shrink-0">
+          <button
+            onClick={() => setStage('form')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-[#1A1D27]/90 backdrop-blur-md border border-zinc-300 dark:border-white/10 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="size-3.5" />
+            <span>Back</span>
+          </button>
+        </div>
       )}
 
-      {/* Stage: Searching */}
-      {stage === 'searching' && (
-        <div style={{
-          textAlign:'center', padding:'48px 20px',
-          background:'var(--surface-2)',
-          border:'0.5px solid var(--border)',
-          borderRadius:12
-        }}>
-          <div style={{ fontSize:36, marginBottom:16 }}>🔍</div>
-          <div style={{ fontWeight:500, fontSize:16,
-                       color:'var(--text-primary)', marginBottom:8 }}>
-            Searching land records...
-          </div>
-          <div style={{ fontSize:13, color:'var(--text-secondary)',
-                       marginBottom:20, lineHeight:1.6 }}>
-            We're checking state land portals and trying name variants.
-            This takes 30–60 seconds.
-          </div>
-          <div style={{ display:'flex', flexDirection:'column',
-                       gap:6, maxWidth:280, margin:'0 auto' }}>
-            {[
-              'Generating name spelling variants',
-              'Searching district land records',
-              'Running AI confidence scoring',
-            ].map((step, i) => (
-              <div key={i} style={{
-                display:'flex', alignItems:'center', gap:8,
-                fontSize:12.5, color:
-                  pollCount > i * 3 ? 'var(--text-success)' : 'var(--text-muted)'
-              }}>
-                <span>{pollCount > i * 3 ? '✓' : '◌'}</span>
-                <span>{step}</span>
+      <div className="flex-1 overflow-hidden pr-2 pb-2 min-h-0">
+        <div className={`w-full ${stage === 'form' ? "max-w-3xl" : "max-w-5xl"}`}>
+          
+          {/* Stage: Form */}
+          {stage === 'form' && (
+            <AncestralSearchForm onSubmit={handleSearch} />
+          )}
+
+          {/* Stage: Searching */}
+          {stage === 'searching' && (
+            <div className="flex flex-col items-center justify-center p-12 bg-white/60 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-[28px] backdrop-blur-md">
+              <Loader2 className="size-10 animate-spin text-lime-500 mb-6" />
+              <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+                Searching land records...
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Stage: Results */}
-      {stage === 'results' && searchData && (
-        <div>
-          <div style={{
-            display:'flex', justifyContent:'space-between',
-            alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:8
-          }}>
-            <div>
-              <span style={{ fontWeight:500, fontSize:15,
-                           color:'var(--text-primary)' }}>
-                {searchData.results.length} possible match{searchData.results.length !== 1 ? 'es' : ''} found
-              </span>
-              <span style={{ fontSize:12.5, color:'var(--text-muted)',
-                           marginLeft:10 }}>
-                for "{searchData.ancestor_name}" in {searchData.state}
-              </span>
+              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-sm text-center">
+                We're checking state land portals and trying name variants. This takes 30–60 seconds.
+              </div>
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                {[
+                  'Generating name spelling variants',
+                  'Searching district land records',
+                  'Running AI confidence scoring',
+                ].map((step, i) => (
+                  <div key={i} className="flex items-center gap-3 text-sm font-medium">
+                    <div className={`size-5 rounded-full flex items-center justify-center border ${pollCount > i * 3 ? 'bg-lime-500 border-lime-500 text-white' : 'border-zinc-300 dark:border-zinc-700 text-transparent'}`}>
+                      {pollCount > i * 3 && <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                    <span className={pollCount > i * 3 ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-600'}>{step}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={() => setStage('form')}
-              style={{
-                padding:'7px 14px', borderRadius:8,
-                border:'0.5px solid var(--border)',
-                background:'transparent',
-                color:'var(--text-secondary)',
-                fontSize:12.5, cursor:'pointer'
-              }}
-            >Search again</button>
-          </div>
+          )}
 
-          {searchData.results
-            .sort((a: any, b: any) => b.confidence_score - a.confidence_score)
-            .map((result: any) => (
-              <AncestralResultCard
-                key={result.id}
-                result={result}
-                onConfirm={handleConfirm}
-                onReject={handleReject}
-              />
-            ))
-          }
+          {/* Stage: Results */}
+          {stage === 'results' && searchData && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 text-left">
+              <div className="flex justify-between items-center bg-white/80 dark:bg-white/[0.04] backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-2xl p-4">
+                <div>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 text-lg">
+                    {searchData.results.length} possible match{searchData.results.length !== 1 ? 'es' : ''} found
+                  </span>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400 ml-2">
+                    for "{searchData.ancestor_name}" in {searchData.state}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setStage('form')}
+                  className="px-4 py-2 rounded-xl border border-zinc-300 dark:border-white/10 bg-white dark:bg-white/5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition cursor-pointer"
+                >
+                  Search again
+                </button>
+              </div>
 
-          <div style={{
-            marginTop:16, padding:'12px 16px',
-            background:'var(--surface-1)',
-            borderRadius:8, fontSize:12.5,
-            color:'var(--text-muted)', lineHeight:1.6
-          }}>
-            ℹ️ These results are leads from government revenue records,
-            not legal proof of ownership. Confirm with the portal
-            and consult a property lawyer before claiming.
-          </div>
+              {searchData.results
+                .sort((a: any, b: any) => b.confidence_score - a.confidence_score)
+                .map((result: any) => (
+                  <AncestralResultCard
+                    key={result.id}
+                    result={result}
+                    onConfirm={handleConfirm}
+                    onReject={handleReject}
+                  />
+                ))
+              }
+
+              <div className="mt-4 p-4 bg-blue-50/80 dark:bg-blue-900/10 border border-blue-200/60 dark:border-blue-500/20 rounded-xl text-sm text-blue-800 dark:text-blue-300 flex items-start gap-3">
+                <span className="text-xl leading-none">ℹ️</span>
+                <p>
+                  These results are leads from government revenue records, not legal proof of ownership. 
+                  Confirm with the portal and consult a property lawyer before claiming.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Stage: No results */}
+          {stage === 'no_results' && (
+            <div className="flex flex-col items-center justify-center p-12 bg-white/60 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-[28px] backdrop-blur-md text-center">
+              <FileX className="size-12 text-zinc-400 mb-4" />
+              <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+                No matches found online
+              </div>
+              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-md">
+                This could mean the village records aren't yet digitised, the name spelling in old records differs significantly, or the property is in a state with offline-only records.
+              </div>
+              <div className="flex gap-3 flex-wrap justify-center">
+                <button
+                  onClick={() => setStage('form')}
+                  className="px-5 py-2.5 rounded-xl bg-lime-300 hover:bg-lime-400 text-zinc-950 font-bold text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  Try different name
+                </button>
+                <button
+                  onClick={async () => {
+                    if (searchId) {
+                      const res  = await fetch(`/api/ancestral/search/${searchId}/offline-guide`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                      })
+                      const data = await res.json()
+                      setSearchData({ ...searchData, offlineGuide: data.data })
+                      setStage('offline')
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl border border-zinc-300 dark:border-white/10 bg-white/80 dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-200 font-bold text-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  Get offline guide
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Stage: Offline guide */}
+          {stage === 'offline' && searchData && (
+            <OfflineGuide
+              guide={searchData.offlineGuide ?? searchData}
+              onBack={() => setStage('form')}
+            />
+          )}
+
         </div>
-      )}
-
-      {/* Stage: No results */}
-      {stage === 'no_results' && (
-        <div style={{
-          textAlign:'center', padding:'40px 20px',
-          background:'var(--surface-2)',
-          border:'0.5px solid var(--border)',
-          borderRadius:12
-        }}>
-          <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
-          <div style={{ fontWeight:500, fontSize:16,
-                       color:'var(--text-primary)', marginBottom:8 }}>
-            No matches found online
-          </div>
-          <div style={{ fontSize:13, color:'var(--text-secondary)',
-                       marginBottom:20, lineHeight:1.6, maxWidth:400, margin:'0 auto 20px' }}>
-            This could mean the village records aren't yet digitised,
-            the name spelling in old records differs significantly,
-            or the property is in a state with offline-only records.
-          </div>
-          <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-            <button
-              onClick={() => setStage('form')}
-              style={{
-                padding:'9px 18px', borderRadius:8,
-                background:'#185FA5', color:'white',
-                border:'none', fontWeight:500,
-                fontSize:13, cursor:'pointer'
-              }}
-            >Try different name or village</button>
-            <button
-              onClick={async () => {
-                if (searchId) {
-                  const res  = await fetch(`/api/ancestral/search/${searchId}/offline-guide`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  })
-                  const data = await res.json()
-                  setSearchData({ ...searchData, offlineGuide: data.data })
-                  setStage('offline')
-                }
-              }}
-              style={{
-                padding:'9px 18px', borderRadius:8,
-                border:'0.5px solid var(--border)',
-                background:'transparent',
-                color:'var(--text-secondary)',
-                fontSize:13, cursor:'pointer'
-              }}
-            >Get offline search guide</button>
-          </div>
-        </div>
-      )}
-
-      {/* Stage: Offline guide */}
-      {stage === 'offline' && searchData && (
-        <OfflineGuide
-          guide={searchData.offlineGuide ?? searchData}
-          onBack={() => setStage('form')}
-        />
-      )}
+      </div>
     </div>
   )
 }

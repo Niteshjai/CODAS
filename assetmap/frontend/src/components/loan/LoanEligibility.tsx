@@ -81,10 +81,10 @@ export default function LoanEligibility() {
   ];
 
   return (
-    <div className="flex flex-col max-h-[calc(100vh-120px)] justify-center w-full max-w-6xl mx-auto p-4 md:px-8 mt-6 lg:mt-10 overflow-hidden">
+    <div className="flex flex-col w-full max-w-[1400px] mx-auto p-4 md:px-0 mt-2 max-h-[calc(100vh-180px)] overflow-hidden">
       {/* Header */}
       <div className="shrink-0 mb-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2.5">
+        <h1 className="text-[26px] font-sans font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2.5">
           <Landmark className="h-7 w-7 text-lime-500" />
           Loan Eligibility Estimator
         </h1>
@@ -96,14 +96,14 @@ export default function LoanEligibility() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full flex-1 min-h-0">
         {/* Left: Input Form */}
         <div className="lg:col-span-4 h-full flex flex-col min-h-0">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col h-full">
-            <div className="px-5 pt-5 pb-3 shrink-0 border-b border-zinc-100 dark:border-zinc-800/50">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-white">Financial Profile</h2>
+          <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27]/95 dark:via-[#21253A]/95 dark:to-[#1A1D27]/95 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl border border-zinc-300 dark:border-[#2E3148] rounded-[28px] flex flex-col h-full overflow-hidden">
+            <div className="px-5 sm:px-6 pt-5 pb-3 shrink-0 border-b border-zinc-300/70 dark:border-white/5">
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Financial Profile</h2>
             </div>
-            <div className="px-5 py-4 space-y-4 flex-1">
+            <div className="px-5 sm:px-6 py-4 space-y-4 flex-1 overflow-y-auto hide-scrollbar">
               {fields.map((field) => (
                 <div key={field.name} className="space-y-1.5 flex flex-col w-full">
-                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                  <label className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5 block">
                     {field.label}
                   </label>
                   <input
@@ -111,13 +111,13 @@ export default function LoanEligibility() {
                     type="number"
                     value={field.isPaise ? (inputs as any)[field.name] / 100 : (inputs as any)[field.name]}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition-all"
+                    className="w-full px-4 py-2 rounded-2xl border border-zinc-200/90 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-zinc-900 dark:text-white text-base font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition-all"
                   />
                 </div>
               ))}
 
               <button
-                className="w-full mt-1 py-2.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-zinc-900 font-semibold text-sm shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 flex justify-center items-center"
+                className="w-full mt-2 py-2.5 rounded-2xl bg-lime-300 hover:bg-lime-400 text-zinc-950 font-bold text-base shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer"
                 onClick={handleAssess}
                 disabled={loading}
               >
@@ -133,7 +133,7 @@ export default function LoanEligibility() {
         </div>
 
         {/* Right: Results */}
-        <div className="lg:col-span-8 h-full flex flex-col min-h-0 overflow-y-auto rounded-2xl pb-4 pr-2 custom-scrollbar">
+        <div className="lg:col-span-8 h-full flex flex-col min-h-0 overflow-y-auto custom-scrollbar rounded-2xl pb-4 pr-2">
           {!assessment ? (
             <div className="h-full min-h-[400px] w-full bg-zinc-50 dark:bg-zinc-900/50 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 sm:p-12">
               <div className="w-full h-full flex flex-col items-center justify-center text-center">

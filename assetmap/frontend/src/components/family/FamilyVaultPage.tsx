@@ -131,7 +131,7 @@ export default function FamilyVaultPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="font-display text-3xl md:text-4xl leading-tight tracking-tighter text-zinc-900 dark:text-zinc-100 font-light flex items-center gap-3">
+          <h1 className="text-[26px] font-sans font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
             <Users className="size-7 sm:size-8 text-zinc-900 dark:text-white shrink-0" />
             {vault.vault_name}
           </h1>

@@ -1085,7 +1085,7 @@ function SectionHeader({ title, count, label, totalValue, children }: { title: s
   return (
     <div className="flex items-center justify-between gap-3 mb-5 w-full">
       <div className="flex items-baseline gap-3">
-        <h2 className="text-[26px] font-sans text-zinc-900 dark:text-zinc-100">{title}</h2>
+        <h2 className="text-[26px] font-sans font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h2>
         <span className="text-sm text-zinc-500 dark:text-zinc-400 flex items-baseline gap-1.5">
           {totalValue !== undefined && (
             <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">

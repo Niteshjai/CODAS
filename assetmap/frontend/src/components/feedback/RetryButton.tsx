@@ -30,7 +30,7 @@ export function RetryButton({
       {isRetrying && (
         <span style={{ fontSize:12, animation:'spin 1s linear infinite' }}>↻</span>
       )}
-      {countdown > 0 ? Retrying in s : (isRetrying ? 'Retrying...' : label)}
+      {countdown > 0 ? `Retrying in ${countdown}s` : (isRetrying ? 'Retrying...' : label)}
     </button>
   )
 }

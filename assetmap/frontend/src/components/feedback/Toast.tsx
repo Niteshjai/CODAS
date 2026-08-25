@@ -1,5 +1,5 @@
 import { useToastStore, type Toast as ToastType } from '../../store/toastStore'
-import React from 'react'
+
 
 const TOAST_CONFIG = {
   success: { bg:'#EAF3DE', border:'#97C459', text:'#3B6D11', icon:'✓' },
@@ -18,13 +18,15 @@ export function ToastContainer() {
       aria-live="polite"
       style={{
         position:      'fixed',
-        bottom:        24,
-        right:         24,
+        bottom:        32,
+        left:          '50%',
+        transform:     'translateX(-50%)',
         zIndex:        9999,
         display:       'flex',
         flexDirection: 'column',
-        gap:           8,
-        maxWidth:      360,
+        alignItems:    'center',
+        gap:           12,
+        maxWidth:      400,
         width:         'calc(100vw - 48px)',
       }}
     >
@@ -50,21 +52,22 @@ function ToastItem({
       aria-atomic="true"
       style={{
         background:   cfg.bg,
-        border:       `0.5px solid ${cfg.border}`,
-        borderLeft:   `3px solid ${cfg.border}`,
-        borderRadius: '0 8px 8px 0',
-        padding:      '12px 14px',
+        border:       `1px solid ${cfg.border}`,
+        borderRadius: '12px',
+        padding:      '12px 16px',
         display:      'flex',
         alignItems:   'flex-start',
         gap:          10,
-        animation:    'slideInRight 200ms ease',
-        boxShadow:    '0 4px 12px rgba(0,0,0,0.1)',
+        animation:    'slideUpToast 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+        boxShadow:    '0 8px 24px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
+        width:        '100%',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <style>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0 }
-          to   { transform: translateX(0);    opacity: 1 }
+        @keyframes slideUpToast {
+          from { transform: translateY(100%) scale(0.9); opacity: 0 }
+          to   { transform: translateY(0) scale(1);      opacity: 1 }
         }
       `}</style>
 
