@@ -6,7 +6,7 @@ export function EmptySearch({ query, onClear }: { query: string; onClear: () => 
     <EmptyState
       icon="🔍"
       title="No results found"
-      description={We couldn't find anything matching "".}
+      description={<>We couldn't find anything matching "{query}".</>}
       action={
         <button
           onClick={onClear}

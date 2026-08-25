@@ -17,12 +17,12 @@ export function Spinner({ size = 20, color = '#84cc16' }: Props) {
         animation: 'spin 0.75s linear infinite',
       }}
     >
-      <style>{
+      <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         @media (prefers-reduced-motion: reduce) {
           svg { animation: none !important }
         }
-      }</style>
+      `}</style>
       <circle
         cx="12" cy="12" r="10"
         stroke={color}
