@@ -152,7 +152,7 @@ export default function WillBuilder() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           
           <div className="p-4 md:p-6 border-b border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-black/20">
-            <TabsList className="grid w-full grid-cols-4 bg-zinc-100 dark:bg-zinc-900/50 p-1">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1 h-auto bg-zinc-100 dark:bg-zinc-900/50 p-1">
               <TabsTrigger value="testator" disabled={!!willId && activeTab !== 'testator'} className="data-[state=active]:bg-white data-[state=active]:dark:bg-zinc-800 data-[state=active]:text-zinc-900 data-[state=active]:dark:text-white">
                 <FileText className="w-4 h-4 mr-2" /> Details
               </TabsTrigger>

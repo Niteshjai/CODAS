@@ -103,7 +103,7 @@ export default function AncestralSearchPage() {
   }
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto pt-2 pb-0 relative flex flex-col max-h-[calc(100vh-180px)] overflow-hidden">
+    <div className="w-full max-w-[1400px] mx-auto pt-2 pb-0 relative flex flex-col md:max-h-[calc(100vh-180px)] md:overflow-hidden">
       
       {/* Header */}
       {stage === 'form' ? (
@@ -130,7 +130,7 @@ export default function AncestralSearchPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden pr-2 pb-2 min-h-0">
+      <div className="flex-1 overflow-visible md:overflow-hidden pr-2 pb-2 min-h-0">
         <div className={`w-full ${stage === 'form' ? "max-w-3xl" : "max-w-5xl"}`}>
           
           {/* Stage: Form */}

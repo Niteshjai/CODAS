@@ -13,56 +13,111 @@ import PDFDocument from 'pdfkit';
 
 async function generatePDF(data: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const doc = new PDFDocument({ margin: 0, size: 'A4' });
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => resolve(Buffer.concat(buffers as Uint8Array[])));
     doc.on('error', reject);
 
-    // Title
-    doc.fontSize(24).font('Helvetica-Bold').fillColor('#111827').text(`Codas Asset Report — ${data.name}`, { align: 'center' });
-    doc.moveDown(0.5);
-    doc.fontSize(12).font('Helvetica').fillColor('#6b7280').text(`Generated: ${data.generated_at}`, { align: 'center' });
-    doc.moveDown(2);
-
-    // Table settings
-    const tableTop = doc.y;
-    const rowHeight = 30;
-    const col1X = 50;
-    const col2X = 350;
-    const tableWidth = 500 - 50;
-
-    // Header Background
-    doc.rect(50, tableTop, tableWidth, rowHeight).fill('#185FA5');
+    const margin = 50;
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
     
-    // Header Text
-    doc.fillColor('#FFFFFF').fontSize(14).font('Helvetica-Bold');
-    doc.text('Asset class', col1X + 10, tableTop + 10);
-    doc.text('Value (INR)', col2X, tableTop + 10);
+    // --- 1. Header (Dark Banner) ---
+    doc.rect(0, 0, pageWidth, 120).fill('#0f172a');
+    
+    // Header Text - CODAS
+    doc.fillColor('#bef264').fontSize(24).font('Helvetica-Bold');
+    doc.text('CODAS', margin, 40);
+    
+    doc.fillColor('#94a3b8').fontSize(10).font('Helvetica-Bold');
+    doc.text('WEALTH MANAGEMENT', margin, 68, { characterSpacing: 2 });
+    
+    // Header Text - Right side
+    doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold');
+    doc.text('Consolidated Asset Report', 0, 45, { align: 'right', width: pageWidth - margin });
+    
+    doc.fillColor('#cbd5e1').fontSize(10).font('Helvetica');
+    doc.text(`Generated: ${data.generated_at}`, 0, 68, { align: 'right', width: pageWidth - margin });
+
+    // --- 2. Executive Summary ---
+    doc.y = 150;
+    
+    // User greeting
+    doc.fillColor('#334155').fontSize(12).font('Helvetica');
+    doc.text(`Prepared for: `, margin, doc.y, { continued: true });
+    doc.fillColor('#0f172a').font('Helvetica-Bold').text(data.name);
+    
+    doc.moveDown(2);
+    
+    // Total Net Worth Calculation
+    const totalNetWorth = data.summary.reduce((acc: number, curr: any) => acc + curr.value, 0);
+    const formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+    const formattedTotal = formatter.format(totalNetWorth).replace('₹', 'Rs. ');
+    
+    doc.fillColor('#64748b').fontSize(11).font('Helvetica-Bold').text('TOTAL ASSETS DECLARED', margin, doc.y, { characterSpacing: 1 });
+    doc.moveDown(0.3);
+    doc.fillColor('#0f172a').fontSize(28).font('Helvetica-Bold').text(formattedTotal);
+    
+    doc.moveDown(2.5);
+
+    // --- 3. Table Configuration ---
+    const tableTop = doc.y;
+    const rowHeight = 35;
+    const col1X = margin;
+    const col2X = pageWidth - margin - 150;
+    const tableWidth = pageWidth - (margin * 2);
+
+    // Table Header Background
+    doc.rect(margin, tableTop, tableWidth, rowHeight).fill('#1e293b');
+    
+    // Table Header Text
+    doc.fillColor('#f8fafc').fontSize(11).font('Helvetica-Bold');
+    doc.text('ASSET CLASS', col1X + 15, tableTop + 12);
+    doc.text('VALUE (INR)', col2X, tableTop + 12, { width: 135, align: 'right' });
 
     let y = tableTop + rowHeight;
 
-    // Table Rows
+    // --- 4. Table Rows ---
     let i = 0;
     for (const item of data.summary) {
-      // Alternating row colors
-      if (i % 2 === 1) {
-        doc.rect(50, y, tableWidth, rowHeight).fill('#f9fafb');
+      if (i % 2 === 0) {
+        doc.rect(margin, y, tableWidth, rowHeight).fill('#f8fafc');
+      } else {
+        doc.rect(margin, y, tableWidth, rowHeight).fill('#ffffff');
       }
       
-      // Draw grid lines
-      doc.rect(50, y, tableWidth, rowHeight).strokeColor('#e5e7eb').lineWidth(1).stroke();
+      // Bottom border for rows
+      doc.moveTo(margin, y + rowHeight).lineTo(margin + tableWidth, y + rowHeight).strokeColor('#e2e8f0').lineWidth(1).stroke();
 
-      doc.fillColor('#111827').fontSize(13).font('Helvetica-Bold');
-      doc.text(item.category, col1X + 10, y + 10);
+      doc.fillColor('#334155').fontSize(11).font('Helvetica-Bold');
+      doc.text(item.category, col1X + 15, y + 12);
       
-      const formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
       const formattedValue = formatter.format(item.value).replace('₹', 'Rs. ');
-      doc.text(formattedValue, col2X, y + 10);
+      doc.font('Helvetica').text(formattedValue, col2X, y + 12, { width: 135, align: 'right' });
       
       y += rowHeight;
       i++;
     }
+    
+    // --- 5. Total Row ---
+    doc.rect(margin, y, tableWidth, rowHeight).fill('#f1f5f9');
+    doc.moveTo(margin, y + rowHeight).lineTo(margin + tableWidth, y + rowHeight).strokeColor('#cbd5e1').lineWidth(2).stroke();
+    
+    doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold');
+    doc.text('TOTAL', col1X + 15, y + 12);
+    doc.text(formattedTotal, col2X, y + 12, { width: 135, align: 'right' });
+
+    // --- 6. Footer ---
+    const footerY = pageHeight - 65;
+    doc.moveTo(margin, footerY - 15).lineTo(pageWidth - margin, footerY - 15).strokeColor('#cbd5e1').lineWidth(1).stroke();
+    
+    doc.fillColor('#94a3b8').fontSize(8).font('Helvetica');
+    const disclaimer = "This report is generated automatically by Codas Wealth Management and is for informational purposes only. The values shown represent the latest synced data from connected institutions and manually added assets. It does not constitute official tax or financial advice.";
+    doc.text(disclaimer, margin, footerY, { width: tableWidth, align: 'justify', lineGap: 2 });
+    
+    doc.fillColor('#94a3b8').fontSize(9).font('Helvetica-Bold');
+    doc.text('Page 1 of 1', margin, footerY + 40, { align: 'center', width: tableWidth });
 
     doc.end();
   });

@@ -4,7 +4,19 @@ import { ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
 export default function FamilyEstateScore() {
   const { estate } = useFamilyStore();
 
-  if (!estate) return null;
+  if (!estate) {
+    return (
+      <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148] flex flex-col items-center justify-center min-h-[350px]">
+        <div className="size-12 rounded-full bg-zinc-100 dark:bg-zinc-800/50 flex items-center justify-center mb-4">
+          <Shield className="size-6 text-zinc-300 dark:text-zinc-600" />
+        </div>
+        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Estate & Nominee Readiness</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 text-center max-w-[200px]">
+          Waiting for estate data to initialize.
+        </p>
+      </div>
+    );
+  }
 
   const score = estate.overallScore || 0;
   const isGood = score >= 70;

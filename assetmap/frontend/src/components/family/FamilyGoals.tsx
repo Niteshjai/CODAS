@@ -22,12 +22,12 @@ export default function FamilyGoals() {
       </div>
 
       {!goals || goals.length === 0 ? (
-        <div className="py-8 flex flex-col items-center justify-center text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
+        <div className="py-8 px-6 w-full flex flex-col items-center justify-center text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
           <div className="size-10 rounded-full bg-lime-100 dark:bg-lime-950/50 text-lime-700 dark:text-lime-400 grid place-items-center mb-2">
             <Target className="size-5" />
           </div>
           <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">No active goals yet</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
             Create a collaborative goal for your family (e.g. Vacation fund, Home down payment, Education).
           </p>
         </div>

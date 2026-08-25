@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { initiatePhone, verifyPhone, devLogin, registerPan, registerAadhaar, verifyAadhaarOtp, confirmRegistration, initiateEmail, verifyEmail, type IdentityData } from '../../services/auth';
 import { useAssetStore } from '../../store/assetStore';
 import TwoFactorChallenge from '../../components/auth/TwoFactorChallenge';
+import { AlertCircle } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // Country Data
@@ -56,6 +57,19 @@ export default function Onboarding() {
     return stored ? JSON.parse(stored) : COUNTRIES[0];
   });
   const [phoneNumber, setPhoneNumber] = useState(() => sessionStorage.getItem('login_phone') || '');
+  const [phoneError, setPhoneError] = useState('');
+
+  const validatePhone = (number: string, code: string): string | null => {
+    if (!number) return 'Phone number is required.';
+    if (code === '+91') {
+      if (number.length !== 10) return 'Please enter a valid 10-digit mobile number.';
+      if (!/^[6-9]/.test(number)) return 'Indian mobile numbers must start with 6, 7, 8, or 9.';
+    } else {
+      const maxLen = COUNTRIES.find(c => c.code === code)?.maxLen || 10;
+      if (number.length < Math.min(maxLen, 7)) return 'Please enter a valid mobile number.';
+    }
+    return null;
+  };
   const [authChannel, setAuthChannel] = useState<'sms' | 'whatsapp'>('sms');
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [transactionId, setTransactionId] = useState(() => sessionStorage.getItem('login_txId') || '');
@@ -210,6 +224,14 @@ export default function Onboarding() {
   async function handleSendOtp(e?: React.FormEvent, channel: 'sms' | 'whatsapp' = 'sms') {
     e?.preventDefault();
     setError('');
+    
+    const digits = phoneNumber.replace(/\D/g, '');
+    const validationError = validatePhone(digits, selectedCountry.code);
+    if (validationError) {
+      setPhoneError(validationError);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -571,7 +593,7 @@ export default function Onboarding() {
                             <button
                               key={c.code}
                               type="button"
-                              onClick={() => { setSelectedCountry(c); setDropdownOpen(false); setCountrySearch(''); setPhoneNumber(''); }}
+                              onClick={() => { setSelectedCountry(c); setDropdownOpen(false); setCountrySearch(''); setPhoneNumber(''); setPhoneError(''); }}
                               className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-left hover:bg-[#f7f9fb] transition-colors ${selectedCountry.code === c.code ? 'bg-[#f7f9fb]' : ''}`}
                             >
                               <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt={c.name} className="w-7 h-[20px] shadow-sm rounded-[2px] object-cover border border-black/5 flex-shrink-0" />
@@ -587,15 +609,31 @@ export default function Onboarding() {
                     )}
 
                     <input
-                      className="flex-1 min-w-0 w-full px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary shadow-sm"
+                      className={`flex-1 min-w-0 w-full px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border ${phoneError ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500' : 'border-black/10 dark:border-white/10 focus:border-brand-secondary focus:ring-brand-secondary'} rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:ring-1 shadow-sm`}
                       id="phone"
                       placeholder="Mobile number"
                       type="tel"
                       autoComplete="tel"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, selectedCountry.maxLen))}
+                      onChange={(e) => {
+                        setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, selectedCountry.maxLen));
+                        if (phoneError) setPhoneError('');
+                      }}
+                      onBlur={() => {
+                        const digits = phoneNumber.replace(/\D/g, '');
+                        if (digits.length > 0) {
+                          const err = validatePhone(digits, selectedCountry.code);
+                          if (err) setPhoneError(err);
+                        }
+                      }}
                     />
                   </div>
+                  {phoneError && (
+                    <p className="text-sm text-rose-500 mt-2 font-medium flex items-center gap-1.5 px-1">
+                      <AlertCircle className="size-4" />
+                      {phoneError}
+                    </p>
+                  )}
                 </div>
 
                 {error && <ErrorBanner message={error} />}
@@ -603,7 +641,7 @@ export default function Onboarding() {
                 <button
                   className="w-full bg-brand-secondary text-on-brand-secondary font-headline-md py-md rounded-3xl shadow-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-90 disabled:cursor-not-allowed disabled:active:scale-100"
                   type="submit"
-                  disabled={loading || !isPhoneValid}
+                  disabled={loading || phoneNumber.replace(/\D/g, '').length === 0}
                 >
                   {loading ? 'Sending...' : 'Sign In'}
                 </button>

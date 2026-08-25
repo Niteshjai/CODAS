@@ -82,7 +82,7 @@ export default function InsuranceGapFinder() {
   const outstandingLoans = profile.outstandingLoansPaise / 100;
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto pt-2 pb-0 relative flex flex-col max-h-[calc(100vh-180px)] overflow-hidden">
+    <div className="w-full max-w-[1400px] mx-auto pt-2 pb-0 relative flex flex-col md:max-h-[calc(100vh-180px)] md:overflow-hidden">
       {analysis ? (
         /* Back Button Bar on Results Page (Placed on Left) */
         <div className="w-full flex items-center justify-start px-0 pt-1 mb-4 shrink-0">
@@ -109,7 +109,7 @@ export default function InsuranceGapFinder() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-2 min-h-0">
+      <div className="flex-1 overflow-visible md:overflow-y-auto custom-scrollbar md:pr-2 pb-2 min-h-0">
         <div className={`w-full ${!analysis ? "max-w-3xl" : "max-w-5xl"}`}>
         {!analysis ? (
           <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27]/95 dark:via-[#21253A]/95 dark:to-[#1A1D27]/95 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl rounded-[28px] p-5 sm:p-6 border border-zinc-300 dark:border-[#2E3148] space-y-4 text-left">

@@ -176,7 +176,7 @@ export default function Dashboard() {
       }
 
       try { const audit = await getAuditLog(); setAuditLogs(audit.logs); } catch { /* ok */ }
-    } catch (err) { 
+    } catch (err) {
       console.error('Load failed', err);
       setLoadError(err instanceof Error ? err : new Error('Failed to load dashboard data'));
     }
@@ -311,7 +311,15 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen text-foreground font-sans bg-[linear-gradient(145deg,#e4e4e7_0%,#d4d4d8_30%,#a1a1aa_60%,#d4d4d8_80%,#71717a_100%)] dark:bg-[linear-gradient(to_bottom_right,#0F1117,#151825,#0F1117)]">
       <div className="flex">
-        <aside className={`fixed top-4 left-0 h-[calc(100vh-32px)] hidden md:flex flex-col items-center pt-16 pb-3 transition-all duration-300 shrink-0 rounded-[28px] z-30 ${isSidebarOpen ? 'ml-4 w-[216px] overflow-hidden bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27]/95 dark:via-[#21253A]/95 dark:to-[#1A1D27]/95 backdrop-blur-xl shadow-[8px_0_30px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[8px_0_30px_rgba(0,0,0,0.3)] border border-zinc-300 dark:border-[#2E3148]' : 'ml-2 w-16 overflow-visible'}`}>
+
+        {/* Mobile Backdrop */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-zinc-900/40 dark:bg-black/60 backdrop-blur-sm z-[60] md:hidden transition-opacity"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        <aside className={`fixed top-0 md:top-4 left-0 h-full md:h-[calc(100vh-32px)] flex flex-col items-center pt-12 md:pt-16 pb-3 transition-all duration-300 shrink-0 md:rounded-[28px] z-[70] ${isSidebarOpen ? 'translate-x-0 ml-0 md:ml-4 w-[260px] md:w-[216px] overflow-hidden bg-white/95 dark:bg-[#1A1D27]/95 md:bg-gradient-to-br md:from-zinc-200/90 md:via-zinc-100/90 md:to-zinc-300/90 md:dark:from-[#1A1D27]/95 md:dark:via-[#21253A]/95 md:dark:to-[#1A1D27]/95 backdrop-blur-xl shadow-2xl md:shadow-[8px_0_30px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] md:dark:shadow-[8px_0_30px_rgba(0,0,0,0.3)] border-r md:border border-zinc-200 md:border-zinc-300 dark:border-[#2E3148]' : '-translate-x-full md:translate-x-0 ml-0 md:ml-2 w-[260px] md:w-16 overflow-hidden md:overflow-visible bg-white/95 dark:bg-[#1A1D27]/95 md:bg-transparent border-r md:border-transparent border-zinc-200 dark:border-[#2E3148] md:shadow-none'}`}>
           {/* Stylish vertical line (only show when closed, as open state is a distinct card) */}
           {!isSidebarOpen && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-[75%] bg-gradient-to-b from-transparent via-zinc-400/60 dark:via-zinc-600/40 to-transparent pointer-events-none"></div>}
 
@@ -367,6 +375,7 @@ export default function Dashboard() {
                           });
                         } else {
                           setActiveTab(t.key as any);
+                          if (window.innerWidth < 768) setIsSidebarOpen(false);
                         }
                       }}
                       aria-label={t.label}
@@ -474,447 +483,447 @@ export default function Dashboard() {
         <main className={`flex-1 min-w-0 px-6 md:px-10 pt-2 pb-8 md:pt-4 md:pb-10 transition-all duration-300 ${isSidebarOpen ? 'md:ml-[232px]' : 'md:ml-[76px]'}`}>
           <ErrorBoundary>
             {/* Top bar */}
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 mb-8 sm:mb-10" style={{ minHeight: '56px' }}>
-              <div className="flex min-w-0 items-center gap-3 w-full sm:w-auto">
-                <div className={`min-w-0 flex items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 w-full sm:w-auto justify-between ${isSidebarOpen ? 'px-4 sm:px-6 py-1.5 gap-2' : 'px-5 sm:px-8 py-2 sm:py-2.5 gap-4'}`}>
-
-                {/* LEFT - CODAS */}
-                <div className="flex-1 flex items-center justify-start">
-                  <div className="flex items-center gap-2.5 sm:gap-3">
-                    <span className="size-2.5 sm:size-3 rounded-full bg-lime-300 shadow-[0_0_12px_rgba(190,242,100,0.9)] animate-pulse shrink-0"></span>
-                    <span className="text-[17px] font-bold font-display tracking-widest whitespace-nowrap text-white">CODAS</span>
-                  </div>
-                </div>
-
-                {/* CENTER - Calendar */}
-                <div className="hidden sm:flex flex-1 items-center justify-center px-4">
-                  <span className={`flex items-center gap-3 bg-white/5 rounded-full transition-all duration-500 ease-out ${isSidebarOpen ? 'px-4 py-1' : 'px-6 py-1.5'} text-white/90 border border-white/5`}>
-                    <Calendar className="size-4 text-white" strokeWidth={2} />
-                    <span className="text-sm font-medium whitespace-nowrap">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}</span>
-                  </span>
-                </div>
-
-                {/* RIGHT - Synced */}
-                <div className="flex-1 flex items-center justify-end">
-                  {summary?.lastFetchedAt && (
-                    <span className={`flex items-center gap-2 sm:gap-3 bg-lime-300 text-black rounded-full transition-all duration-500 ease-out ${isSidebarOpen ? 'px-4 py-1' : 'px-5 py-1.5'} shadow-[0_0_12px_rgba(190,242,100,0.3)]`}>
-                      <span className="text-xs sm:text-sm font-bold whitespace-nowrap tracking-tight">
-                        Synced {new Date(summary.lastFetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </span>
-                  )}
-                </div>
-
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0 w-full lg:w-auto justify-between lg:justify-end">
-              <div className="flex items-center gap-4 mr-2">
-                <AnimatedNetWorthKpi summary={summary} isPrivacyMode={isPrivacyMode} delta={netWorthDelta} />
-                <div className="hidden sm:block h-10 w-px bg-zinc-300/70" />
-                <div className="hidden sm:block">
-                  <Kpi label="Accounts" value={String(assets.length)} delta={`${landRecords.length} prop.`} />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <NotificationsMenu logs={auditLogs} />
-                <ProfileMenu name={firstName} onLogout={handleLogout} />
-              </div>
-            </div>
-          </div>
-
-          {/* Heading + CTA */}
-          {activeTab === 'overview' && (
-            <div className="flex flex-wrap items-center justify-between gap-y-4 gap-x-6 mb-8">
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-[4rem] leading-[0.9] tracking-tighter text-zinc-900 dark:text-zinc-100 truncate font-light min-w-[200px] flex-1">Welcome, {firstName}</h1>
-              <div className="flex items-center gap-3 shrink-0">
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={isGeneratingPdf}
-                  className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 px-5 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-lg shadow-zinc-900/20 dark:shadow-none"
+            <div className="relative z-50 flex flex-nowrap items-center justify-between gap-2 sm:gap-4 mb-8 sm:mb-10 pb-2 -mb-2" style={{ minHeight: '56px' }}>
+              <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 shrink-0">
+                
+                <button 
+                  onClick={() => setIsSidebarOpen(true)} 
+                  className="md:hidden flex items-center justify-center size-9 sm:size-10 rounded-xl bg-white dark:bg-[#1A1D27] border border-zinc-200 dark:border-[#2E3148] shadow-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors shrink-0 active:scale-95" 
+                  aria-label="Open sidebar"
                 >
-                  {isGeneratingPdf ? (
-                    <div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  ) : (
-                    <FileText className="size-4" />
-                  )}
-                  {isGeneratingPdf ? 'Generating...' : 'Generate PDF Report'}
+                  <Menu className="size-[18px]" strokeWidth={2} />
                 </button>
+
+                <div className={`min-w-0 flex items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 w-auto justify-between px-3 sm:px-4 py-1.5 sm:py-2 gap-2 sm:gap-4`}>
+
+                  {/* LEFT - CODAS */}
+                  <div className="flex shrink-0 items-center justify-start">
+                    <div className="flex items-center gap-2 sm:gap-2.5">
+                      <span className="size-2 md:size-3 rounded-full bg-lime-300 shadow-[0_0_12px_rgba(190,242,100,0.9)] animate-pulse shrink-0"></span>
+                      <span className="text-[13px] sm:text-[16px] md:text-[17px] font-bold font-display tracking-widest whitespace-nowrap text-white">CODAS</span>
+                    </div>
+                  </div>
+
+                  {/* CENTER - Calendar */}
+                  <div className="hidden md:flex flex-1 items-center justify-center px-4">
+                    <span className={`flex items-center gap-3 bg-white/5 rounded-full transition-all duration-500 ease-out ${isSidebarOpen ? 'px-4 py-1' : 'px-6 py-1.5'} text-white/90 border border-white/5`}>
+                      <Calendar className="size-4 text-white" strokeWidth={2} />
+                      <span className="text-sm font-medium whitespace-nowrap">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}</span>
+                    </span>
+                  </div>
+
+                  {/* RIGHT - Synced */}
+                  <div className="flex flex-1 items-center justify-end pl-2 sm:pl-4">
+                    {summary?.lastFetchedAt && (
+                      <span className={`flex items-center gap-1.5 sm:gap-3 bg-lime-300 text-black rounded-full transition-all duration-500 ease-out px-2.5 sm:px-4 py-0.5 sm:py-1.5 shadow-[0_0_12px_rgba(190,242,100,0.3)]`}>
+                        <span className="text-[10px] sm:text-sm font-bold whitespace-nowrap tracking-tight">
+                          <span className="hidden sm:inline">Synced </span>{new Date(summary.lastFetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 justify-end">
+                <div className="flex items-center gap-2 sm:gap-4 mr-1 sm:mr-2">
+                  <AnimatedNetWorthKpi summary={summary} isPrivacyMode={isPrivacyMode} delta={netWorthDelta} />
+                  <div className="hidden md:block h-10 w-px bg-zinc-300/70" />
+                  <div className="hidden md:block">
+                    <Kpi label="Accounts" value={String(assets.length)} delta={`${landRecords.length} prop.`} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <NotificationsMenu logs={auditLogs} />
+                  <ProfileMenu name={firstName} onLogout={handleLogout} />
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Mobile tab bar */}
-          <div className="flex md:hidden items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
-            {tabs.filter(t => !t.isHeader).map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key as any)}
-                className={"shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition active:scale-95 " +
-                  (activeTab === t.key ? "bg-zinc-900 text-white shadow-sm" : "bg-white text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200")}>
-                {t.icon}{t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ════════ OVERVIEW TAB ════════ */}
-          {activeTab === 'family' && (
-            <FamilyVaultPage />
-          )}
-
-          {activeTab === 'loan' && (
-            <LoanEligibility />
-          )}
-
-          {activeTab === 'insurance' && (
-            <InsuranceGapFinder />
-          )}
-
-          {activeTab === 'ancestral' && (
-            <AncestralSearchPage />
-          )}
-
-          {activeTab === 'overview' && (
-            <>
-
-              {/* Stats Cards Row */}
-              {!isLoadingAssets ? (
-                <>
-                  {(() => {
-                    const bankInstCount = new Set(assets.filter(a => a.fiType === 'DEPOSIT').map(a => a.institutionName)).size;
-                    const mfInstCount = new Set(assets.filter(a => a.fiType === 'MUTUAL_FUND').map(a => a.institutionName)).size;
-                    const equityInstCount = new Set(assets.filter(a => a.fiType === 'EQUITY').map(a => a.institutionName)).size;
-                    const insuranceInstCount = new Set(assets.filter(a => a.fiType === 'INSURANCE_POLICIES').map(a => a.institutionName)).size;
-                    const npsInstCount = new Set(assets.filter(a => a.fiType === 'NPS').map(a => a.institutionName)).size;
-                    const gstnInstCount = new Set(assets.filter((a: any) => a.fiType === 'GSTN').map((a: any) => a.institutionName)).size;
-                    const altInstCount = new Set(assets.filter((a: any) => a.fiType === 'ALTERNATIVE').map((a: any) => a.institutionName)).size;
-                    const landInstCount = landRecords.length;
-
-                    const totalInstitutions = bankInstCount + mfInstCount + equityInstCount + insuranceInstCount + npsInstCount + gstnInstCount + altInstCount + landInstCount;
-
-                    const totalDiscovered = summary?.totalWithLand || summary?.totalNetWorth || 0;
-
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 items-start">
-                        {/* Card 1: TOTAL ASSETS DISCOVERED */}
-                        <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27] dark:via-[#21253A] dark:to-[#1A1D27] shadow-[inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-none backdrop-blur-xl rounded-[24px] p-6 border border-zinc-300 dark:border-[#2E3148] flex flex-col justify-between min-h-[220px]">
-                          <div className="flex justify-between items-start">
-                            <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                              Total Assets Discovered
-                            </span>
-                            <button
-                              onClick={() => setIsPrivacyMode(!isPrivacyMode)}
-                              className="size-8 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/15 transition-colors"
-                            >
-                              {isPrivacyMode ? <EyeOff className="size-4" strokeWidth={1.5} /> : <Eye className="size-4" strokeWidth={1.5} />}
-                            </button>
-                          </div>
-                          <div className="mt-6 flex flex-col gap-1.5">
-                            <div className="text-3xl sm:text-4xl md:text-3xl lg:text-4xl font-sans font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
-                              {isPrivacyMode ? '****' : fmt(totalDiscovered)}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[#00A86B] text-[13px] font-medium">
-                              <TrendingUp className="size-4" strokeWidth={2} />
-                              <span>{summary?.lastFetchedAt ? `Updated ${new Date(summary.lastFetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : 'Up to date'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Card 2: ASSETS DISCOVERED */}
-                        <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27] dark:via-[#21253A] dark:to-[#1A1D27] shadow-[inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-none backdrop-blur-xl rounded-[24px] p-6 border border-zinc-300 dark:border-[#2E3148] flex flex-col justify-between min-h-[220px]">
-                          <div className="flex justify-between items-start">
-                            <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                              Institutions Found
-                            </span>
-                            <div className="size-8 rounded-full bg-lime-100/60 dark:bg-lime-400/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                              <Building2 className="size-4" strokeWidth={1.5} />
-                            </div>
-                          </div>
-                          <div className="mt-4 flex flex-col gap-3">
-                            <div className="text-4xl sm:text-5xl font-sans font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
-                              {totalInstitutions}
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {bankInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {bankInstCount} Bank{bankInstCount !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {mfInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {mfInstCount} Mutual Fund{mfInstCount !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {equityInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {equityInstCount} Stock{equityInstCount !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {insuranceInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {insuranceInstCount} Insurance
-                                </span>
-                              )}
-                              {npsInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {npsInstCount} NPS
-                                </span>
-                              )}
-                              {gstnInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {gstnInstCount} GSTN
-                                </span>
-                              )}
-                              {altInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {altInstCount} Alts
-                                </span>
-                              )}
-                              {landInstCount > 0 && (
-                                <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
-                                  {landInstCount} Land Registr{landInstCount !== 1 ? 'ies' : 'y'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Net Worth Container */}
-                        <div className="md:col-span-2 lg:col-span-1 lg:row-span-2 h-full">
-                          <NetWorthContainer data={netWorthData} />
-                        </div>
-
-                        {/* Consumer Engagement Suite */}
-                        {dataConsents.engagement && (
-                          <>
-                            <div className="flex flex-col gap-4 h-full">
-                              <div className="bg-[#18181b] dark:bg-[#1A1D27] text-white rounded-[24px] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_1px_2px_rgba(0,0,0,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-zinc-800/80 dark:border-[#2E3148] flex flex-col justify-between flex-1 min-h-[140px]">
-                                <div className="flex justify-between items-start">
-                                  <span className="text-[13px] font-medium text-zinc-400 uppercase tracking-wide">
-                                    Liabilities / Debts
-                                  </span>
-                                  <div className="size-8 rounded-full bg-rose-950/40 flex items-center justify-center text-rose-500">
-                                    <TrendingDown className="size-4" strokeWidth={1.5} />
-                                  </div>
-                                </div>
-                                <div className="mt-2 flex flex-col gap-1.5">
-                                  <div className="text-3xl sm:text-4xl md:text-3xl lg:text-4xl font-sans font-normal text-rose-100 dark:text-rose-200 tracking-tight">
-                                    {isPrivacyMode ? '****' : fmt(assets.reduce((sum, a) => sum + (a.balance < 0 ? Math.abs(a.balance) : 0), 0))}
-                                  </div>
-                                  <div className="text-zinc-400 text-[13px]">
-                                    Must be settled before distribution
-                                  </div>
-                                </div>
-                              </div>
-                              <DormantAccounts data={dormantData} />
-                            </div>
-
-                            <div className="h-full min-h-[220px]">
-                              <NomineeChecker data={nomineeData} />
-                            </div>
-                          </>
-                        )}
-
-                        {/* Financial Protection Shield */}
-                        <div className="md:col-span-2 lg:col-span-3">
-                          <FinancialShield
-                            totalAssets={summary?.totalWithLand || summary?.totalNetWorth || 0}
-                            totalAccounts={assets.length}
-                            nomineeCoveredCount={nomineeData?.covered ?? 0}
-                            totalNomineeAccounts={nomineeData?.total ?? assets.length}
-                            hasWill={false}
-                            hasDormantAccounts={Array.isArray(dormantData) && dormantData.length > 0}
-                            landRecordsCount={landRecords.length}
-                            hasInsurance={assets.some(a => a.fiType === 'INSURANCE_POLICIES')}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>
-              ) : (
-                <div className="animate-pulse mb-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6 items-start">
-                    <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[220px]"></div>
-                    <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[220px]"></div>
-                    <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[480px] md:col-span-2 lg:col-span-1 lg:row-span-2"></div>
-                    <div className="flex flex-col gap-5 h-full">
-                      <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[140px]"></div>
-                      <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[80px]"></div>
-                    </div>
-                    <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-full min-h-[220px]"></div>
-                  </div>
+            {/* Heading + CTA */}
+            {activeTab === 'overview' && (
+              <div className="flex flex-wrap items-center justify-between gap-y-4 gap-x-6 mb-8">
+                <h1 className="font-display text-4xl sm:text-5xl lg:text-[4rem] leading-[0.9] tracking-tighter text-zinc-900 dark:text-zinc-100 truncate font-light min-w-[200px] flex-1">Welcome, {firstName}</h1>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={handleGenerateReport}
+                    disabled={isGeneratingPdf}
+                    className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 px-5 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-lg shadow-zinc-900/20 dark:shadow-none"
+                  >
+                    {isGeneratingPdf ? (
+                      <div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    ) : (
+                      <FileText className="size-4" />
+                    )}
+                    {isGeneratingPdf ? 'Generating...' : 'Generate PDF Report'}
+                  </button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Loading */}
-              {isLoadingAssets && (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="bg-white rounded-2xl p-6 shadow-sm animate-pulse">
-                      <div className="flex items-start justify-between mb-4"><div className="size-10 rounded-xl bg-zinc-100" /><div className="h-4 w-16 bg-zinc-100 rounded-full" /></div>
-                      <div className="h-3 w-24 bg-zinc-100 rounded mb-2" /><div className="h-4 w-32 bg-zinc-100 rounded mb-4" /><div className="h-7 w-28 bg-zinc-100 rounded" />
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Mobile tab bar removed in favor of off-canvas sidebar */}
 
-            </>
-          )}
+            {/* ════════ OVERVIEW TAB ════════ */}
+            {activeTab === 'family' && (
+              <FamilyVaultPage />
+            )}
 
-          {/* ════════ ASSET DISCOVERY TAB ════════ */}
-          {activeTab === 'discovery' && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
-              {/* Search and Filters */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 bg-white dark:bg-[#1A1D27] rounded-full pl-3 pr-2 py-1.5 shadow-sm w-full sm:w-72 shrink-0 border border-zinc-200/50 dark:border-[#2E3148]">
-                    <Search className="size-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />
-                    <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search assets, institutions…"
-                      className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-zinc-400 dark:text-zinc-200" />
-                    {query && <button onClick={() => setQuery('')} className="text-[10px] text-zinc-500 hover:text-zinc-900 px-2 py-1 rounded-full hover:bg-zinc-100 dark:hover:bg-white/10">Clear</button>}
-                  </div>
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-                    <button aria-label="Filters" className="shrink-0 size-9 rounded-full bg-white dark:bg-[#1A1D27] grid place-items-center shadow-sm hover:bg-zinc-100 dark:hover:bg-white/5 transition border border-zinc-200/50 dark:border-[#2E3148] text-zinc-900 dark:text-zinc-300">
-                      <SlidersHorizontal className="size-3.5" strokeWidth={1.75} />
-                    </button>
+            {activeTab === 'loan' && (
+              <LoanEligibility />
+            )}
+
+            {activeTab === 'insurance' && (
+              <InsuranceGapFinder />
+            )}
+
+            {activeTab === 'ancestral' && (
+              <AncestralSearchPage />
+            )}
+
+            {activeTab === 'overview' && (
+              <>
+
+                {/* Stats Cards Row */}
+                {!isLoadingAssets ? (
+                  <>
                     {(() => {
-                      const allKeys = Object.keys(FILTER_META) as FilterKey[];
-                      const visibleKeys = allKeys.slice(0, 5);
-                      const hiddenKeys = allKeys.slice(5);
+                      const bankInstCount = new Set(assets.filter(a => a.fiType === 'DEPOSIT').map(a => a.institutionName)).size;
+                      const mfInstCount = new Set(assets.filter(a => a.fiType === 'MUTUAL_FUND').map(a => a.institutionName)).size;
+                      const equityInstCount = new Set(assets.filter(a => a.fiType === 'EQUITY').map(a => a.institutionName)).size;
+                      const insuranceInstCount = new Set(assets.filter(a => a.fiType === 'INSURANCE_POLICIES').map(a => a.institutionName)).size;
+                      const npsInstCount = new Set(assets.filter(a => a.fiType === 'NPS').map(a => a.institutionName)).size;
+                      const gstnInstCount = new Set(assets.filter((a: any) => a.fiType === 'GSTN').map((a: any) => a.institutionName)).size;
+                      const altInstCount = new Set(assets.filter((a: any) => a.fiType === 'ALTERNATIVE').map((a: any) => a.institutionName)).size;
+                      const landInstCount = landRecords.length;
+
+                      const totalInstitutions = bankInstCount + mfInstCount + equityInstCount + insuranceInstCount + npsInstCount + gstnInstCount + altInstCount + landInstCount;
+
+                      const totalDiscovered = summary?.totalWithLand || summary?.totalNetWorth || 0;
+
                       return (
-                        <>
-                          {visibleKeys.map(key => (
-                            <FilterChip key={key} active={filter === key} onClick={() => setFilter(key)}>
-                              {FILTER_META[key].icon}{FILTER_META[key].label}
-                            </FilterChip>
-                          ))}
-                          {hiddenKeys.length > 0 && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition active:scale-95 ${hiddenKeys.includes(filter as FilterKey) ? "bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900" : "bg-white dark:bg-[#1A1D27] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200/50 dark:border-[#2E3148]"}`}>
-                                  More <ChevronDown className="size-3" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#1A1D27] border border-zinc-200 dark:border-[#2E3148]">
-                                {hiddenKeys.map(key => (
-                                  <DropdownMenuItem key={key} onClick={() => setFilter(key)} className="flex items-center gap-2 text-xs py-2 cursor-pointer focus:bg-zinc-100 dark:focus:bg-white/10 outline-none">
-                                    {FILTER_META[key].icon}{FILTER_META[key].label}
-                                    {filter === key && <span className="ml-auto size-1.5 rounded-full bg-lime-500" />}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 items-start">
+                          {/* Card 1: TOTAL ASSETS DISCOVERED */}
+                          <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27] dark:via-[#21253A] dark:to-[#1A1D27] shadow-[inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-none backdrop-blur-xl rounded-[24px] p-6 border border-zinc-300 dark:border-[#2E3148] flex flex-col justify-between min-h-[220px]">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                Total Assets Discovered
+                              </span>
+                              <button
+                                onClick={() => setIsPrivacyMode(!isPrivacyMode)}
+                                className="size-8 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/15 transition-colors"
+                              >
+                                {isPrivacyMode ? <EyeOff className="size-4" strokeWidth={1.5} /> : <Eye className="size-4" strokeWidth={1.5} />}
+                              </button>
+                            </div>
+                            <div className="mt-6 flex flex-col gap-1.5">
+                              <div className="text-3xl sm:text-4xl md:text-3xl lg:text-4xl font-sans font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                {isPrivacyMode ? '****' : fmt(totalDiscovered)}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[#00A86B] text-[13px] font-medium">
+                                <TrendingUp className="size-4" strokeWidth={2} />
+                                <span>{summary?.lastFetchedAt ? `Updated ${new Date(summary.lastFetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : 'Up to date'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Card 2: ASSETS DISCOVERED */}
+                          <div className="bg-gradient-to-br from-zinc-200/90 via-zinc-100/90 to-zinc-300/90 dark:from-[#1A1D27] dark:via-[#21253A] dark:to-[#1A1D27] shadow-[inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-none backdrop-blur-xl rounded-[24px] p-6 border border-zinc-300 dark:border-[#2E3148] flex flex-col justify-between min-h-[220px]">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                Institutions Found
+                              </span>
+                              <div className="size-8 rounded-full bg-lime-100/60 dark:bg-lime-400/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                                <Building2 className="size-4" strokeWidth={1.5} />
+                              </div>
+                            </div>
+                            <div className="mt-4 flex flex-col gap-3">
+                              <div className="text-4xl sm:text-5xl font-sans font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                {totalInstitutions}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {bankInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {bankInstCount} Bank{bankInstCount !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                                {mfInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {mfInstCount} Mutual Fund{mfInstCount !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                                {equityInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {equityInstCount} Stock{equityInstCount !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                                {insuranceInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {insuranceInstCount} Insurance
+                                  </span>
+                                )}
+                                {npsInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {npsInstCount} NPS
+                                  </span>
+                                )}
+                                {gstnInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {gstnInstCount} GSTN
+                                  </span>
+                                )}
+                                {altInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {altInstCount} Alts
+                                  </span>
+                                )}
+                                {landInstCount > 0 && (
+                                  <span className="bg-white dark:bg-white/10 shadow-sm text-zinc-700 dark:text-zinc-300 text-[11px] font-medium px-3 py-1 rounded-full">
+                                    {landInstCount} Land Registr{landInstCount !== 1 ? 'ies' : 'y'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Net Worth Container */}
+                          <div className="md:col-span-2 lg:col-span-1 lg:row-span-2 h-full">
+                            <NetWorthContainer data={netWorthData} />
+                          </div>
+
+                          {/* Consumer Engagement Suite */}
+                          {dataConsents.engagement && (
+                            <>
+                              <div className="flex flex-col gap-4 h-full">
+                                <div className="bg-[#18181b] dark:bg-[#1A1D27] text-white rounded-[24px] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_1px_2px_rgba(0,0,0,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] border border-zinc-800/80 dark:border-[#2E3148] flex flex-col justify-between flex-1 min-h-[140px]">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[13px] font-medium text-zinc-400 uppercase tracking-wide">
+                                      Liabilities / Debts
+                                    </span>
+                                    <div className="size-8 rounded-full bg-rose-950/40 flex items-center justify-center text-rose-500">
+                                      <TrendingDown className="size-4" strokeWidth={1.5} />
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 flex flex-col gap-1.5">
+                                    <div className="text-3xl sm:text-4xl md:text-3xl lg:text-4xl font-sans font-normal text-rose-100 dark:text-rose-200 tracking-tight">
+                                      {isPrivacyMode ? '****' : fmt(assets.reduce((sum, a) => sum + (a.balance < 0 ? Math.abs(a.balance) : 0), 0))}
+                                    </div>
+                                    <div className="text-zinc-400 text-[13px]">
+                                      Must be settled before distribution
+                                    </div>
+                                  </div>
+                                </div>
+                                <DormantAccounts data={dormantData} />
+                              </div>
+
+                              <div className="h-full min-h-[220px]">
+                                <NomineeChecker data={nomineeData} />
+                              </div>
+                            </>
                           )}
-                        </>
+
+                          {/* Financial Protection Shield */}
+                          <div className="md:col-span-2 lg:col-span-3">
+                            <FinancialShield
+                              totalAssets={summary?.totalWithLand || summary?.totalNetWorth || 0}
+                              totalAccounts={assets.length}
+                              nomineeCoveredCount={nomineeData?.covered ?? 0}
+                              totalNomineeAccounts={nomineeData?.total ?? assets.length}
+                              hasWill={false}
+                              hasDormantAccounts={Array.isArray(dormantData) && dormantData.length > 0}
+                              landRecordsCount={landRecords.length}
+                              hasInsurance={assets.some(a => a.fiType === 'INSURANCE_POLICIES')}
+                            />
+                          </div>
+                        </div>
                       );
                     })()}
-                  </div>
-                </div>
-
-                <button onClick={() => setShowAddManualAsset(true)}
-                  className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-zinc-900 text-white pl-2 pr-5 py-2 text-sm font-medium hover:bg-zinc-800 active:scale-95 transition">
-                  <span className="size-7 rounded-full bg-lime-300 text-zinc-900 grid place-items-center"><Plus className="size-4" strokeWidth={2.5} /></span>
-                  Add Asset
-                </button>
-              </div>
-
-              {/* Loading */}
-              {isLoadingAssets && (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm animate-pulse">
-                      <div className="flex items-start justify-between mb-4"><div className="size-10 rounded-xl bg-zinc-100 dark:bg-white/10" /><div className="h-4 w-16 bg-zinc-100 dark:bg-white/10 rounded-full" /></div>
-                      <div className="h-3 w-24 bg-zinc-100 dark:bg-white/10 rounded mb-2" /><div className="h-4 w-32 bg-zinc-100 dark:bg-white/10 rounded mb-4" /><div className="h-7 w-28 bg-zinc-100 dark:bg-white/10 rounded" />
+                  </>
+                ) : (
+                  <div className="animate-pulse mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6 items-start">
+                      <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[220px]"></div>
+                      <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[220px]"></div>
+                      <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[480px] md:col-span-2 lg:col-span-1 lg:row-span-2"></div>
+                      <div className="flex flex-col gap-5 h-full">
+                        <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[140px]"></div>
+                        <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-[80px]"></div>
+                      </div>
+                      <div className="bg-zinc-200/50 dark:bg-[#1A1D27] rounded-[24px] h-full min-h-[220px]"></div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                )}
 
-              {/* Asset sections by category */}
-              {!isLoadingAssets && Object.keys(grouped).length > 0 && (
-                <div className="mb-8 mt-2">
-                  <h2 className="font-display text-3xl md:text-4xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-900 to-zinc-500 dark:from-zinc-100 dark:to-zinc-400 font-medium relative inline-block pb-2">
-                    Assets Discovered
-                    <span className="absolute bottom-0 left-0 w-3/4 h-[3px] bg-gradient-to-r from-zinc-900 to-transparent dark:from-zinc-100 rounded-full"></span>
-                  </h2>
-                </div>
-              )}
-              {!isLoadingAssets && Object.entries(grouped).map(([fiType, items]) => (
-                <div key={fiType}>
-                  <SectionHeader title={FILTER_META[fiType as FilterKey]?.label || fiType.replace('_', ' ')} count={String(items.length)} label="Accounts" totalValue={items.reduce((sum, a) => sum + (a.balance || 0), 0)} />
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10" style={{ contain: 'layout', minHeight: '200px' }}>
-                    {items.map((asset: any) => asset._isManual ? (
-                      <ManualAssetCard
-                        key={`manual-${asset.id}`}
-                        asset={asset}
-                        onUpdateValue={async (val) => { await api.patch(`/manual/assets/${asset.id}`, { currentValuePaise: val }); loadData(); }}
-                        onDelete={async () => { await api.delete(`/manual/assets/${asset.id}`); loadData(); }}
-                      />
-                    ) : (
-                      <AssetCard key={asset.id} asset={asset} fmt={fmt} />
+                {/* Loading */}
+                {isLoadingAssets && (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="bg-white rounded-2xl p-6 shadow-sm animate-pulse">
+                        <div className="flex items-start justify-between mb-4"><div className="size-10 rounded-xl bg-zinc-100" /><div className="h-4 w-16 bg-zinc-100 rounded-full" /></div>
+                        <div className="h-3 w-24 bg-zinc-100 rounded mb-2" /><div className="h-4 w-32 bg-zinc-100 rounded mb-4" /><div className="h-7 w-28 bg-zinc-100 rounded" />
+                      </div>
                     ))}
                   </div>
-                </div>
-              ))}
+                )}
 
-              {/* Empty state */}
-              {!isLoadingAssets && filteredAssets.length === 0 && (
-                <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-10 text-center shadow-sm">
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{query || filter !== 'all' ? 'No assets match your search.' : 'No financial assets found.'}</p>
-                  {(query || filter !== 'all') ? (
-                    <button onClick={() => { setQuery(''); setFilter('all'); }} className="mt-3 text-xs font-medium text-zinc-900 dark:text-zinc-200 underline underline-offset-4">Reset filters</button>
-                  ) : (
-                    <button onClick={() => navigate('/consent')} className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 pl-2 pr-5 py-2 text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-95 transition">
-                      <span className="size-7 rounded-full bg-lime-300 text-zinc-900 grid place-items-center"><Plus className="size-4" strokeWidth={2.5} /></span>
-                      Grant Consent to Fetch Data
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+              </>
+            )}
 
-          {/* ════════ LAND TAB ════════ */}
-          {activeTab === 'land' && dataConsents.land && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
-              <div className="mb-2">
-                <SectionHeader title="Property Records" count={String(parcelsToDisplay.length)} label="Properties" totalValue={parcelsToDisplay.reduce((sum, p) => sum + (p.estimatedValue || 0), 0)}>
-                  <button
-                    onClick={() => setSearchParams({ tab: 'ancestral' })}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1A1D27] hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200 dark:border-[#2E3148] text-zinc-800 dark:text-zinc-200 rounded-full text-sm font-medium transition active:scale-95 shadow-sm"
-                  >
-                    <Search className="size-3.5 text-zinc-500" strokeWidth={2} />
-                    Find Ancestral Property
+            {/* ════════ ASSET DISCOVERY TAB ════════ */}
+            {activeTab === 'discovery' && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+                {/* Search and Filters */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 bg-white dark:bg-[#1A1D27] rounded-full pl-3 pr-2 py-1.5 shadow-sm w-full sm:w-72 shrink-0 border border-zinc-200/50 dark:border-[#2E3148]">
+                      <Search className="size-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />
+                      <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search assets, institutions…"
+                        className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-zinc-400 dark:text-zinc-200" />
+                      {query && <button onClick={() => setQuery('')} className="text-[10px] text-zinc-500 hover:text-zinc-900 px-2 py-1 rounded-full hover:bg-zinc-100 dark:hover:bg-white/10">Clear</button>}
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+                      <button aria-label="Filters" className="shrink-0 size-9 rounded-full bg-white dark:bg-[#1A1D27] grid place-items-center shadow-sm hover:bg-zinc-100 dark:hover:bg-white/5 transition border border-zinc-200/50 dark:border-[#2E3148] text-zinc-900 dark:text-zinc-300">
+                        <SlidersHorizontal className="size-3.5" strokeWidth={1.75} />
+                      </button>
+                      {(() => {
+                        const allKeys = Object.keys(FILTER_META) as FilterKey[];
+                        const visibleKeys = allKeys.slice(0, 5);
+                        const hiddenKeys = allKeys.slice(5);
+                        return (
+                          <>
+                            {visibleKeys.map(key => (
+                              <FilterChip key={key} active={filter === key} onClick={() => setFilter(key)}>
+                                {FILTER_META[key].icon}{FILTER_META[key].label}
+                              </FilterChip>
+                            ))}
+                            {hiddenKeys.length > 0 && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition active:scale-95 ${hiddenKeys.includes(filter as FilterKey) ? "bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900" : "bg-white dark:bg-[#1A1D27] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200/50 dark:border-[#2E3148]"}`}>
+                                    More <ChevronDown className="size-3" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#1A1D27] border border-zinc-200 dark:border-[#2E3148]">
+                                  {hiddenKeys.map(key => (
+                                    <DropdownMenuItem key={key} onClick={() => setFilter(key)} className="flex items-center gap-2 text-xs py-2 cursor-pointer focus:bg-zinc-100 dark:focus:bg-white/10 outline-none">
+                                      {FILTER_META[key].icon}{FILTER_META[key].label}
+                                      {filter === key && <span className="ml-auto size-1.5 rounded-full bg-lime-500" />}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  <button onClick={() => setShowAddManualAsset(true)}
+                    className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-zinc-900 text-white pl-2 pr-5 py-2 text-sm font-medium hover:bg-zinc-800 active:scale-95 transition">
+                    <span className="size-7 rounded-full bg-lime-300 text-zinc-900 grid place-items-center"><Plus className="size-4" strokeWidth={2.5} /></span>
+                    Add Asset
                   </button>
-                </SectionHeader>
+                </div>
+
+                {/* Loading */}
+                {isLoadingAssets && (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm animate-pulse">
+                        <div className="flex items-start justify-between mb-4"><div className="size-10 rounded-xl bg-zinc-100 dark:bg-white/10" /><div className="h-4 w-16 bg-zinc-100 dark:bg-white/10 rounded-full" /></div>
+                        <div className="h-3 w-24 bg-zinc-100 dark:bg-white/10 rounded mb-2" /><div className="h-4 w-32 bg-zinc-100 dark:bg-white/10 rounded mb-4" /><div className="h-7 w-28 bg-zinc-100 dark:bg-white/10 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Asset sections by category */}
+                {!isLoadingAssets && Object.keys(grouped).length > 0 && (
+                  <div className="mb-8 mt-2">
+                    <h2 className="font-display text-3xl md:text-4xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-900 to-zinc-500 dark:from-zinc-100 dark:to-zinc-400 font-medium relative inline-block pb-2">
+                      Assets Discovered
+                      <span className="absolute bottom-0 left-0 w-3/4 h-[3px] bg-gradient-to-r from-zinc-900 to-transparent dark:from-zinc-100 rounded-full"></span>
+                    </h2>
+                  </div>
+                )}
+                {!isLoadingAssets && Object.entries(grouped).map(([fiType, items]) => (
+                  <div key={fiType}>
+                    <SectionHeader title={FILTER_META[fiType as FilterKey]?.label || fiType.replace('_', ' ')} count={String(items.length)} label="Accounts" totalValue={items.reduce((sum, a) => sum + (a.balance || 0), 0)} />
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10" style={{ contain: 'layout', minHeight: '200px' }}>
+                      {items.map((asset: any) => asset._isManual ? (
+                        <ManualAssetCard
+                          key={`manual-${asset.id}`}
+                          asset={asset}
+                          onUpdateValue={async (val) => { await api.patch(`/manual/assets/${asset.id}`, { currentValuePaise: val }); loadData(); }}
+                          onDelete={async () => { await api.delete(`/manual/assets/${asset.id}`); loadData(); }}
+                        />
+                      ) : (
+                        <AssetCard key={asset.id} asset={asset} fmt={fmt} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Empty state */}
+                {!isLoadingAssets && filteredAssets.length === 0 && (
+                  <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-10 text-center shadow-sm">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">{query || filter !== 'all' ? 'No assets match your search.' : 'No financial assets found.'}</p>
+                    {(query || filter !== 'all') ? (
+                      <button onClick={() => { setQuery(''); setFilter('all'); }} className="mt-3 text-xs font-medium text-zinc-900 dark:text-zinc-200 underline underline-offset-4">Reset filters</button>
+                    ) : (
+                      <button onClick={() => navigate('/consent')} className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 pl-2 pr-5 py-2 text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-95 transition">
+                        <span className="size-7 rounded-full bg-lime-300 text-zinc-900 grid place-items-center"><Plus className="size-4" strokeWidth={2.5} /></span>
+                        Grant Consent to Fetch Data
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-              <LandPropertyMap parcels={parcelsToDisplay} hasLandConsent={hasLandConsent} />
-            </div>
-          )}
-          {activeTab === 'land' && !dataConsents.land && (
-            <div className="py-20 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1A1D27] rounded-2xl shadow-sm border border-zinc-200 dark:border-[#2E3148]">
-              <Building2 className="size-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
-              <p>Land & Property syncing is disabled in your consent settings.</p>
-            </div>
-          )}
+            )}
 
-          {/* ════════ UNCLAIMED TAB ════════ */}
-          {activeTab === 'unclaimed' && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
-              <UnclaimedAssets />
-            </div>
-          )}
+            {/* ════════ LAND TAB ════════ */}
+            {activeTab === 'land' && dataConsents.land && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+                <div className="mb-2">
+                  <SectionHeader title="Property Records" count={String(parcelsToDisplay.length)} label="Properties" totalValue={parcelsToDisplay.reduce((sum, p) => sum + (p.estimatedValue || 0), 0)}>
+                    <button
+                      onClick={() => setSearchParams({ tab: 'ancestral' })}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1A1D27] hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200 dark:border-[#2E3148] text-zinc-800 dark:text-zinc-200 rounded-full text-sm font-medium transition active:scale-95 shadow-sm"
+                    >
+                      <Search className="size-3.5 text-zinc-500" strokeWidth={2} />
+                      Find Ancestral Property
+                    </button>
+                  </SectionHeader>
+                </div>
+                <LandPropertyMap parcels={parcelsToDisplay} hasLandConsent={hasLandConsent} />
+              </div>
+            )}
+            {activeTab === 'land' && !dataConsents.land && (
+              <div className="py-20 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1A1D27] rounded-2xl shadow-sm border border-zinc-200 dark:border-[#2E3148]">
+                <Building2 className="size-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
+                <p>Land & Property syncing is disabled in your consent settings.</p>
+              </div>
+            )}
+
+            {/* ════════ UNCLAIMED TAB ════════ */}
+            {activeTab === 'unclaimed' && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+                <UnclaimedAssets />
+              </div>
+            )}
 
 
 
-          {/* ════════ ANALYTICS TAB ════════ */}
-          {activeTab === 'analytics' && <SpendDashboard />}
+            {/* ════════ ANALYTICS TAB ════════ */}
+            {activeTab === 'analytics' && <SpendDashboard />}
 
-          {/* ════════ DIGITAL WILL TAB ════════ */}
-          {activeTab === 'will' && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
-              <WillBuilder />
-            </div>
-          )}
+            {/* ════════ DIGITAL WILL TAB ════════ */}
+            {activeTab === 'will' && (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+                <WillBuilder />
+              </div>
+            )}
           </ErrorBoundary>
         </main>
       </div>
@@ -1007,13 +1016,13 @@ function ProfileMenu({ name, onLogout }: { name: string; onLogout: () => void })
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(v => !v)} aria-label="Profile menu" aria-expanded={open}
-        className="flex items-center gap-2 bg-white dark:bg-white/10 rounded-full pl-1 pr-3 py-1 shadow-sm hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-[0.98] transition border border-transparent dark:border-white/10">
-        <img src={advisor1} alt={name} width={32} height={32} className="size-8 rounded-full object-cover" />
-        <span className="hidden sm:flex flex-col items-start leading-tight">
+        className="flex items-center gap-1 sm:gap-2 bg-white dark:bg-white/10 rounded-full pl-1 pr-2 md:pr-3 py-1 shadow-sm hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-[0.98] transition border border-transparent dark:border-white/10">
+        <img src={advisor1} alt={name} width={32} height={32} className="size-6 sm:size-8 rounded-full object-cover" />
+        <span className="hidden md:flex flex-col items-start leading-tight">
           <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{name}</span>
           <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Codas</span>
         </span>
-        <ChevronDown className={"size-3.5 text-zinc-500 dark:text-zinc-400 transition " + (open ? "rotate-180" : "")} strokeWidth={2} />
+        <ChevronDown className={"hidden md:block size-3.5 text-zinc-500 dark:text-zinc-400 transition " + (open ? "rotate-180" : "")} strokeWidth={2} />
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#21253A] rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/10 py-2 z-30">
@@ -1038,9 +1047,9 @@ function MenuItem({ children, icon, onClick }: { children: React.ReactNode; icon
 function Kpi({ label, value, delta }: { label: string; value: string; delta: string }) {
   const isTrend = delta.includes('%');
   return (
-    <div className="flex items-baseline gap-3">
-      <span className="text-3xl md:text-4xl lg:text-5xl font-sans leading-[0.8] font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">{value}</span>
-      <div className="flex flex-col">
+    <div className="flex items-baseline gap-1.5 sm:gap-3">
+      <span className="text-[18px] sm:text-3xl md:text-4xl lg:text-5xl font-sans leading-[0.8] font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">{value}</span>
+      <div className="hidden md:flex flex-col">
         <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500 dark:text-zinc-400">{label}</span>
         <span className={`text-xs font-medium inline-flex items-center gap-0.5 ${isTrend ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
           {isTrend && <TrendingUp className="size-3" strokeWidth={2} />}
@@ -1085,7 +1094,7 @@ function SectionHeader({ title, count, label, totalValue, children }: { title: s
   return (
     <div className="flex items-center justify-between gap-3 mb-5 w-full">
       <div className="flex items-baseline gap-3">
-        <h2 className="text-[26px] font-sans font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h2>
+        <h2 className="text-[26px] font-sans font-normal tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h2>
         <span className="text-sm text-zinc-500 dark:text-zinc-400 flex items-baseline gap-1.5">
           {totalValue !== undefined && (
             <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
