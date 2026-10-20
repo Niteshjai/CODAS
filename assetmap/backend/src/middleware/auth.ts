@@ -19,8 +19,7 @@ export async function verifyAccessToken(
       : request.cookies['access_token'];
 
     if (!token) {
-      reply.status(401).send({ success: false, error: { code: 'NO_TOKEN', message: 'Authentication required' } })
-      return
+      return reply.status(401).send({ success: false, error: { code: 'NO_TOKEN', message: 'Authentication required' } })
     }
 
     let payload: { sub: string; role: string; sessionId: string; type: string };
@@ -36,8 +35,7 @@ export async function verifyAccessToken(
     }
 
     if (payload.type !== 'access') {
-      reply.status(401).send({ success: false, error: { code: 'WRONG_TOKEN_TYPE', message: 'Invalid token type' } })
-      return
+      return reply.status(401).send({ success: false, error: { code: 'WRONG_TOKEN_TYPE', message: 'Invalid token type' } })
     }
 
     const [session, blocked] = await Promise.all([
@@ -46,26 +44,22 @@ export async function verifyAccessToken(
     ])
 
     if (!session || blocked) {
-      reply.status(401).send({ success: false, error: { code: 'SESSION_INVALID', message: 'Session expired or revoked' } })
-      return
+      return reply.status(401).send({ success: false, error: { code: 'SESSION_INVALID', message: 'Session expired or revoked' } })
     }
 
     request.user = { id: payload.sub, role: payload.role, sessionId: payload.sessionId }
   } catch (err) {
-    reply.status(401).send({ success: false, error: { code: 'TOKEN_INVALID', message: 'Invalid or expired token' } })
-    return
+    return reply.status(401).send({ success: false, error: { code: 'TOKEN_INVALID', message: 'Invalid or expired token' } })
   }
 }
 
 export function requireRole(...allowedRoles: string[]) {
   return async function(request: FastifyRequest, reply: FastifyReply) {
     if (!request.user) {
-      reply.status(401).send({ success: false, error: { code: 'UNAUTHENTICATED' } })
-      return
+      return reply.status(401).send({ success: false, error: { code: 'UNAUTHENTICATED' } })
     }
     if (!allowedRoles.includes(request.user.role)) {
-      reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } })
-      return
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } })
     }
   }
 }
@@ -75,8 +69,7 @@ export function requireOwnership(paramName: string = 'userId') {
     const paramUserId = (request.params as Record<string, any>)[paramName]
     if (request.user?.role === 'admin') return // admins bypass
     if (request.user?.id !== paramUserId) {
-      reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to this resource' } })
-      return
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to this resource' } })
     }
   }
 }

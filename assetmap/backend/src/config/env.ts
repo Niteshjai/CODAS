@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000'),
-  DATABASE_URL: z.string().url('DATABASE_URL must be a valid connection string'),
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   MOCK_MODE: z.enum(['true', 'false']).default('false'),
   REDIS_URL: z.string().optional(),
   
@@ -20,7 +20,7 @@ const envSchema = z.object({
   AADHAAR_SALT: z.string().min(16, 'AADHAAR_SALT must be at least 16 characters'),
 
   // External APIs
-  TWILIO_SID: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(),
   TWILIO_VERIFY_SERVICE_SID: z.string().optional(),

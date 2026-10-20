@@ -82,7 +82,7 @@ export async function transformForHRPayroll(
   const hasSalary    = avgSalary > 0
 
   const totalAssets  = assets.reduce(
-    (s, a) => s + parseInt(a.current_value_paise), 0
+    (s, a) => s + parseInt(a.current_value_paise ?? '0', 10), 0
   )
   const hasPF = assets.some(a => a.asset_class === 'EPF')
   const hasNPS= assets.some(a => a.asset_class === 'NPS')
@@ -131,10 +131,10 @@ export async function transformForHRPayroll(
       hasNPS,
       hasGratuity: false,
       pfBalance:   pfBalance
-        ? netWorthLabel(parseInt(pfBalance.current_value_paise))
+        ? netWorthLabel(parseInt(pfBalance.current_value_paise ?? '0', 10))
         : undefined,
       npsBalance:  npsBalance
-        ? netWorthLabel(parseInt(npsBalance.current_value_paise))
+        ? netWorthLabel(parseInt(npsBalance.current_value_paise ?? '0', 10))
         : undefined,
     },
 

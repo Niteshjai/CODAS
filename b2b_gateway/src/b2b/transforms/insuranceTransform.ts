@@ -133,7 +133,13 @@ export async function transformForInsurance(
       coverageNeededPaise:5000000_00,
     })
   }
-  if (!assets.some(a => a.asset_class === 'PROPERTY' && a)) {
+  const hasPropertyAssets = assets.some(a =>
+    ['LAND', 'PROPERTY'].includes(a.asset_class)
+  )
+  const hasPropertyInsurance = policies.some(p => p.policy_type === 'PROPERTY')
+  const hasVehicleInsurance = policies.some(p => p.policy_type === 'VEHICLE')
+
+  if (hasPropertyAssets && !hasPropertyInsurance) {
     recommendations.push({
       productType:        'HOME_INSURANCE',
       reason:             'Property assets detected without insurance',
@@ -144,7 +150,7 @@ export async function transformForInsurance(
 
   const monthlyIncome = 0  // derived from AA tx data (simplified)
   const totalAssets   = assets.reduce(
-    (s, a) => s + parseInt(a.current_value_paise), 0
+    (s, a) => s + parseInt(a.current_value_paise ?? '0', 10), 0
   )
 
   return {
@@ -159,8 +165,8 @@ export async function transformForInsurance(
       hasTermPlan:           gap?.has_term_plan ?? false,
       hasHealthInsurance:    gap?.has_health_cover ?? false,
       hasCriticalIllness:    gap?.has_critical_illness ?? false,
-      hasPropertyInsurance:  false,
-      hasVehicleInsurance:   false,
+      hasPropertyInsurance,
+      hasVehicleInsurance,
       totalLifeCoverPaise:   gap?.total_life_cover_paise
         ? parseInt(gap.total_life_cover_paise) : 0,
       totalHealthCoverPaise: gap?.total_health_cover_paise
@@ -188,9 +194,7 @@ export async function transformForInsurance(
       estimatedAnnualIncomePaise:   gap?.annual_income_paise
         ? parseInt(gap.annual_income_paise) : 0,
       netWorthPaise:                totalAssets,
-      hasPropertyAssets:            assets.some(a =>
-        ['LAND','PROPERTY'].includes(a.asset_class)
-      ),
+      hasPropertyAssets,
       hasOutstandingLoans:          false,
       monthlyObligationsPaise:      0,
     },

@@ -49,8 +49,10 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // POST /api/auth/dev-login — bypass for development
   // ─────────────────────────────────────────────
   fastify.post('/dev-login', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Dev login is disabled in production'));
+    }
     try {
-      // Allow dev login in production as per user request
 
       const res = await pool.query('SELECT id, name_encrypted FROM users ORDER BY created_at ASC LIMIT 1');
       if (res.rows.length === 0) {
@@ -331,7 +333,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/phone/verify', {
     schema: { body: PhoneVerifySchema },
-    config: { rateLimit: { max: 100, timeWindow: '3 seconds' } }
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { transactionId, otp } = request.body as Record<string, any>;
@@ -703,6 +705,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
 
       // Attach verified email to registration store
       regData.email = txn.email;
+      await otpStore.updatePendingRegistration(registrationToken, regData);
 
       return reply.send(successResponse({ message: 'Email verified successfully.' }));
     } catch (error) {

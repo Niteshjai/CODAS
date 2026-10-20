@@ -45,6 +45,7 @@ import { ancestralRoutes } from './routes/ancestral';
 import { startAncestralSearchWorker } from './workers/ancestralSearchWorker';
 import { twoFactorRoutes } from './routes/twoFactor';
 import { startTwoFactorSweeper } from './cron/twoFactorSweeper';
+import { verifyAccessToken, requireRole } from './middleware/auth';
 
 const app = Fastify({
   logger: {
@@ -189,7 +190,9 @@ async function registerRoutes() {
   await app.register(ancestralRoutes);
   await app.register(twoFactorRoutes);
 
-  app.post('/api/admin/run-migration', async (req, reply) => {
+  app.post('/api/admin/run-migration', {
+    preHandler: [verifyAccessToken, requireRole('admin')],
+  }, async (req, reply) => {
     const fs = require('fs');
     const path = require('path');
     const sql = fs.readFileSync(path.join(__dirname, 'db', 'migrations', '011_plans_billing.sql'), 'utf-8');

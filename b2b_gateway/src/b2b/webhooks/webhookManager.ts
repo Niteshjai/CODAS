@@ -1,16 +1,13 @@
 import { Queue } from 'bullmq'
 import { Pool } from 'pg'
+import { redis } from '../../db/redis.js'
 
-const redisConnection = {
-  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
-}
-
-export const webhookQueue = new Queue('b2b-webhooks', { 
-  connection: redisConnection,
+export const webhookQueue = new Queue('b2b-webhooks', {
+  connection: redis,
   defaultJobOptions: {
     attempts: 5,
     backoff: {
-      type: 'customBackoff'
+      type: 'custom',
     }
   }
 })

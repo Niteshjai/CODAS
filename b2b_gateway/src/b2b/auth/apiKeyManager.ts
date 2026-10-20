@@ -1,8 +1,6 @@
 import { Pool }     from 'pg'
 import { createHash, randomBytes } from 'crypto'
-import Redis        from 'ioredis'
-
-const redis = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379')
+import { redis } from '../../db/redis.js'
 
 function generateApiKey(environment: 'live' | 'sandbox'): {
   key:    string

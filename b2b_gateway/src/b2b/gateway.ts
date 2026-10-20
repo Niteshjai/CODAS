@@ -1,14 +1,14 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { Pool }                          from 'pg'
-import { apiKeyManager }                 from './auth/apiKeyManager'
-import { checkRateLimit }                from './rateLimit/slidingWindow'
-import { transformForLawFirm }           from './transforms/lawFirmTransform'
-import { transformForWealthManager }     from './transforms/wealthManagerTransform'
-import { transformForNBFC }              from './transforms/nbfcTransform'
-import { transformForInsurance }         from './transforms/insuranceTransform'
-import { transformForHRPayroll }         from './transforms/hrPayrollTransform'
-import { fireWebhooks }                  from './webhooks/webhookManager'
-import { auditLogger }                   from '../services/auditLogger'
+import { apiKeyManager }                 from './auth/apiKeyManager.js'
+import { checkRateLimit }                from './rateLimit/slidingWindow.js'
+import { transformForLawFirm }           from './transforms/lawFirmTransform.js'
+import { transformForWealthManager }     from './transforms/wealthManagerTransform.js'
+import { transformForNBFC }              from './transforms/nbfcTransform.js'
+import { transformForInsurance }         from './transforms/insuranceTransform.js'
+import { transformForHRPayroll }         from './transforms/hrPayrollTransform.js'
+import { fireWebhooks }                  from './webhooks/webhookManager.js'
+import { auditLogger }                   from '../services/auditLogger.js'
 import { v4 as uuidv4 }                 from 'uuid'
 
 export async function b2bMiddleware(
@@ -97,7 +97,7 @@ export async function handleB2BRequest(
   const startTime = Date.now()
 
   if (environment === 'sandbox') {
-    const { sandboxFixtures } = await import('./fixtures/sandboxMock');
+    const { sandboxFixtures } = await import('./fixtures/sandboxMock.js');
     return {
       success: true,
       requestId,

@@ -1,11 +1,7 @@
 import { Worker, Job } from 'bullmq'
-import { Pool } from 'pg'
 import crypto from 'crypto'
-import { pool } from '../../db/connection'
-
-const redisConnection = {
-  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
-}
+import { pool } from '../../db/connection.js'
+import { redis } from '../../db/redis.js'
 
 // 1s, 5s, 30s, 5m, 30m
 const backoffDelays = [1000, 5000, 30000, 300000, 1800000]
@@ -65,7 +61,7 @@ export const webhookWorker = new Worker(
     return { success: true }
   },
   {
-    connection: redisConnection,
+    connection: redis,
     settings: {
       backoffStrategy: (attemptsMade: number) => {
         return backoffDelays[attemptsMade - 1] || backoffDelays[backoffDelays.length - 1]

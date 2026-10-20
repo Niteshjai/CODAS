@@ -1,11 +1,11 @@
 import { FastifyInstance }      from 'fastify'
 import { Pool } from 'pg'
 import { b2bMiddleware,
-         handleB2BRequest }    from '../b2b/gateway'
-import { apiKeyManager }        from '../b2b/auth/apiKeyManager'
+         handleB2BRequest }    from '../b2b/gateway.js'
+import { apiKeyManager }        from '../b2b/auth/apiKeyManager.js'
 import { verifyAccessToken,
-         requireRole }          from '../middleware/auth'
-import { generateOpenApiSpec }  from '../b2b/docs/openApiGenerator'
+         requireRole }          from '../middleware/auth.js'
+import { generateOpenApiSpec }  from '../b2b/docs/openApiGenerator.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -169,7 +169,7 @@ export async function b2bRoutes(app: FastifyInstance) {
   // Helper to run B2B middleware on routes
   const withB2BAuth = async (req: any, reply: any) => {
     const auth = await b2bMiddleware(req, reply, app.pg)
-    if (!auth) return   // Reply already sent
+    if (!auth) return reply
     req.b2bClient = auth.client
     req.b2bKeyId  = auth.keyId
     req.b2bEnvironment = auth.environment
@@ -276,7 +276,7 @@ export async function b2bRoutes(app: FastifyInstance) {
         error: { code:'NO_WEBHOOK_URL', message:'Configure webhook URL first' }
       })
 
-      const { fireWebhooks } = await import('../b2b/webhooks/webhookManager')
+      const { fireWebhooks } = await import('../b2b/webhooks/webhookManager.js')
       await fireWebhooks(app.pg, client.id, null, 'webhook.test', {
         message: 'AssetMap webhook test — your endpoint is working',
         timestamp: new Date().toISOString()

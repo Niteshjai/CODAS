@@ -1,5 +1,5 @@
 import { Pool }   from 'pg'
-import { decrypt }from '../../utils/encryption'
+import { decrypt } from '../../utils/encryption.js'
 import { z }      from 'zod'
 
 export const LawFirmResponseSchema = z.object({
@@ -105,7 +105,8 @@ export async function transformForLawFirm(
       is_active, is_dormant,
       document_available,
       ai_anomaly_flag, ai_anomaly_reason,
-      ai_risk_level, ai_summary
+      ai_risk_level, ai_summary,
+      last_synced_at
     FROM canonical_assets
     WHERE user_id = $1 AND is_active = true
     ORDER BY current_value_paise DESC
@@ -129,26 +130,26 @@ export async function transformForLawFirm(
     rows.filter(r => classes.includes(r.asset_class))
 
   const totalPaise = rows.reduce(
-    (s, r) => s + parseInt(r.current_value_paise), 0
+    (s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0
   )
 
   const movable = byClass([
     'BANK_ACCOUNT','FIXED_DEPOSIT','MUTUAL_FUND',
     'EQUITY','NPS','GOLD','BOND'
-  ]).reduce((s, r) => s + parseInt(r.current_value_paise), 0)
+  ]).reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0)
 
   const immovable = byClass(['LAND','PROPERTY'])
-    .reduce((s, r) => s + parseInt(r.current_value_paise), 0)
+    .reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0)
 
   const insurance = byClass([
     'INSURANCE_LIFE','INSURANCE_HEALTH','INSURANCE_OTHER'
-  ]).reduce((s, r) => s + parseInt(r.current_value_paise), 0)
+  ]).reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0)
 
   const retirement = byClass(['NPS','EPF','PPF'])
-    .reduce((s, r) => s + parseInt(r.current_value_paise), 0)
+    .reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0)
 
   const unclaimed = byClass(['UNCLAIMED'])
-    .reduce((s, r) => s + parseInt(r.current_value_paise), 0)
+    .reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0)
 
   const financialAccounts = byClass([
     'BANK_ACCOUNT','FIXED_DEPOSIT','MUTUAL_FUND',
@@ -215,7 +216,7 @@ export async function transformForLawFirm(
       movableAssetsPaise:    movable,
       immovableAssetsPaise:  immovable,
       listedSecuritiesPaise: byClass(['EQUITY','MUTUAL_FUND'])
-        .reduce((s, r) => s + parseInt(r.current_value_paise), 0),
+        .reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0),
       retirementAssetsPaise: retirement,
       insuranceCoverPaise:   insurance,
       unclaimedAssetsPaise:  unclaimed,
@@ -228,7 +229,7 @@ export async function transformForLawFirm(
       hasNominee:       r.has_nominee ?? false,
       nomineeName:      r.nominee_name_enc
         ? decrypt(r.nominee_name_enc) : undefined,
-      approximateValue: approxRange(parseInt(r.current_value_paise)),
+      approximateValue: approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       status:           r.is_dormant ? 'dormant' : 'active',
       isDormant:        r.is_dormant ?? false,
     })),
@@ -242,7 +243,7 @@ export async function transformForLawFirm(
       hasNominee:      r.has_nominee ?? false,
       nomineeName:     r.nominee_name_enc
         ? decrypt(r.nominee_name_enc) : undefined,
-      approximateValue:approxRange(parseInt(r.current_value_paise)),
+      approximateValue:approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       maturityDate:    r.maturity_date,
     })),
 
@@ -253,7 +254,7 @@ export async function transformForLawFirm(
       ownershipType:    r.ownership_type ?? 'unknown',
       titleStatus:      r.title_status ?? 'unknown',
       registrationDate: r.opened_date,
-      approximateValue: approxRange(parseInt(r.current_value_paise)),
+      approximateValue: approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       documentAvailable:r.document_available ?? false,
     })),
 
@@ -262,7 +263,7 @@ export async function transformForLawFirm(
     ]).map(r => ({
       type:        r.asset_class.replace('INSURANCE_',''),
       insurerName: r.institution_name ?? 'Unknown',
-      sumAssured:  approxRange(parseInt(r.current_value_paise)),
+      sumAssured:  approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       hasNominee:  r.has_nominee ?? false,
       nomineeName: r.nominee_name_enc
         ? decrypt(r.nominee_name_enc) : undefined,
