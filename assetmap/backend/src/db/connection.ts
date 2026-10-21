@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Pool, PoolConfig } from 'pg';
-import Redis from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger';
 
 // ─────────────────────────────────────────────
@@ -31,9 +31,13 @@ pool.on('connect', () => {
 
 let redisAvailable = false;
 
-export const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+const redisClientOptions: RedisOptions = {
   maxRetriesPerRequest: null,
   retryStrategy(times: number) {
+    if (process.env.NODE_ENV === 'development') {
+      return null;
+    }
+
     // Exponential backoff: 200ms, 400ms, 800ms, ... up to 30s, then keep retrying
     const delay = Math.min(times * 200, 30000);
     logger.debug(`Redis reconnecting in ${delay}ms (attempt ${times})`);
@@ -43,7 +47,16 @@ export const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379'
   enableOfflineQueue: false,
   keepAlive: 30000,   // Send TCP keep-alive every 30s to prevent idle drops
   connectTimeout: 10000,
-});
+};
+
+const localRedisOptions: RedisOptions = {
+  host: process.env.REDIS_HOST ?? '127.0.0.1',
+  port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+};
+
+export const redis = process.env.NODE_ENV === 'development'
+  ? new Redis({ ...redisClientOptions, ...localRedisOptions })
+  : new Redis(process.env.REDIS_URL || 'redis://localhost:6379', redisClientOptions);
 
 redis.on('error', (err) => {
   if (redisAvailable) {

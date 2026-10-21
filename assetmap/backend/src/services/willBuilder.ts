@@ -81,7 +81,7 @@ export const willBuilder = {
 
     await auditLogger.log(
       userId,
-      'WILL_CREATED' as any,
+      'WILL_CREATED',
       'will',
       willId
     )
@@ -194,9 +194,10 @@ export const willBuilder = {
     const pdfBuffer: Buffer = await new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 50, size: 'A4' })
       const buffers: Buffer[] = []
-      doc.on('data', buffers.push.bind(buffers))
-      doc.on('end', () => resolve(Buffer.concat(buffers as Uint8Array[])))
-      doc.on('error', reject)
+      const pdfStream = doc as unknown as NodeJS.ReadableStream
+      pdfStream.on('data', (chunk: Buffer | Uint8Array) => buffers.push(Buffer.from(chunk)))
+      pdfStream.on('end', () => resolve(Buffer.concat(buffers)))
+      pdfStream.on('error', reject)
 
       // Header / Title
       doc.fontSize(22).font('Helvetica-Bold').fillColor('#111827').text('LAST WILL AND TESTAMENT', { align: 'center' })
@@ -287,7 +288,7 @@ export const willBuilder = {
 
     await auditLogger.log(
       userId,
-      'WILL_PDF_GENERATED' as any,
+      'WILL_PDF_GENERATED',
       'will',
       willId
     )

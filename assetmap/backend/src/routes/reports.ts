@@ -15,9 +15,10 @@ async function generatePDF(data: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: 'A4' });
     const buffers: Buffer[] = [];
-    doc.on('data', buffers.push.bind(buffers));
-    doc.on('end', () => resolve(Buffer.concat(buffers as Uint8Array[])));
-    doc.on('error', reject);
+    const pdfStream = doc as unknown as NodeJS.ReadableStream;
+    pdfStream.on('data', (chunk: Buffer | Uint8Array) => buffers.push(Buffer.from(chunk)));
+    pdfStream.on('end', () => resolve(Buffer.concat(buffers)));
+    pdfStream.on('error', reject);
 
     const margin = 50;
     const pageWidth = doc.page.width;

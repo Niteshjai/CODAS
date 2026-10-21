@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 import { getSession } from '../../services/auth';
 
@@ -28,13 +28,6 @@ export default function TwoFactorChallenge({
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Attempt to request OTP immediately if SMS/Email
-    if (method === 'sms' || method === 'email') {
-      handleRequestOTP();
-    }
-  }, [method]);
-
-  useEffect(() => {
     if (!timerActive || timeLeft <= 0) {
       if (timeLeft <= 0) setTimerActive(false);
       return;
@@ -43,7 +36,7 @@ export default function TwoFactorChallenge({
     return () => clearInterval(interval);
   }, [timerActive, timeLeft]);
 
-  async function handleRequestOTP() {
+  const handleRequestOTP = useCallback(async () => {
     setError('');
     setLoading(true);
     try {
@@ -57,7 +50,14 @@ export default function TwoFactorChallenge({
     } finally {
       setLoading(false);
     }
-  }
+  }, [method, pendingSessionToken]);
+
+  useEffect(() => {
+    // Attempt to request OTP immediately if SMS/Email
+    if (method === 'sms' || method === 'email') {
+      void handleRequestOTP();
+    }
+  }, [method, handleRequestOTP]);
 
   async function handleVerify() {
     const code = otpDigits.join('');

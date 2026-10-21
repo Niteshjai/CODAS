@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { createConsent } from '../services/assets';
+import { createConsent, getConsents } from '../services/assets';
 import { api } from '../services/api';
 import { useAssetStore } from '../store/assetStore';
 
@@ -52,8 +52,7 @@ export default function ConsentFlow() {
 
   useEffect(() => {
     // Fetch existing consents to disable already linked data types
-    import('../services/assets').then(({ getConsents }) => {
-      getConsents().then(consents => {
+    getConsents().then(consents => {
         const active = consents.filter(c => c.status === 'ACTIVE');
         const types = new Set<string>();
         active.forEach(c => c.fiTypes.forEach(t => types.add(t)));
@@ -69,9 +68,8 @@ export default function ConsentFlow() {
         console.error('Failed to fetch existing consents', err);
         // Fallback pre-selection if fetch fails
         setSelectedTypes([FI_TYPE_OPTIONS[0].value]);
-      }).finally(() => {
-        setIsFetchingConsents(false);
-      });
+    }).finally(() => {
+      setIsFetchingConsents(false);
     });
   }, []);
 

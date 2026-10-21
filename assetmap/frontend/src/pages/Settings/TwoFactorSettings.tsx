@@ -35,7 +35,7 @@ export default function TwoFactorSettings() {
         active: Boolean(data?.isEnabled ?? data?.active),
         method: data?.method ?? null,
       });
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to load 2FA status');
     } finally {
       setLoading(false);

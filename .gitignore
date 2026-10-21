@@ -11,11 +11,3 @@ coverage
 .DS_Store
 .agents/config
 .agents/scratch
-
-# Test directories and files
-tests/
-**/tests/
-*.test.ts
-*.test.js
-*.spec.ts
-*.spec.js

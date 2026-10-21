@@ -29,6 +29,10 @@ export function useAsync<T>(
     context?:    string
   }
 ): UseAsyncReturn<T> {
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+  const immediate = options?.immediate ?? false
+
   const [state, setState] = useState<AsyncState<T>>({
     status:    'idle',
     data:      null,
@@ -74,7 +78,7 @@ export function useAsync<T>(
         isIdle:    false,
       })
 
-      options?.onSuccess?.(result)
+      optionsRef.current?.onSuccess?.(result)
       return result
 
     } catch (err) {
@@ -86,7 +90,7 @@ export function useAsync<T>(
 
       errorLogger.log({
         error:   appError,
-        context: options?.context ?? 'useAsync',
+        context: optionsRef.current?.context ?? 'useAsync',
       })
 
       setState({
@@ -99,7 +103,7 @@ export function useAsync<T>(
         isIdle:    false,
       })
 
-      options?.onError?.(appError)
+      optionsRef.current?.onError?.(appError)
       return null
     }
   }, [asyncFn])
@@ -122,8 +126,8 @@ export function useAsync<T>(
 
   // Run immediately if requested
   useEffect(() => {
-    if (options?.immediate) execute()
-  }, [])
+    if (immediate) void execute()
+  }, [execute, immediate])
 
   return { ...state, execute, reset, setData }
 }

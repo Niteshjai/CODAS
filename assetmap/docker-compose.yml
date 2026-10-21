@@ -25,6 +25,7 @@ services:
       - ./backend/src/db/migrations/013_nomination_requests.sql:/docker-entrypoint-initdb.d/11-013_nomination_requests.sql
       - ./backend/src/db/migrations/014_nominee_update.sql:/docker-entrypoint-initdb.d/12-014_nominee_update.sql
       - ./backend/src/db/migrations/015_canonical_assets.sql:/docker-entrypoint-initdb.d/13-015_canonical_assets.sql
+      - ./backend/src/db/migrations/022_audit_will_actions.sql:/docker-entrypoint-initdb.d/14-022_audit_will_actions.sql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U assetmap']
       interval: 10s
