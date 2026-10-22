@@ -36,18 +36,24 @@ CREATE TABLE IF NOT EXISTS trusted_devices (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   device_token_hash TEXT NOT NULL,
   device_name TEXT,
+  device_type TEXT,
+  browser TEXT,
+  os TEXT,
   ip_address TEXT,
+  trusted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   last_used_at TIMESTAMP WITH TIME ZONE,
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS backup_codes (
+CREATE TABLE IF NOT EXISTS two_factor_backup_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code_hash TEXT NOT NULL,
   is_used BOOLEAN NOT NULL DEFAULT FALSE,
   used_at TIMESTAMP WITH TIME ZONE,
+  used_ip TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -64,4 +70,4 @@ CREATE TABLE IF NOT EXISTS two_factor_audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_pending_2fa_token ON pending_2fa_sessions(session_token);
 CREATE INDEX IF NOT EXISTS idx_trusted_devices_token ON trusted_devices(device_token_hash);
-CREATE INDEX IF NOT EXISTS idx_backup_codes_user ON backup_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_two_factor_backup_codes_user ON two_factor_backup_codes(user_id);

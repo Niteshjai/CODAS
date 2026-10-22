@@ -17,15 +17,24 @@ services:
       - ./backend/src/db/migrations/005_engagement_features.sql:/docker-entrypoint-initdb.d/03-005_engagement_features.sql
       - ./backend/src/db/migrations/005_net_worth_history.sql:/docker-entrypoint-initdb.d/04-005_net_worth_history.sql
       - ./backend/src/db/migrations/006_phase2_features.sql:/docker-entrypoint-initdb.d/05-006_phase2_features.sql
-      - ./backend/src/db/migrations/009_b2b_api.sql:/docker-entrypoint-initdb.d/06-009_b2b_api.sql
-      - ./backend/src/db/migrations/010_recovery_engine.sql:/docker-entrypoint-initdb.d/07-010_recovery_engine.sql
-      - ./backend/src/db/migrations/011_fix_missing_enums_columns.sql:/docker-entrypoint-initdb.d/08-011_fix_missing_enums.sql
-      - ./backend/src/db/migrations/011_plans_billing.sql:/docker-entrypoint-initdb.d/09-011_plans_billing.sql
-      - ./backend/src/db/migrations/012_subscription_tiers.sql:/docker-entrypoint-initdb.d/10-012_subscription_tiers.sql
-      - ./backend/src/db/migrations/013_nomination_requests.sql:/docker-entrypoint-initdb.d/11-013_nomination_requests.sql
-      - ./backend/src/db/migrations/014_nominee_update.sql:/docker-entrypoint-initdb.d/12-014_nominee_update.sql
-      - ./backend/src/db/migrations/015_canonical_assets.sql:/docker-entrypoint-initdb.d/13-015_canonical_assets.sql
-      - ./backend/src/db/migrations/022_audit_will_actions.sql:/docker-entrypoint-initdb.d/14-022_audit_will_actions.sql
+      - ./backend/src/db/migrations/008_loan_scoring.sql:/docker-entrypoint-initdb.d/06-008_loan_scoring.sql
+      - ./backend/src/db/migrations/009_b2b_api.sql:/docker-entrypoint-initdb.d/07-009_b2b_api.sql
+      - ./backend/src/db/migrations/010_recovery_engine.sql:/docker-entrypoint-initdb.d/08-010_recovery_engine.sql
+      - ./backend/src/db/migrations/011_fix_missing_enums_columns.sql:/docker-entrypoint-initdb.d/09-011_fix_missing_enums.sql
+      - ./backend/src/db/migrations/011_plans_billing.sql:/docker-entrypoint-initdb.d/10-011_plans_billing.sql
+      - ./backend/src/db/migrations/012_subscription_tiers.sql:/docker-entrypoint-initdb.d/11-012_subscription_tiers.sql
+      - ./backend/src/db/migrations/013_family_vault.sql:/docker-entrypoint-initdb.d/12-013_family_vault.sql
+      - ./backend/src/db/migrations/013_nomination_requests.sql:/docker-entrypoint-initdb.d/13-013_nomination_requests.sql
+      - ./backend/src/db/migrations/014_nominee_update.sql:/docker-entrypoint-initdb.d/14-014_nominee_update.sql
+      - ./backend/src/db/migrations/015_canonical_assets.sql:/docker-entrypoint-initdb.d/15-015_canonical_assets.sql
+      - ./backend/src/db/migrations/016_manual_assets.sql:/docker-entrypoint-initdb.d/16-016_manual_assets.sql
+      - ./backend/src/db/migrations/017_ancestral_search.sql:/docker-entrypoint-initdb.d/17-017_ancestral_search.sql
+      - ./backend/src/db/migrations/018_transaction_classifier.sql:/docker-entrypoint-initdb.d/18-018_transaction_classifier.sql
+      - ./backend/src/db/migrations/019_two_factor_auth.sql:/docker-entrypoint-initdb.d/19-019_two_factor_auth.sql
+      - ./backend/src/db/migrations/020_missing_financial_tables.sql:/docker-entrypoint-initdb.d/20-020_missing_financial_tables.sql
+      - ./backend/src/db/migrations/021_fix_fkey.sql:/docker-entrypoint-initdb.d/21-021_fix_fkey.sql
+      - ./backend/src/db/migrations/022_audit_will_actions.sql:/docker-entrypoint-initdb.d/22-022_audit_will_actions.sql
+      - ./backend/src/db/migrations/023_fix_two_factor_schema.sql:/docker-entrypoint-initdb.d/23-023_fix_two_factor_schema.sql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U assetmap']
       interval: 10s
