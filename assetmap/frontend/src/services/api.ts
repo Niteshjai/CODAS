@@ -169,7 +169,9 @@ async function readJson(response: Response): Promise<any> {
 async function customFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   const url = `${API_BASE_URL}/api${endpoint}`;
   const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type')) {
+  // Only declare JSON when there is a JSON body: Fastify rejects an empty body sent as
+  // application/json, which made every body-less DELETE (logout, revoke, remove…) fail with 400
+  if (!headers.has('Content-Type') && options.body != null && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -257,7 +259,9 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
     }
 
     const { message, category } = userMessageFor(response.status, errorData);
-    if (response.status >= 500 || errorData?.__unparseable) {
+    // Failed loads (GET) are shown inline by the page with a retry; toast only for actions
+    const isRead = !config.method || config.method.toUpperCase() === 'GET';
+    if (!isRead && (response.status >= 500 || errorData?.__unparseable)) {
       toastOnce('error', 'Something went wrong', message);
     }
 

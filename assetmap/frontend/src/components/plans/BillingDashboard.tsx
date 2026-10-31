@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { Link } from 'react-router-dom';
+import { CardSkeleton } from '../loading/CardSkeleton';
+import { ListSkeleton } from '../loading/ListSkeleton';
+import { Skeleton } from '../loading/Skeleton';
+import { ErrorCard } from '../errors/ErrorCard';
 
 export const BillingDashboard: React.FC = () => {
   const [status, setStatus] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const fetchBilling = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
         const [statusRes, historyRes] = await Promise.all([
           api.get('/plans/status'),
@@ -17,13 +25,13 @@ export const BillingDashboard: React.FC = () => {
         setStatus(statusRes.data.data);
         setHistory(historyRes.data.data);
       } catch (err) {
-        console.error('Failed to fetch billing info', err);
+        setLoadError(err);
       } finally {
         setLoading(false);
       }
     };
     fetchBilling();
-  }, []);
+  }, [reloadKey]);
 
   const handleCancel = async () => {
     if (!window.confirm('Are you sure you want to cancel your subscription?')) return;
@@ -37,7 +45,23 @@ export const BillingDashboard: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  if (loading || loadError) {
+    return (
+      <div className="page-gradient-bg min-h-screen text-foreground font-sans">
+        <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8 space-y-8">
+          <Skeleton width={280} height={32} />
+          {loadError ? (
+            <ErrorCard error={loadError} title="We couldn't load your billing details" onRetry={() => setReloadKey((k) => k + 1)} />
+          ) : (
+            <>
+              <CardSkeleton rows={3} className="rounded-2xl" />
+              <ListSkeleton rows={3} />
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-gradient-bg min-h-screen text-foreground font-sans" style={{ contain: 'layout style' }}>

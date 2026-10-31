@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Layers, RotateCw, ChevronDown, PieChart, TrendingUp, AlertTriangle, Loader2 } from 'lucide-react';
+import { Layers, RotateCw, ChevronDown, PieChart, TrendingUp, AlertTriangle } from 'lucide-react';
 import { api } from '../../services/api';
+import { CardSkeleton } from '../loading/CardSkeleton';
+import { ChartSkeleton } from '../loading/ChartSkeleton';
+import { ListSkeleton } from '../loading/ListSkeleton';
+import { ErrorCard } from '../errors/ErrorCard';
 
 export default function SpendDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'budgets' | 'subscriptions'>('overview');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
 
   useEffect(() => {
     fetchSummary();
@@ -13,11 +18,12 @@ export default function SpendDashboard() {
 
   const fetchSummary = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get('/spend/summary');
       setData(res.data.data);
     } catch (err) {
-      console.error(err);
+      setLoadError(err);
     }
     setLoading(false);
   };
@@ -31,10 +37,24 @@ export default function SpendDashboard() {
     }
   };
 
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 animate-in fade-in duration-300">
-        <Loader2 className="size-6 animate-spin text-zinc-400 dark:text-zinc-500" />
+      <div role="status" aria-busy="true" aria-label="Loading spend analysis" className="w-full max-w-[1400px] mx-auto space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardSkeleton rows={1} />
+          <CardSkeleton rows={1} />
+          <CardSkeleton rows={1} />
+        </div>
+        <ChartSkeleton />
+      </div>
+    );
+  }
+
+  // Failed load is not "no data": offer a retry
+  if (!data && loadError) {
+    return (
+      <div className="w-full max-w-[36rem] mx-auto py-10">
+        <ErrorCard error={loadError} title="We couldn't load your spending" onRetry={() => { void fetchSummary(); }} />
       </div>
     );
   }
@@ -160,11 +180,24 @@ export default function SpendDashboard() {
 }
 
 function TransactionList() {
-  const [txs, setTxs] = useState<any[]>([]);
-  
-  useEffect(() => {
-    api.get('/spend/transactions').then(res => setTxs(res.data.data.transactions)).catch(console.error);
-  }, []);
+  const [txs, setTxs] = useState<any[] | null>(null);
+  const [txError, setTxError] = useState<unknown>(null);
+
+  const loadTxs = () => {
+    setTxError(null);
+    api.get('/spend/transactions')
+      .then(res => setTxs(res.data.data.transactions ?? []))
+      .catch(setTxError);
+  };
+
+  useEffect(() => { loadTxs(); }, []);
+
+  if (txError && txs === null) {
+    return <ErrorCard error={txError} title="We couldn't load your transactions" onRetry={loadTxs} />;
+  }
+  if (txs === null) {
+    return <ListSkeleton rows={6} />;
+  }
 
   return (
     <div className="bg-white dark:bg-[#1A1D27] rounded-2xl border border-transparent shadow-sm dark:border-[#2E3148] overflow-hidden">
@@ -180,22 +213,22 @@ function TransactionList() {
         <tbody className="divide-y divide-zinc-100 dark:divide-white/5">
           {txs.map((tx: any) => (
             <tr key={tx.id} className="hover:bg-zinc-50 dark:hover:bg-white/5 transition">
-              <td className="px-6 py-4 text-sm text-zinc-400">
+              <td className="px-6 py-4 text-sm text-muted-foreground">
                 {new Date(tx.transaction_date).toLocaleDateString()}
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm font-medium text-zinc-200">{tx.merchant_name}</div>
+                <div className="text-sm font-medium text-foreground">{tx.merchant_name}</div>
                 <div className="text-xs text-muted-foreground max-w-[300px] truncate">{tx.narration}</div>
               </td>
               <td className="px-6 py-4">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#2E3148] text-zinc-300">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                   {tx.category} • {tx.subcategory}
                 </span>
                 {tx.classified_by === 'claude_ai' && (
                   <span className="ml-2 text-[10px] text-purple-400">AI</span>
                 )}
               </td>
-              <td className={`px-6 py-4 text-sm font-medium text-right ${tx.transaction_type === 'credit' ? 'text-emerald-400' : 'text-zinc-200'}`}>
+              <td className={`px-6 py-4 text-sm font-medium text-right ${tx.transaction_type === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
                 {tx.transaction_type === 'credit' ? '+' : '-'} ₹{(tx.amount_paise / 100).toLocaleString()}
               </td>
             </tr>

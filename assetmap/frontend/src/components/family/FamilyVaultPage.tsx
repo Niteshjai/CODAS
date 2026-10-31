@@ -7,9 +7,12 @@ import InviteMember from './InviteMember';
 import FamilyGoals from './FamilyGoals';
 import FamilyEstateScore from './FamilyEstateScore';
 import { toast } from 'sonner';
+import { CardSkeleton } from '../loading/CardSkeleton';
+import { ChartSkeleton } from '../loading/ChartSkeleton';
+import { ErrorCard } from '../errors/ErrorCard';
 
 export default function FamilyVaultPage() {
-  const { vault, isLoading, fetchVault, fetchNetWorth, fetchEstate, fetchGoals, createVault } = useFamilyStore();
+  const { vault, isLoading, loadError, fetchVault, fetchNetWorth, fetchEstate, fetchGoals, createVault } = useFamilyStore();
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -36,10 +39,23 @@ export default function FamilyVaultPage() {
     }
   };
 
-  if (isLoading) {
+  // Skeleton only for the first load; refetches keep the vault on screen
+  if (isLoading && !vault) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-zinc-400 dark:text-zinc-600" />
+      <div role="status" aria-busy="true" aria-label="Loading family vault" className="w-full max-w-4xl mx-auto py-6 sm:py-8 space-y-6">
+        <ChartSkeleton />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <CardSkeleton rows={2} />
+          <CardSkeleton rows={2} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!vault && loadError) {
+    return (
+      <div className="w-full max-w-4xl mx-auto py-6 sm:py-8">
+        <ErrorCard error={loadError} title="We couldn't load your family vault" onRetry={() => { void fetchVault(); }} />
       </div>
     );
   }

@@ -8,6 +8,8 @@ import NomineeSuccess from './NomineeSuccess';
 import { getMissingNominees, startNomineeUpdate } from '../../services/nominee';
 import type { NomineeInput, MissingAccount } from '../../services/nominee';
 import { useAssetStore } from '../../store/assetStore';
+import { Skeleton } from '../loading/Skeleton';
+import { ErrorCard } from '../errors/ErrorCard';
 
 // ═══════════════════════════════════════════════════════════════
 // NomineeUpdatePage — "Fill Once, Update Everywhere"
@@ -33,6 +35,8 @@ export default function NomineeUpdatePage() {
 
   // Data
   const [missingAccounts, setMissing]   = useState<MissingAccount[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsError, setAccountsError]     = useState<unknown>(null);
   const [nominees, setNominees]         = useState<NomineeInput[]>([]);
   const [batchId, setBatchId]           = useState<string | null>(null);
   const [batchSummary, setBatchSummary] = useState<any>(null);
@@ -46,13 +50,18 @@ export default function NomineeUpdatePage() {
   }, [step]);
 
   // Fetch missing accounts on mount
-  useEffect(() => {
+  const loadMissingAccounts = useCallback(() => {
+    setAccountsLoading(true);
+    setAccountsError(null);
     getMissingNominees()
       .then(data => {
         setMissing(data.accounts);
       })
-      .catch(err => setError(err.message));
+      .catch(err => setAccountsError(err))
+      .finally(() => setAccountsLoading(false));
   }, []);
+
+  useEffect(() => { loadMissingAccounts(); }, [loadMissingAccounts]);
 
   // Compute filtered accounts based on targetAssetIds
   const filteredAccounts = targetAssetIds 
@@ -136,7 +145,18 @@ export default function NomineeUpdatePage() {
             </p>
 
             {/* Summary badges */}
-            {filteredAccounts.length > 0 && (
+            {accountsLoading && (
+              <div role="status" aria-busy="true" aria-label="Loading accounts" className="flex flex-wrap items-center gap-2 mt-4">
+                <Skeleton width={190} height={24} radius={999} />
+                <Skeleton width={120} height={24} radius={999} />
+              </div>
+            )}
+            {!accountsLoading && accountsError != null && (
+              <div className="mt-4">
+                <ErrorCard compact error={accountsError} onRetry={loadMissingAccounts} />
+              </div>
+            )}
+            {!accountsLoading && filteredAccounts.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 <span className="px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs font-semibold">
                   {filteredAccounts.length} account{filteredAccounts.length > 1 ? 's' : ''} missing nominees

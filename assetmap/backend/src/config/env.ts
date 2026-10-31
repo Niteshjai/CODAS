@@ -29,6 +29,8 @@ const envSchema = z.object({
   SETU_CLIENT_SECRET: z.string().optional(),
   
   RESEND_API_KEY: z.string().optional(),
+  SUPPORT_INBOX_EMAIL: z.string().email().optional(),        // new support tickets are forwarded here
+  SUPPORT_AI_ASSISTANT: z.enum(['true', 'false']).default('true'), // automated first reply (needs ANTHROPIC_API_KEY)
   ANTHROPIC_API_KEY: z.string().optional(),
   TERM_AFFILIATE_URL: z.string().optional(),
   HEALTH_AFFILIATE_URL: z.string().optional(),

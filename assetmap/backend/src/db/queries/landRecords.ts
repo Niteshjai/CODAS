@@ -174,6 +174,29 @@ export async function getLandRecordById(
   if (!result.rows[0]) return null
 
   const row = result.rows[0]
+  // Child rows come back as raw JSON: project them so ciphertext (names, raw registry payloads) never leaves the API
+  const mutations = (row.mutations ?? [])
+    .map((m: any) => ({
+      id:              m.id,
+      mutationNumber:  m.mutation_number,
+      mutationType:    m.mutation_type,
+      mutationDate:    m.mutation_date,
+      fromOwner:       decryptField(m.from_owner_enc),
+      toOwner:         decryptField(m.to_owner_enc),
+      areaTransferred: m.area_transferred,
+      remarks:         m.remarks,
+    }))
+    .sort((a: any, b: any) => String(b.mutationDate ?? '').localeCompare(String(a.mutationDate ?? '')))
+  const encumbrances = (row.encumbrances ?? []).map((e: any) => ({
+    id:              e.id,
+    encumbranceType: e.encumbrance_type,
+    creditorName:    decryptField(e.creditor_name_enc),
+    amountPaise:     e.amount_paise != null ? Number(e.amount_paise) : null,
+    startDate:       e.start_date,
+    endDate:         e.end_date,
+    isActive:        e.is_active,
+  }))
+
   return {
     ...row,
     surveyNumber:         decryptField(row.survey_number_enc),
@@ -181,12 +204,17 @@ export async function getLandRecordById(
     khasraNumber:         decryptField(row.khasra_number_enc),
     ownerName:            decryptField(row.owner_name_enc),
     registrationNumber:   decryptField(row.registration_number_enc),
+    disputeDetails:       decryptField(row.dispute_details_enc),
+    mutations,
+    encumbrances,
     survey_number_enc:    undefined,
     plot_number_enc:      undefined,
     khasra_number_enc:    undefined,
     owner_name_enc:       undefined,
     registration_number_enc: undefined,
+    dispute_details_enc:  undefined,
     raw_response_enc:     undefined,
+    digilocker_doc_uri:   undefined,
   }
 }
 

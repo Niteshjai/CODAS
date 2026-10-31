@@ -19,6 +19,8 @@ import { registerNetWorthTrackerTests } from './services/netWorthTracker.test';
 import { registerInsuranceGapFinderTests } from './services/insuranceGapFinder.test';
 import { registerDormantAndNomineeTests } from './services/dormantAndNominee.test';
 import { registerWillBuilderTests } from './services/willBuilder.test';
+import { registerFamilyVaultTests } from './services/familyVault.test';
+import { registerSupportServiceTests } from './services/supportService.test';
 
 async function main() {
   const startTime = Date.now();
@@ -39,6 +41,8 @@ async function main() {
   registerInsuranceGapFinderTests();
   registerDormantAndNomineeTests();
   registerWillBuilderTests();
+  registerFamilyVaultTests();
+  registerSupportServiceTests();
 
   // Execute all tests
   const { totalPassed, totalFailed, suites } = await runner.run();

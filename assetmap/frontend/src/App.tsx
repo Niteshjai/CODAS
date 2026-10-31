@@ -128,7 +128,7 @@ function ConnectionErrorScreen({ onRetry }: { onRetry: () => void }) {
   const isOnline = useNetworkStore((s) => s.isOnline);
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div role="alert" className="max-w-sm text-center">
+      <div role="alert" className="max-w-[24rem] text-center">
         <WifiOff className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <h1 className="text-lg font-semibold text-foreground">
           {isOnline ? 'Can’t connect to AssetMap' : 'You’re offline'}

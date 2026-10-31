@@ -149,6 +149,8 @@
   --color-brand-secondary: #059669;
   --color-on-brand-secondary: #ffffff;
 
+  /* NOTE: in Tailwind v4 these named spacing tokens also back max-w-{xs,sm,md,lg,xl}
+     (max-w-sm → 12px!). Use explicit widths like max-w-[24rem] instead of those classes. */
   --spacing-lg: 48px;
   --spacing-base: 8px;
   --spacing-margin: 32px;

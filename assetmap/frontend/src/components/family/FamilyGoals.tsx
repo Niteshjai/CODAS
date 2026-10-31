@@ -27,7 +27,7 @@ export default function FamilyGoals() {
             <Target className="size-5" />
           </div>
           <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">No active goals yet</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-[24rem]">
             Create a collaborative goal for your family (e.g. Vacation fund, Home down payment, Education).
           </p>
         </div>

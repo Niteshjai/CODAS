@@ -34,6 +34,7 @@ import { supportRoutes } from './routes/support';
 import { nomineeRoutes } from './routes/nominee';
 import { spendAnalyticsRoutes } from './routes/spend';
 import { familyRoutes } from './routes/family';
+import { settingsRoutes } from './routes/settings';
 import { scoringRoutes } from './routes/scoring';
 import { manualRoutes } from './routes/manual';
 // import { startNomineeWorker } from './workers/nomineeQueue';
@@ -211,6 +212,7 @@ async function registerRoutes() {
   await app.register(nomineeRoutes, { prefix: '/api/nominee' });
   await app.register(spendAnalyticsRoutes, { prefix: '/api/spend' });
   await app.register(familyRoutes, { prefix: '/api/family' });
+  await app.register(settingsRoutes, { prefix: '/api/settings' });
   await app.register(manualRoutes, { prefix: '/api/manual' });
   await app.register(ancestralRoutes);
   await app.register(twoFactorRoutes);

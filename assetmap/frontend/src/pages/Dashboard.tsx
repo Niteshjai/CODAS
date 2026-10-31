@@ -263,12 +263,13 @@ export default function Dashboard() {
       landType: record.land_type || 'Unknown',
       ownershipType: record.ownership_type || 'self',
       titleStatus: record.title_status || 'clear',
-      registrationDate: record.registration_date || new Date().toISOString().split('T')[0],
+      // Missing registry fields stay empty (shown as "—"/"Unknown"), never invented
+      registrationDate: record.registration_date || '',
       estimatedValue: record.estimated_value_paise ? record.estimated_value_paise / 100 : 0,
       latitude: record.latitude || null,
       longitude: record.longitude || null,
       digilockerDocAvailable: record.digilocker_doc_available || false,
-      mutationStatus: record.mutation_status || 'completed',
+      mutationStatus: record.mutation_status || 'unknown',
       source: record.source,
     }));
   }, [landRecords]);
@@ -322,9 +323,19 @@ export default function Dashboard() {
           {!isSidebarOpen && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-[75%] bg-gradient-to-b from-transparent via-zinc-400/60 dark:via-zinc-600/40 to-transparent pointer-events-none"></div>}
 
           <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col gap-1.5 transition-all duration-300">
-            <div className="size-10 rounded-2xl overflow-hidden bg-zinc-900 ring-1 ring-white/10 shadow-md grid place-items-center shrink-0">
-              <img src="/logo.png" alt="Codas" className="size-full object-cover" />
-            </div>
+            <button
+              type="button"
+              aria-label="Go to Overview"
+              title="Overview"
+              onClick={() => {
+                setActiveTab('overview');
+                if (window.matchMedia('(max-width: 767px)').matches) setIsSidebarOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="size-10 rounded-2xl overflow-hidden bg-zinc-900 ring-1 ring-white/10 shadow-md grid place-items-center shrink-0 cursor-pointer transition-transform hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
+            >
+              <img src="/logo.png" alt="" className="size-full object-cover" />
+            </button>
           </div>
           <div className={`flex items-center w-full shrink-0 ${isSidebarOpen ? 'px-4 justify-start' : 'justify-center'}`}>
             <button

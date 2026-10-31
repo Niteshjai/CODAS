@@ -1,309 +1,343 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
-import { ArrowLeft, BookOpen, MessageCircle, FileText, ExternalLink, Mail, Check, X, Send, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft, ArrowRight, BookOpen, ChevronRight, FileText, Inbox, Mail, MessageCircle, Search, X,
+} from 'lucide-react';
+import GuidesDialog from '../components/help/GuidesDialog';
+import FaqDialog from '../components/help/FaqDialog';
+import ContactDialog from '../components/help/ContactDialog';
+import SupportChatDialog from '../components/help/SupportChatDialog';
+import { GUIDES, searchHelp } from '../components/help/helpContent';
+import { Highlight, StatusBadge, excerpt, timeAgo } from '../components/help/helpUi';
+import { topicLabel } from '../components/help/helpContent';
+import { listTickets, type SupportTicket } from '../services/support';
+import { ErrorCard } from '../components/errors/ErrorCard';
 
-const SUPPORT_OPTIONS = [
-  { id: 'guides', title: 'User Guides', desc: 'Step-by-step tutorials on using Codas.', icon: <BookOpen className="size-5 text-sky-500" /> },
-  { id: 'faqs', title: 'FAQs', desc: 'Answers to commonly asked questions.', icon: <FileText className="size-5 text-emerald-500" /> },
-  { id: 'chat', title: 'Live Chat', desc: 'Chat with our support team in real-time.', icon: <MessageCircle className="size-5 text-amber-500" /> },
-  { id: 'contact', title: 'Email Support', desc: 'Send us an email for complex queries.', icon: <Mail className="size-5 text-rose-500" /> },
-];
+type Panel =
+  | { kind: 'guides'; guideId?: string | null }
+  | { kind: 'faqs'; faqId?: string | null; query?: string }
+  | { kind: 'contact' }
+  | { kind: 'chat'; ticketId: string | null }
+  | null;
 
-const FAQS_DATA = [
-  { q: "How do I add a new asset?", a: "Go to the Dashboard, click the '+ Add Asset' button at the top right, and follow the wizard to securely connect your accounts." },
-  { q: "Is my data secure?", a: "Yes. We use bank-level encryption and do not store your raw credentials. Data is synced read-only via India's Account Aggregator framework." },
-  { q: "How do I update my profile?", a: "Navigate to the Profile page using the sidebar menu, where you can update your contact information and view your KYC status." },
-];
+const POPULAR = ['link-accounts', 'will', 'family-vault', 'two-factor'];
 
 export default function Help() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [toastMsg, setToastMsg] = useState('');
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  
-  // Chat state
-  const [chatMsg, setChatMsg] = useState('');
-  const [chatHistory, setChatHistory] = useState<{sender: 'user'|'agent', text: string}[]>([{sender: 'agent', text: 'Hi there! How can I help you today?'}]);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState('');
+  const [panel, setPanel] = useState<Panel>(null);
 
-  // FAQ state
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [tickets, setTickets] = useState<SupportTicket[] | null>(null);
+  const [ticketsError, setTicketsError] = useState<unknown>(null);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
 
-  // Email state
-  const [contactSubject, setContactSubject] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  const loadTickets = useCallback(async () => {
+    setTicketsLoading(true);
+    setTicketsError(null);
+    try { setTickets(await listTickets()); }
+    catch (err) { setTicketsError(err); }
+    finally { setTicketsLoading(false); }
+  }, []);
 
-  async function handleSendEmail() {
-    if (!contactSubject.trim() || !contactMessage.trim()) return;
-    try {
-      setIsSending(true);
-      await api.post('/support/contact', { subject: contactSubject, message: contactMessage });
-      showToast('Message sent successfully! We will reply soon.');
-      setContactSubject('');
-      setContactMessage('');
-    } catch {
-      showToast('Failed to send message. Please try again later.');
-    } finally {
-      setIsSending(false);
-    }
-  }
+  useEffect(() => { void loadTickets(); }, [loadTickets]);
 
-  function showToast(msg: string) {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 2500);
-    setActiveModal(null); // close any open modal on success
-  }
+  // "/" focuses the search box (unless typing somewhere already)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (e.key === '/' && !panel && !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) && !el.isContentEditable) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panel]);
 
-  const filteredOptions = SUPPORT_OPTIONS.filter(opt => 
-    opt.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    opt.desc.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const results = useMemo(() => searchHelp(query), [query]);
+  const searching = query.trim().length > 0;
+  const resultCount = results.guides.length + results.faqs.length;
+  const close = () => setPanel(null);
+  const openChat = (ticketId: string | null = null) => setPanel({ kind: 'chat', ticketId });
+
+  const cards = [
+    { id: 'guides', title: 'User guides', desc: 'Step-by-step help for every feature.', icon: <BookOpen className="size-5 text-sky-500" />, onClick: () => setPanel({ kind: 'guides' }) },
+    { id: 'faqs', title: 'FAQs', desc: 'Quick answers about security, data and plans.', icon: <FileText className="size-5 text-emerald-500" />, onClick: () => setPanel({ kind: 'faqs' }) },
+    { id: 'chat', title: 'Chat with support', desc: 'Start a conversation — we reply within 1 business day.', icon: <MessageCircle className="size-5 text-amber-500" />, onClick: () => openChat(null) },
+    { id: 'contact', title: 'Email support', desc: 'Send a detailed request and get a reference number.', icon: <Mail className="size-5 text-rose-500" />, onClick: () => setPanel({ kind: 'contact' }) },
+  ];
+
+  const openTickets = tickets?.filter(t => t.status !== 'closed').length ?? 0;
 
   return (
-    <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20 relative" style={{ contain: 'layout style' }}>
-      
-      {/* Toast Notification */}
-      <div
-        className={`fixed top-6 right-6 z-[60] flex items-center gap-2 bg-zinc-900 dark:bg-zinc-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300 ${
-          toastMsg ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
-        }`}
-      >
-        <Check className="size-4 text-lime-400" strokeWidth={2.5} />
-        {toastMsg}
-      </div>
-
+    <div className="page-gradient-bg relative min-h-screen pb-20 font-sans text-foreground">
       <header className="sticky top-0 z-20 pt-4">
-        <div className="w-full px-6 py-2 flex items-center justify-between">
-          <button 
-            onClick={() => {
-              if (window.history.length > 2) {
-                navigate(-1);
-              } else {
-                navigate('/dashboard');
-              }
-            }}
-            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+        <div className="mx-auto flex w-full max-w-[56rem] items-center px-4 py-2 sm:px-6">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 2 ? navigate(-1) : navigate('/dashboard'))}
+            className="flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <ArrowLeft className="size-4" />
-            Back
+            <ArrowLeft className="size-4" /> Back
           </button>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 mt-12 relative z-10">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-display font-light tracking-tight text-foreground">How can we help?</h1>
-          <p className="text-zinc-600 dark:text-zinc-400 mt-3 text-lg">Search for answers or reach out to our support team.</p>
+      <main className="relative z-10 mx-auto mt-8 w-full max-w-[56rem] px-4 sm:mt-12 sm:px-6">
+        {/* Hero + search */}
+        <div className="mb-8 text-center">
+          <h1 className="text-balance font-display text-3xl font-light tracking-tight text-foreground sm:text-4xl">How can we help?</h1>
+          <p className="mt-3 text-base text-muted-foreground sm:text-lg">Search the guides and FAQs, or contact our support team.</p>
         </div>
 
-        <div className="relative max-w-3xl w-full mx-auto mb-12">
-          <input 
-            type="text" 
-            placeholder="Search knowledge base..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-card/80 backdrop-blur-lg rounded-full px-6 py-4 shadow-sm border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-foreground transition"
+        <div className="relative mx-auto mb-10 w-full">
+          <Search className="pointer-events-none absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            ref={searchRef}
+            type="search"
+            role="searchbox"
+            aria-label="Search help articles"
+            placeholder="Search guides and FAQs — e.g. consent, nominee, will"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }}
+            className="w-full rounded-full border border-border bg-card/90 py-4 pl-12 pr-24 text-sm text-foreground shadow-sm backdrop-blur-lg transition placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
           />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map((opt) => (
-              <SupportCard 
-                key={opt.id}
-                icon={opt.icon} 
-                title={opt.title} 
-                desc={opt.desc} 
-                onClick={() => setActiveModal(opt.id)}
-              />
-            ))
-          ) : (
-            <div className="col-span-1 md:col-span-2 text-center py-12 bg-card/40 rounded-[24px] border border-border/50 backdrop-blur-sm">
-              <p className="text-muted-foreground font-medium">No results found for "{searchQuery}"</p>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-zinc-900 dark:bg-zinc-800 text-white rounded-[24px] p-8 sm:p-10 text-center relative overflow-hidden shadow-xl border border-zinc-800">
-          <div className="relative z-10">
-            <h2 className="text-2xl font-display font-semibold mb-2">Still need help?</h2>
-            <p className="text-white/70 mb-6 text-sm">Our experts are available 24/7 to assist you with any issues.</p>
-            <button 
-              onClick={() => setActiveModal('contact')}
-              className="bg-lime-400 text-foreground px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-lime-300 transition active:scale-95 inline-flex items-center gap-2"
+          {searching ? (
+            <button
+              type="button"
+              onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
-              Contact Support <ExternalLink className="size-4" />
+              <X className="size-4" />
             </button>
-          </div>
-          <div className="absolute -top-24 -right-24 size-64 bg-white/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 size-64 bg-lime-400/10 rounded-full blur-3xl" />
+          ) : (
+            <kbd className="pointer-events-none absolute right-5 top-1/2 hidden -translate-y-1/2 rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block">/</kbd>
+          )}
         </div>
-      </main>
 
-      {/* --- MODALS --- */}
-      {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm transition-opacity">
-          
-          {/* Contact / Email Form Modal */}
-          {(activeModal === 'contact' || activeModal === 'email') && (
-            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[400px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <h2 className="text-xl font-display font-semibold flex items-center gap-2"><Mail className="size-5 text-rose-500"/> Send us a message</h2>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-muted rounded-full transition"><X className="size-4"/></button>
+        {searching ? (
+          <section aria-live="polite" aria-label="Search results" className="mb-12">
+            <p className="mb-3 text-sm text-muted-foreground">
+              {resultCount} {resultCount === 1 ? 'result' : 'results'} for “{query.trim()}”
+            </p>
+            {resultCount === 0 ? (
+              <div className="rounded-3xl border border-border bg-card/80 px-6 py-10 text-center backdrop-blur-sm">
+                <Search className="mx-auto size-8 text-muted-foreground" />
+                <p className="mt-3 font-medium text-foreground">No articles match your search.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Try different words, or ask our team directly.</p>
+                <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                  <button type="button" onClick={() => openChat(null)} className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition hover:opacity-90">
+                    <MessageCircle className="size-4" /> Chat with support
+                  </button>
+                  <button type="button" onClick={() => setPanel({ kind: 'contact' })} className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted">
+                    <Mail className="size-4" /> Email support
+                  </button>
+                </div>
               </div>
-              <div className="p-6 flex flex-col gap-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Subject</label>
-                  <input 
-                    type="text" 
-                    value={contactSubject}
-                    onChange={(e) => setContactSubject(e.target.value)}
-                    disabled={isSending}
-                    placeholder="What is this regarding?" 
-                    className="w-full border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground bg-card/50 disabled:opacity-50" 
+            ) : (
+              <ul className="space-y-2">
+                {results.guides.map(g => (
+                  <ResultRow
+                    key={`g-${g.id}`}
+                    kind="Guide"
+                    icon={<BookOpen className="size-4 text-sky-500" />}
+                    title={<Highlight text={g.title} query={query} />}
+                    snippet={<Highlight text={excerpt([g.summary, ...g.steps].join(' '), query)} query={query} />}
+                    onClick={() => setPanel({ kind: 'guides', guideId: g.id })}
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Message</label>
-                  <textarea 
-                    rows={4} 
-                    value={contactMessage}
-                    onChange={(e) => setContactMessage(e.target.value)}
-                    disabled={isSending}
-                    placeholder="Describe your issue in detail..." 
-                    className="w-full border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground bg-card/50 resize-none disabled:opacity-50"
-                  ></textarea>
-                </div>
-                <button 
-                  onClick={handleSendEmail} 
-                  disabled={isSending || !contactSubject.trim() || !contactMessage.trim()}
-                  className="w-full bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 flex items-center justify-center gap-2 text-white rounded-xl py-3 text-sm font-medium hover:bg-zinc-800 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
-                >
-                  {isSending ? <><Loader2 className="size-4 animate-spin"/> Sending...</> : 'Send Message'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* FAQs Modal */}
-          {activeModal === 'faqs' && (
-            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[500px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <h2 className="text-xl font-display font-semibold flex items-center gap-2"><FileText className="size-5 text-emerald-500"/> Frequently Asked Questions</h2>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-muted rounded-full transition"><X className="size-4"/></button>
-              </div>
-              <div className="p-2 max-h-[60vh] overflow-y-auto">
-                {FAQS_DATA.map((faq, i) => (
-                  <div key={i} className="border-b border-border last:border-0">
-                    <button onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)} className="w-full text-left p-4 flex items-center justify-between hover:bg-muted/25 transition">
-                      <span className="font-medium text-sm text-foreground">{faq.q}</span>
-                      {openFaqIndex === i ? <ChevronUp className="size-4 text-zinc-400 shrink-0" /> : <ChevronDown className="size-4 text-zinc-400 shrink-0" />}
-                    </button>
-                    {openFaqIndex === i && (
-                      <div className="px-4 pb-4 text-sm text-zinc-600 dark:text-zinc-400 animate-in slide-in-from-top-1 fade-in">
-                        {faq.a}
-                      </div>
-                    )}
-                  </div>
                 ))}
-              </div>
+                {results.faqs.map(f => (
+                  <ResultRow
+                    key={`f-${f.id}`}
+                    kind="FAQ"
+                    icon={<FileText className="size-4 text-emerald-500" />}
+                    title={<Highlight text={f.q} query={query} />}
+                    snippet={<Highlight text={excerpt(f.a, query)} query={query} />}
+                    onClick={() => setPanel({ kind: 'faqs', faqId: f.id })}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : (
+          <>
+            {/* Support options */}
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {cards.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={c.onClick}
+                  className="group flex h-full flex-col rounded-3xl border border-border bg-card/80 p-6 text-left shadow-sm backdrop-blur-lg transition hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <span className="mb-4 flex items-center justify-between">
+                    <span className="grid size-11 place-items-center rounded-xl border border-border bg-background shadow-sm transition-transform group-hover:scale-105">{c.icon}</span>
+                    <ArrowRight className="size-4 text-muted-foreground opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100 group-focus-visible:opacity-100" />
+                  </span>
+                  <span className="mb-1 font-display text-lg font-semibold text-foreground">{c.title}</span>
+                  <span className="text-sm text-muted-foreground">{c.desc}</span>
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* User Guides Modal */}
-          {activeModal === 'guides' && (
-            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[500px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <h2 className="text-xl font-display font-semibold flex items-center gap-2"><BookOpen className="size-5 text-sky-500"/> User Guides</h2>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-muted rounded-full transition"><X className="size-4"/></button>
-              </div>
-              <div className="p-6 flex flex-col gap-3">
-                {['Getting Started with Codas', 'How to Link your Bank Accounts safely', 'Understanding your Net Worth Chart', 'Exporting your data for Tax Filing'].map((guide, i) => (
-                  <button key={i} onClick={() => showToast(`Opening guide: ${guide}`)} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-border hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-muted/50 bg-card transition text-left group">
-                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-foreground transition">{guide}</span>
-                    <ExternalLink className="size-4 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0" />
+            {/* Popular guides */}
+            <section aria-labelledby="popular-heading" className="mb-12">
+              <h2 id="popular-heading" className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Popular guides</h2>
+              <div className="flex flex-wrap gap-2">
+                {POPULAR.map(id => GUIDES.find(g => g.id === id)).filter(Boolean).map(g => (
+                  <button
+                    key={g!.id}
+                    type="button"
+                    onClick={() => setPanel({ kind: 'guides', guideId: g!.id })}
+                    className="rounded-full border border-border bg-card/80 px-3.5 py-1.5 text-sm text-foreground backdrop-blur-sm transition hover:border-foreground/20 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {g!.title}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            </section>
+          </>
+        )}
 
-          {/* Live Chat Modal */}
-          {activeModal === 'chat' && (
-            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[400px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden flex flex-col h-[500px] animate-in zoom-in-95 duration-200 mb-20 md:mb-32">
-              <div className="p-4 bg-zinc-900 dark:bg-zinc-800 text-white flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <div className="size-8 rounded-full bg-lime-400 flex items-center justify-center text-foreground"><MessageCircle className="size-4"/></div>
-                    <div className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 border-2 border-foreground"></div>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-sm">Codas Support</h3>
-                    <p className="text-[10px] text-white/60">Typically replies in a few minutes</p>
-                  </div>
-                </div>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-zinc-800 rounded-full transition"><X className="size-4"/></button>
-              </div>
-              <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-muted/25">
-                {chatHistory.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm ${msg.sender === 'user' ? 'bg-zinc-900 dark:bg-zinc-800 text-white rounded-br-sm' : 'bg-card border border-border text-foreground rounded-bl-sm shadow-sm'}`}>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-3 border-t border-border bg-card flex items-center gap-2">
-                <input 
-                  type="text" 
-                  value={chatMsg}
-                  onChange={(e) => setChatMsg(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && chatMsg.trim()) {
-                      setChatHistory([...chatHistory, {sender: 'user', text: chatMsg}]);
-                      setChatMsg('');
-                      setTimeout(() => {
-                        setChatHistory(prev => [...prev, {sender: 'agent', text: 'Thank you for your message. An agent will be with you shortly.'}]);
-                      }, 1000);
-                    }
-                  }}
-                  placeholder="Type your message..." 
-                  className="flex-1 bg-muted rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
-                />
-                <button 
-                  onClick={() => {
-                    if (chatMsg.trim()) {
-                      setChatHistory([...chatHistory, {sender: 'user', text: chatMsg}]);
-                      setChatMsg('');
-                      setTimeout(() => setChatHistory(prev => [...prev, {sender: 'agent', text: 'An agent will be with you shortly.'}]), 1000);
-                    }
-                  }}
-                  className="p-2.5 bg-lime-400 text-foreground rounded-full hover:bg-lime-300 transition active:scale-95"
-                >
-                  <Send className="size-4" />
-                </button>
-              </div>
-            </div>
-          )}
+        {/* My tickets */}
+        <section aria-labelledby="tickets-heading" className="mb-12">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="tickets-heading" className="font-display text-lg font-semibold text-foreground">
+              My tickets
+              {openTickets > 0 ? <span className="ml-2 align-middle text-xs font-medium text-muted-foreground">{openTickets} open</span> : null}
+            </h2>
+            {tickets && tickets.length > 0 ? (
+              <button type="button" onClick={() => openChat(null)} className="rounded-full border border-border bg-card/80 px-3.5 py-1.5 text-sm font-medium text-foreground transition hover:bg-card">
+                New conversation
+              </button>
+            ) : null}
+          </div>
 
-        </div>
-      )}
+          {ticketsLoading && !tickets ? (
+            <div className="space-y-2" aria-busy="true" aria-label="Loading tickets">
+              {[0, 1].map(i => <div key={i} className="h-[4.5rem] animate-pulse rounded-2xl border border-border bg-card/60" />)}
+            </div>
+          ) : ticketsError && !tickets ? (
+            <ErrorCard error={ticketsError} title="We couldn't load your tickets" onRetry={() => { void loadTickets(); }} compact />
+          ) : !tickets || tickets.length === 0 ? (
+            <div className="flex flex-col items-center rounded-3xl border border-dashed border-border bg-card/50 px-6 py-8 text-center">
+              <Inbox className="size-7 text-muted-foreground" />
+              <p className="mt-2 text-sm font-medium text-foreground">No support tickets yet</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">Conversations you start with our team will appear here.</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {tickets.map(t => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => openChat(t.id)}
+                    className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-card/80 px-4 py-3.5 text-left backdrop-blur-sm transition hover:border-foreground/15 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium text-foreground">{t.subject}</span>
+                        <StatusBadge status={t.status} />
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        <span className="font-mono">{t.reference}</span> · {topicLabel(t.category)} · {t.channel === 'email' ? 'Email' : 'Chat'} · updated {timeAgo(t.updatedAt)}
+                      </span>
+                      {t.lastMessage ? (
+                        <span className="mt-1 block truncate text-xs text-muted-foreground/90">
+                          {t.lastMessage.sender === 'user' ? 'You: ' : t.lastMessage.sender === 'assistant' ? 'Assistant: ' : 'Support: '}
+                          {t.lastMessage.preview}
+                        </span>
+                      ) : null}
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Still need help */}
+        <section className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 p-8 text-center text-white shadow-xl sm:p-10">
+          <div className="relative z-10">
+            <h2 className="mb-2 font-display text-2xl font-semibold">Still need help?</h2>
+            <p className="mx-auto mb-6 max-w-[28rem] text-sm text-white/70">
+              Send us a message and our support team will get back to you within 1 business day.
+            </p>
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setPanel({ kind: 'contact' })}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-lime-400 px-6 py-2.5 text-sm font-semibold text-zinc-900 transition hover:bg-lime-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-200 sm:w-auto"
+              >
+                <Mail className="size-4" /> Contact support
+              </button>
+              <button
+                type="button"
+                onClick={() => openChat(null)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/20 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:w-auto"
+              >
+                <MessageCircle className="size-4" /> Start a conversation
+              </button>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-white/5 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 size-64 rounded-full bg-lime-400/10 blur-3xl" />
+        </section>
+      </main>
+
+      <GuidesDialog
+        open={panel?.kind === 'guides'}
+        onOpenChange={(o) => { if (!o) close(); }}
+        initialGuideId={panel?.kind === 'guides' ? panel.guideId : null}
+        onContact={() => openChat(null)}
+      />
+      <FaqDialog
+        open={panel?.kind === 'faqs'}
+        onOpenChange={(o) => { if (!o) close(); }}
+        initialFaqId={panel?.kind === 'faqs' ? panel.faqId : null}
+        onContact={() => openChat(null)}
+      />
+      <ContactDialog
+        open={panel?.kind === 'contact'}
+        onOpenChange={(o) => { if (!o) close(); }}
+        onCreated={() => { void loadTickets(); }}
+        onViewTicket={(id) => openChat(id)}
+      />
+      <SupportChatDialog
+        open={panel?.kind === 'chat'}
+        onOpenChange={(o) => { if (!o) close(); }}
+        ticketId={panel?.kind === 'chat' ? panel.ticketId : null}
+        onTicketOpened={(id) => setPanel({ kind: 'chat', ticketId: id })}
+        onChanged={() => { void loadTickets(); }}
+      />
     </div>
   );
 }
 
-function SupportCard({ icon, title, desc, onClick }: { icon: React.ReactNode; title: string; desc: string; onClick: () => void }) {
+function ResultRow({ kind, icon, title, snippet, onClick }: {
+  kind: string; icon: React.ReactNode; title: React.ReactNode; snippet: React.ReactNode; onClick: () => void;
+}) {
   return (
-    <button 
-      onClick={onClick}
-      className="bg-card/80 backdrop-blur-lg p-6 rounded-[24px] shadow-sm border border-border/50 hover:shadow-md hover:border-zinc-300/50 dark:hover:border-zinc-700/50 transition text-left group"
-    >
-      <div className="p-3 bg-card/50 backdrop-blur-sm rounded-xl inline-block mb-4 border border-border/50 shadow-sm group-hover:scale-110 transition-transform">
-        {icon}
-      </div>
-      <h3 className="text-lg font-display font-semibold text-foreground mb-1">{title}</h3>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">{desc}</p>
-    </button>
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-card/80 px-4 py-3.5 text-left backdrop-blur-sm transition hover:border-foreground/15 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{title}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{kind}</span>
+          </span>
+          <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{snippet}</span>
+        </span>
+        <ChevronRight className="mt-1.5 size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
+      </button>
+    </li>
   );
 }

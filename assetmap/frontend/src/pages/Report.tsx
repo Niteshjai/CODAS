@@ -74,12 +74,12 @@ export default function Report() {
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-surface-50 mb-2">Generate Asset Report</h2>
-              <p className="text-surface-100/50 text-sm mb-6 max-w-md mx-auto">
+              <p className="text-surface-100/50 text-sm mb-6 max-w-[28rem] mx-auto">
                 This report includes your net worth summary, asset breakdown by category,
                 account details, and property records. It's watermarked and encrypted.
               </p>
 
-              <div className="space-y-2 text-left max-w-sm mx-auto mb-6">
+              <div className="space-y-2 text-left max-w-[24rem] mx-auto mb-6">
                 {['Net worth summary', 'Asset breakdown by category', 'Individual account details', 'Land & property records', 'Consent status', 'Watermarked for security'].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-sm text-surface-100/60">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2">

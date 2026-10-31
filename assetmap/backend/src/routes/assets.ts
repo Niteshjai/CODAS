@@ -15,6 +15,7 @@ import { auditLogger } from '../services/auditLogger';
 import { logger } from '../utils/logger';
 import { planEnforcer } from '../plans/planEnforcer';
 import { manualAssetService } from '../manual/manualAssetService';
+import { getAssetDetail } from '../services/assetDetail';
 
 const MAX_PAGE_SIZE = 100;
 
@@ -122,6 +123,27 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
       return reply.send(successResponse({ assets }));
     } catch (error) {
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to fetch financial data'));
+    }
+  });
+
+  // ─────────────────────────────────────────────
+  // GET /api/assets/financial/:id/detail
+  // One linked account: details, nominee status, value history, transactions
+  // ─────────────────────────────────────────────
+  fastify.get('/financial/:id/detail', {
+    preHandler: [verifyAccessToken, planEnforcer.requireFeature('asset_dashboard', pool)]
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Account not found'));
+    }
+    try {
+      const detail = await getAssetDetail(request.user!.id, id);
+      if (!detail) return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Account not found'));
+      return reply.send(successResponse(detail));
+    } catch (error) {
+      logger.error('Asset detail fetch failed', { error: (error as Error).message });
+      return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to load account details'));
     }
   });
 

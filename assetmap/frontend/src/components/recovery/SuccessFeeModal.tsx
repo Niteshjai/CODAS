@@ -126,7 +126,7 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-card border border-border rounded-[28px] w-full max-w-xl sm:min-w-[500px] md:min-w-[560px] shadow-2xl relative overflow-hidden">
+      <div className="bg-card border border-border rounded-[28px] w-full max-w-[36rem] sm:min-w-[500px] md:min-w-[560px] shadow-2xl relative overflow-hidden">
 
         {/* Header */}
         <div className="p-6 pb-0 flex items-start justify-between">

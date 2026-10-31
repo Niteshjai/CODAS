@@ -37,6 +37,10 @@ services:
       - ./backend/src/db/migrations/023_fix_two_factor_schema.sql:/docker-entrypoint-initdb.d/23-023_fix_two_factor_schema.sql
       - ./backend/src/db/migrations/024_b2b_audit_action.sql:/docker-entrypoint-initdb.d/24-024_b2b_audit_action.sql
       - ./backend/src/db/migrations/025_land_records_upsert_key.sql:/docker-entrypoint-initdb.d/25-025_land_records_upsert_key.sql
+      - ./backend/src/db/migrations/026_will_allocation_beneficiary.sql:/docker-entrypoint-initdb.d/26-026_will_allocation_beneficiary.sql
+      - ./backend/src/db/migrations/027_family_vault_members.sql:/docker-entrypoint-initdb.d/27-027_family_vault_members.sql
+      - ./backend/src/db/migrations/028_support_tickets.sql:/docker-entrypoint-initdb.d/28-028_support_tickets.sql
+      - ./backend/src/db/migrations/029_user_preferences.sql:/docker-entrypoint-initdb.d/29-029_user_preferences.sql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U assetmap']
       interval: 10s

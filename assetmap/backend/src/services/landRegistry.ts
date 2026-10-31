@@ -242,14 +242,17 @@ export const landRegistryService = {
     recordId: string,
     userId: string
   ): Promise<any | null> {
+    // Old cache entries predate the safe mutation/encumbrance projection — ignore them
     const cached = await landCache.getSingleRecord(recordId)
-    if (cached && cached.userId === userId) return cached
+    let record = cached && cached.user_id === userId && Array.isArray(cached.encumbrances) ? cached : null
 
-    const record = await getLandRecordById(pool, recordId, userId)
-    if (!record) return null
+    if (!record) {
+      record = await getLandRecordById(pool, recordId, userId)
+      if (!record) return null
+      await landCache.setSingleRecord(recordId, record)
+    }
 
-    await landCache.setSingleRecord(recordId, record)
-
+    // Every view is audited, cached or not
     await auditLogger.log(
       userId,
       'LAND_RECORD_VIEWED' as 'LAND_RECORD_VIEWED',

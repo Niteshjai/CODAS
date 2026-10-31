@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, ShieldAlert, Smartphone, Mail, Loader2, X, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../services/api';
+import { CardSkeleton } from '../../components/loading/CardSkeleton';
+import { Skeleton } from '../../components/loading/Skeleton';
+import { ErrorCard } from '../../components/errors/ErrorCard';
 
 const OTP_LENGTH = 6;
 
@@ -16,6 +19,7 @@ export default function TwoFactorSettings() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<TwoFactorStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [disableLoading, setDisableLoading] = useState(false);
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [disableOtpDigits, setDisableOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
@@ -28,6 +32,8 @@ export default function TwoFactorSettings() {
   }, []);
 
   async function fetchStatus() {
+    setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get('/2fa/status');
       const data = res.data.data;
@@ -35,8 +41,9 @@ export default function TwoFactorSettings() {
         active: Boolean(data?.isEnabled ?? data?.active),
         method: data?.method ?? null,
       });
-    } catch {
-      toast.error('Failed to load 2FA status');
+    } catch (err) {
+      // Never fall through to "2FA is Disabled" when we simply don't know
+      setLoadError(err);
     } finally {
       setLoading(false);
     }
@@ -124,9 +131,18 @@ export default function TwoFactorSettings() {
       </header>
 
       {loading ? (
-        <div className="flex items-center justify-center mt-32">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+        <div role="status" aria-busy="true" aria-label="Loading 2FA settings" className="max-w-[560px] mx-auto px-6 mt-2 sm:mt-4 space-y-6">
+          <div className="flex flex-col items-center gap-3 mb-10">
+            <Skeleton width={320} height={36} style={{ maxWidth: '100%' }} />
+            <Skeleton width={260} height={16} style={{ maxWidth: '100%' }} />
+          </div>
+          <CardSkeleton rows={1} />
+          <CardSkeleton rows={2} />
         </div>
+      ) : loadError && !status ? (
+        <main className="max-w-[560px] mx-auto px-6 mt-10">
+          <ErrorCard error={loadError} title="We couldn't load your 2FA settings" onRetry={() => { void fetchStatus(); }} />
+        </main>
       ) : (
         <main className="max-w-[560px] mx-auto px-6 mt-2 sm:mt-4">
         <div className="mb-10 sm:mb-12 text-center">

@@ -32,7 +32,7 @@ export function DetailPageSkeleton({ label = 'Loading details' }: { label?: stri
 export function PageLoadError({ children }: { children: React.ReactNode }) {
   return (
     <div className="page-gradient-bg min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md">{children}</div>
+      <div className="w-full max-w-[28rem]">{children}</div>
     </div>
   )
 }

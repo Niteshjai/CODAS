@@ -8,7 +8,10 @@ import RecoveryCard from './RecoveryCard'
 import DocumentUploader from './DocumentUploader'
 import TimelineTracker from './TimelineTracker'
 import RecoverySuccess from './RecoverySuccess'
-import { ArrowLeft, Scale, Briefcase, TrendingUp, Clock, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Scale, Briefcase, TrendingUp, Clock, CheckCircle2 } from 'lucide-react'
+import { CardSkeleton } from '../loading/CardSkeleton'
+import { ListSkeleton } from '../loading/ListSkeleton'
+import { ErrorCard } from '../errors/ErrorCard'
 
 const LEGAL_DISCLAIMER =
   'Codas Recovery Services assists with document preparation and ' +
@@ -26,15 +29,17 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
   const [selectedCase, setSelectedCase] = useState<RecoveryCaseDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [error, setError] = useState('')
+  // Initial-load failure plus how to retry that specific load
+  const [loadError, setLoadError] = useState<{ error: unknown; retry: () => void } | null>(null)
 
   const fetchCases = async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await getRecoveryCases()
       setCases(data)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load recovery cases')
+    } catch (err) {
+      setLoadError({ error: err, retry: () => { void fetchCases() } })
     } finally {
       setLoading(false)
     }
@@ -50,13 +55,16 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
 
   const handleCaseClick = async (caseId: string) => {
     setDetailLoading(true)
+    setLoadError(null)
     try {
       const detail = await getRecoveryCaseDetail(caseId)
       setSelectedCase(detail)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load case details')
+    } catch (err) {
+      setLoadError({ error: err, retry: () => { void handleCaseClick(caseId) } })
     } finally {
       setDetailLoading(false)
+      // Opened straight into a case (initialCaseId): the list never loaded, so end its loading state too
+      setLoading(false)
     }
   }
 
@@ -71,16 +79,20 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
 
   const handleDocumentUploaded = async () => {
     if (selectedCase) {
-      const detail = await getRecoveryCaseDetail(selectedCase.id)
-      setSelectedCase(detail)
+      // Background refresh: on failure keep showing the case already on screen
+      try {
+        const detail = await getRecoveryCaseDetail(selectedCase.id)
+        setSelectedCase(detail)
+      } catch { /* banner/toast layer already reports connectivity problems */ }
     }
   }
 
   // ─── Case Detail View ───
   if (detailLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <Loader2 className="size-8 text-zinc-400 animate-spin" />
+      <div role="status" aria-busy="true" aria-label="Loading recovery case" className="max-w-2xl px-2 mt-4 space-y-6">
+        <CardSkeleton rows={3} />
+        <ListSkeleton rows={3} />
       </div>
     )
   }
@@ -271,21 +283,16 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
           </div>
         )}
 
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 text-sm">
-            {error}
-          </div>
-        )}
-
         {loading || detailLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="size-8 text-zinc-400 animate-spin" />
-          </div>
+          <ListSkeleton rows={3} />
+        ) : loadError ? (
+          // A failed load is not "no recovery cases yet"
+          <ErrorCard error={loadError.error} title="We couldn't load your recoveries" onRetry={loadError.retry} />
         ) : cases.length === 0 ? (
           <div className="bg-card border border-border/80 rounded-[24px] p-10 text-center">
             <Briefcase className="size-12 text-zinc-300 mx-auto mb-4" strokeWidth={1.25} />
             <h3 className="text-lg font-semibold text-foreground mb-2">No recovery cases yet</h3>
-            <p className="text-muted-foreground text-[15px] max-w-sm mx-auto">
+            <p className="text-muted-foreground text-[15px] max-w-[24rem] mx-auto">
               Go to <span className="font-medium text-zinc-700 dark:text-zinc-300">Unclaimed Wealth</span> to discover and start recovering your unclaimed assets.
             </p>
           </div>

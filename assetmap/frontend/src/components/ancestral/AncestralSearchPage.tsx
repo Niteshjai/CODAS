@@ -122,10 +122,10 @@ export default function AncestralSearchPage() {
               <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                 Searching land records...
               </div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-sm text-center">
+              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-[24rem] text-center">
                 We're checking state land portals and trying name variants. This takes 30–60 seconds.
               </div>
-              <div className="flex flex-col gap-3 w-full max-w-xs">
+              <div className="flex flex-col gap-3 w-full max-w-[20rem]">
                 {[
                   'Generating name spelling variants',
                   'Searching district land records',
@@ -191,7 +191,7 @@ export default function AncestralSearchPage() {
               <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                 No matches found online
               </div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-md">
+              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-[28rem]">
                 This could mean the village records aren't yet digitised, the name spelling in old records differs significantly, or the property is in a state with offline-only records.
               </div>
               <div className="flex gap-3 flex-wrap justify-center">

@@ -3,6 +3,9 @@ import { ArrowLeft } from 'lucide-react';
 import { PlanCard } from './PlanCard';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { CardSkeleton } from '../loading/CardSkeleton';
+import { Skeleton } from '../loading/Skeleton';
+import { ErrorCard } from '../errors/ErrorCard';
 
 // Consumer tiers in ascending order (mirrors PLAN_RANK in the backend planEnforcer).
 // b2b is sales-led and never treated as lower or higher.
@@ -16,11 +19,15 @@ export const PricingPage: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [currentPlan, setCurrentPlan] = useState<string>('free');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [subscribingTo, setSubscribingTo] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPlans = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
         const [plansRes, statusRes] = await Promise.all([
           api.get('/plans'),
@@ -42,14 +49,15 @@ export const PricingPage: React.FC = () => {
         setPlans(plansData);
         setCurrentPlan(statusRes.data.data.planId || 'free');
       } catch (err) {
-        console.error('Failed to fetch plans', err);
+        // Without the user's plan status we can't tell which plan is current: don't guess
+        setLoadError(err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchPlans();
-  }, []);
+  }, [reloadKey]);
 
   const getHighlightsForPlan = (slug: string) => {
     if (slug === 'free') return ['Asset discovery dashboard', 'Land records (up to 3 parcels)', 'Net worth tracker (3 months)', '1 unclaimed asset search/year', '1 ancestral property search/year', 'Success-fee recovery', '1 PDF report/month'];
@@ -161,15 +169,24 @@ export const PricingPage: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (loading || loadError) {
     return (
-      <div className="page-gradient-bg min-h-screen text-foreground font-sans flex items-center justify-center" style={{ contain: 'layout style' }}>
-        <div className="flex flex-col items-center">
-          <div className="relative flex h-12 w-12 mb-4">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-12 w-12 bg-lime-500"></span>
+      <div className="page-gradient-bg min-h-screen text-foreground font-sans" style={{ contain: 'layout style' }}>
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-4 mb-16">
+            <Skeleton width={420} height={40} style={{ maxWidth: '100%' }} />
+            <Skeleton width={360} height={18} style={{ maxWidth: '100%' }} />
+            <Skeleton width={300} height={44} radius={999} style={{ maxWidth: '100%', marginTop: 16 }} />
           </div>
-          <p className="text-xl font-semibold text-foreground">Loading your plans...</p>
+          {loadError ? (
+            <div className="max-w-[28rem] mx-auto">
+              <ErrorCard error={loadError} title="We couldn't load plans" onRetry={() => setReloadKey((k) => k + 1)} />
+            </div>
+          ) : (
+            <div role="status" aria-busy="true" aria-label="Loading plans" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+              {[0, 1, 2, 3].map((i) => <CardSkeleton key={i} rows={6} className="rounded-2xl" />)}
+            </div>
+          )}
         </div>
       </div>
     );

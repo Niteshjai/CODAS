@@ -177,55 +177,60 @@ export const PaginationQuerySchema = {
 // Will Schemas
 // ─────────────────────────────────────────────
 
+// Testator Aadhaar is never collected here: the user is already Aadhaar-verified and the
+// server attaches the stored salted hash. Plan/subscription come from the server too.
+const WILL_DETAILS_PROPERTIES = {
+  testatorName:     { type: 'string', minLength: 2, maxLength: 200 },
+  testatorDob:      { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+  testatorAddress:  { type: 'string', minLength: 5, maxLength: 500 },
+  testatorPan:      { type: 'string', pattern: '^([A-Z]{5}[0-9]{4}[A-Z])?$' },
+  executorName:     { type: 'string', minLength: 2, maxLength: 200 },
+  executorRelation: { type: 'string', minLength: 2, maxLength: 50 },
+  executorMobile:   { type: 'string', pattern: '^[6-9][0-9]{9}$' },
+  altExecutorName:  { type: 'string', maxLength: 200 },
+};
+
 export const WillCreateSchema = {
   type: 'object',
-  required: ['testatorName', 'testatorDob', 'testatorAadhaarHash', 'executorName', 'executorRelation', 'executorMobile'],
-  properties: {
-    testatorName: { type: 'string', minLength: 2, maxLength: 200 },
-    testatorDob: { type: 'string' },
-    testatorAddress: { type: 'string' },
-    testatorPan: { type: 'string' },
-    testatorAadhaarHash: { type: 'string', minLength: 12, maxLength: 14 },
-    executorName: { type: 'string' },
-    executorRelation: { type: 'string' },
-    executorMobile: { type: 'string' },
-    altExecutorName: { type: 'string' },
-    subscriptionPlan: { type: 'string' },
-    subscriptionId: { type: 'string' }
-  },
+  required: ['testatorName', 'testatorDob', 'testatorAddress', 'executorName', 'executorRelation', 'executorMobile'],
+  properties: WILL_DETAILS_PROPERTIES,
   additionalProperties: false
 };
+
+export const WillUpdateSchema = WillCreateSchema;
 
 export const WillBeneficiarySchema = {
   type: 'object',
   required: ['name', 'relation'],
   properties: {
-    name: { type: 'string', minLength: 2, maxLength: 200 },
-    relation: { type: 'string' },
-    dob: { type: 'string' },
-    mobile: { type: 'string' },
-    email: { type: 'string' },
-    address: { type: 'string' },
-    aadhaarHash: { type: 'string', minLength: 12, maxLength: 14 },
-    pan: { type: 'string' }
+    name:     { type: 'string', minLength: 2, maxLength: 200 },
+    relation: { type: 'string', minLength: 2, maxLength: 50 },
+    dob:      { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    mobile:   { type: 'string', pattern: '^[6-9][0-9]{9}$' },
+    email:    { type: 'string', maxLength: 200 },
+    address:  { type: 'string', maxLength: 500 },
   },
   additionalProperties: false
 };
 
+// Must match the will_allocations.asset_type CHECK constraint (006_phase2_features.sql)
+export const WILL_ASSET_TYPES = [
+  'bank_account', 'mutual_fund', 'equity', 'insurance_policy',
+  'land_record', 'nps', 'vehicle', 'jewelry', 'other',
+] as const;
+
 export const WillAllocationSchema = {
   type: 'object',
-  required: ['assetType', 'assetDescription', 'estimatedValuePaise', 'beneficiaryId', 'beneficiaryName', 'beneficiaryRelation', 'allocationPct'],
+  required: ['assetType', 'assetDescription', 'beneficiaryId', 'allocationPct'],
   properties: {
-    assetType: { type: 'string' },
-    assetRefId: { type: 'string' },
-    assetDescription: { type: 'string' },
+    assetType:           { type: 'string', enum: WILL_ASSET_TYPES },
+    assetRefId:          { type: 'string', format: 'uuid' },
+    assetDescription:    { type: 'string', minLength: 2, maxLength: 300 },
     estimatedValuePaise: { type: 'number', minimum: 0 },
-    beneficiaryId: { type: 'string' },
-    beneficiaryName: { type: 'string' },
-    beneficiaryRelation: { type: 'string' },
-    allocationPct: { type: 'number', minimum: 0, maximum: 100 },
-    conditionText: { type: 'string' },
-    notes: { type: 'string' }
+    beneficiaryId:       { type: 'string', format: 'uuid' },
+    allocationPct:       { type: 'number', exclusiveMinimum: 0, maximum: 100 },
+    conditionText:       { type: 'string', maxLength: 500 },
+    notes:               { type: 'string', maxLength: 500 }
   },
   additionalProperties: false
 };

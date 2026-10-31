@@ -538,7 +538,7 @@ export default function Onboarding() {
 
         <div className="w-full max-w-[380px] space-y-lg">
           {/* Brand Header */}
-          <div className="flex items-center justify-center gap-3 -mt-8 mb-16">
+          <div className="flex items-center justify-center gap-3 mb-10">
             <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-foreground/10 shadow-md grid place-items-center shrink-0">
               <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
             </div>
@@ -548,9 +548,9 @@ export default function Onboarding() {
           {step === 'phone' && (
             <>
               {/* Intro */}
-              <div className="space-y-2 group cursor-default">
+              <div className="space-y-2 text-center group cursor-default">
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 transition-all duration-300 group-hover:to-brand-secondary">Welcome Back</h2>
-                <p className="text-base tracking-tight text-on-surface-variant leading-relaxed">Securely manage your assets and track your growth.</p>
+                <p className="text-base tracking-tight text-on-surface-variant leading-relaxed text-balance">Securely manage your assets and track your growth.</p>
               </div>
 
               {/* Form */}
@@ -654,13 +654,13 @@ export default function Onboarding() {
           )}
 
           {step === 'otp' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Intro */}
-              <div className="space-y-1.5 group cursor-default">
+              <div className="space-y-1.5 text-center group cursor-default">
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 transition-all duration-300 group-hover:to-brand-secondary">Security Check</h2>
-                <p className="text-sm md:text-base tracking-tight text-on-surface-variant leading-relaxed">
+                <p className="text-sm md:text-base tracking-tight text-on-surface-variant leading-relaxed text-balance">
                   Enter the 6-digit code sent to{' '}
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5 ml-1">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100 inline-flex items-center gap-1.5">
                     {authChannel === 'whatsapp' && (
                       <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-4 h-4" />
                     )}
@@ -669,8 +669,8 @@ export default function Onboarding() {
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-1">
+              <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex gap-2 justify-between" onPaste={handleOtpPaste}>
                     {otpDigits.map((digit, i) => (
                       <input
@@ -691,7 +691,7 @@ export default function Onboarding() {
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-0.5">
+                  <div className="flex items-center justify-center min-h-5">
                     {timerActive && timeLeft > 0 ? (
                       <span className="text-xs md:text-sm font-medium text-on-surface-variant">
                         Code expires in <span className="font-bold text-brand-secondary">{formatTimer(timeLeft)}</span>
@@ -723,20 +723,24 @@ export default function Onboarding() {
                 <button
                   type="button"
                   onClick={() => { setStep('phone'); setError(''); setTimerActive(false); setOtpDigits(Array(OTP_LENGTH).fill('')); }}
-                  className="w-full py-2.5 rounded-3xl bg-surface-container-high text-on-surface-variant font-medium text-sm hover:bg-surface-dim transition-colors"
+                  className="w-full py-2.5 rounded-3xl text-on-surface-variant font-medium text-sm hover:bg-black/5 dark:hover:bg-white/5 hover:text-on-surface transition-colors"
                 >
                   Change phone number
                 </button>
 
                 {/* Other Options */}
                 {authChannel === 'sms' && (
-                  <div className="pt-3 border-t border-black/10 dark:border-white/10 text-center space-y-2">
-                    <p className="text-xs text-on-surface-variant">Other login options</p>
+                  <div className="pt-2 space-y-4">
+                    <div className="flex items-center gap-3" role="separator" aria-label="Other login options">
+                      <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+                      <span className="text-xs text-on-surface-variant">or continue with</span>
+                      <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+                    </div>
                     <div className="flex gap-3 justify-center">
                       <button
                         type="button"
                         onClick={(e) => handleSendOtp(e, 'whatsapp')}
-                        className="w-full py-2.5 rounded-2xl bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-sm text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:bg-white/80 dark:hover:bg-white/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-3xl bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-sm text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:bg-white/80 dark:hover:bg-white/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                       >
                         <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-4 h-4" />
                         WhatsApp
@@ -781,9 +785,9 @@ export default function Onboarding() {
               </div>
 
               {/* Intro */}
-              <div className="space-y-1 group cursor-default">
+              <div className="space-y-1 text-center group cursor-default">
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-zinc-100 dark:to-zinc-400 transition-all duration-300 group-hover:to-brand-secondary">Welcome Back</h2>
-                <p className="text-sm md:text-base tracking-tight text-on-surface-variant leading-relaxed">Securely manage your assets and track your growth.</p>
+                <p className="text-sm md:text-base tracking-tight text-on-surface-variant leading-relaxed text-balance">Securely manage your assets and track your growth.</p>
               </div>
 
               <div className="space-y-2.5">
@@ -901,7 +905,7 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="space-y-xs">
+              <div className="space-y-xs text-center">
                 <h2 className="font-headline-lg text-headline-lg text-on-surface">Identity Verification</h2>
                 <p className="font-body-md text-on-surface-variant">Please enter your 12-digit Aadhaar number to continue</p>
               </div>
@@ -951,7 +955,7 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="space-y-xs">
+              <div className="space-y-xs text-center">
                 <h2 className="font-headline-lg text-headline-lg text-on-surface">Aadhaar OTP</h2>
                 <p className="font-body-md text-on-surface-variant">
                   Enter the 6-digit OTP sent to your Aadhaar-linked mobile number ending in {selectedCountry.code}****{phoneNumber.slice(-4)}.
@@ -1017,7 +1021,7 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="space-y-xs">
+              <div className="space-y-xs text-center">
                 <h2 className="font-headline-lg text-headline-lg text-on-surface">Confirm Details</h2>
                 <p className="font-body-md text-on-surface-variant">Please confirm your identity details fetched from Aadhaar</p>
               </div>
@@ -1076,7 +1080,7 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <div className="space-y-xs">
+              <div className="space-y-xs text-center">
                 <h2 className="font-headline-lg text-headline-lg text-on-surface">Add Email (Optional)</h2>
                 <p className="font-body-md text-on-surface-variant">This email will be used for account related notifications and security, or you can skip for now.</p>
               </div>
@@ -1201,7 +1205,7 @@ export default function Onboarding() {
 
         {/* Content Overlay */}
         <div className="relative z-20 px-8 lg:px-xl w-full max-w-2xl space-y-md pb-10 lg:pb-lg">
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 lg:p-lg rounded-3xl space-y-base max-w-md min-w-[300px] mx-auto">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 lg:p-lg rounded-3xl space-y-base max-w-[28rem] min-w-[300px] mx-auto">
             <h3 className="font-headline-xl text-white tracking-tight drop-shadow-sm">Strength in Every Move</h3>
             <p className="font-body-lg text-white/90 drop-shadow-sm">Experience the stability and precision of institutional-grade asset management.</p>
           </div>

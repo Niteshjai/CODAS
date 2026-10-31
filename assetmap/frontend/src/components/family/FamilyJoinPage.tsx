@@ -34,7 +34,7 @@ export default function FamilyJoinPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] dark:bg-[#0E1015] px-4">
-      <div className="max-w-md w-full bg-white dark:bg-[#1A1D27] rounded-3xl shadow-xl border border-zinc-200/80 dark:border-[#2E3148] p-8 text-center animate-in fade-in zoom-in-95 duration-300">
+      <div className="max-w-[28rem] w-full bg-white dark:bg-[#1A1D27] rounded-3xl shadow-xl border border-zinc-200/80 dark:border-[#2E3148] p-8 text-center animate-in fade-in zoom-in-95 duration-300">
         
         {status === 'loading' && (
           <div className="flex flex-col items-center py-4">

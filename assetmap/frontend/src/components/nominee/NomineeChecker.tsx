@@ -70,7 +70,7 @@ export default function NomineeChecker({ data }: { data: { accounts: NomineeStat
                 Show Missing Nominees
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-card rounded-[28px] p-6 sm:p-8 border-0 shadow-2xl" style={{ minWidth: '350px', width: '90vw', maxWidth: '500px' }}>
+            <DialogContent className="sm:max-w-[28rem] bg-card rounded-[28px] p-6 sm:p-8 border-0 shadow-2xl" style={{ minWidth: '350px', width: '90vw', maxWidth: '500px' }}>
               <DialogHeader className="mb-4">
                 <DialogTitle className="text-xl font-display font-semibold text-foreground">Missing Nominees</DialogTitle>
               </DialogHeader>

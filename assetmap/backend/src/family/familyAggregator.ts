@@ -1,4 +1,5 @@
 import { Pool }    from 'pg'
+import { memberName, FamilyError } from './familyVault'
 
 // Asset class → share column mapping
 const SHARE_COLUMNS: Record<string, string> = {
@@ -12,9 +13,8 @@ const SHARE_COLUMNS: Record<string, string> = {
   INSURANCE_LIFE:  'share_insurance',
   INSURANCE_HEALTH:'share_insurance',
   INSURANCE_OTHER: 'share_insurance',
-  LAND:            'share_land',
-  PROPERTY:        'share_land',
-  GOLD:            'share_gold',
+  REAL_ESTATE:     'share_land',
+  OTHER:           'share_gold',   // "Gold & other assets"
 }
 
 export const familyAggregator = {
@@ -37,14 +37,15 @@ export const familyAggregator = {
     // Get all active members with their sharing preferences
     const members = await pool.query(`
       SELECT
-        fvm.user_id,
-        fvm.display_name, fvm.invited_name,
+        fvm.id AS member_id, fvm.user_id,
+        fvm.display_name, fvm.invited_name, u.name_encrypted AS user_name_enc,
         fvm.avatar_color, fvm.relationship,
         fvm.share_bank_accounts, fvm.share_fixed_deposits,
         fvm.share_mutual_funds, fvm.share_equity,
         fvm.share_nps, fvm.share_epf, fvm.share_insurance,
         fvm.share_land, fvm.share_gold, fvm.share_total_networth
       FROM family_vault_members fvm
+      LEFT JOIN users u ON u.id = fvm.user_id
       WHERE fvm.vault_id = $1 AND fvm.status = 'active'
       AND fvm.user_id IS NOT NULL
     `, [vaultId])
@@ -58,14 +59,16 @@ export const familyAggregator = {
 
       // Fetch only the asset classes this member shares
       // Build WHERE clause dynamically based on their preferences
-      const sharedClasses = Object.entries(SHARE_COLUMNS)
+      // share_total_networth is the member's master switch: off → nothing of theirs is counted
+      const sharedClasses = member.share_total_networth === false ? [] : Object.entries(SHARE_COLUMNS)
         .filter(([_, col]) => member[col] === true)
         .map(([cls]) => cls)
 
       if (sharedClasses.length === 0) {
         memberSummaries.push({
+          memberId:      member.member_id,
           userId:        member.user_id,
-          name:          member.display_name ?? member.invited_name,
+          name:          memberName(member),
           avatarColor:   member.avatar_color,
           relationship:  member.relationship,
           totalPaise:    0,
@@ -95,7 +98,7 @@ export const familyAggregator = {
       let memberTotal = 0
 
       for (const row of assets.rows) {
-        const value = parseInt(row.total_value)
+        const value = Number(row.total_value) || 0
         memberAssets[row.asset_class] = value
         memberTotal += value
         byAssetClass[row.asset_class] =
@@ -105,8 +108,9 @@ export const familyAggregator = {
       totalPaise += memberTotal
 
       memberSummaries.push({
+        memberId:     member.member_id,
         userId:       member.user_id,
-        name:         member.display_name ?? member.invited_name,
+        name:         memberName(member),
         avatarColor:  member.avatar_color,
         relationship: member.relationship,
         totalPaise:   memberTotal,
@@ -123,85 +127,64 @@ export const familyAggregator = {
     }
   },
 
-  // Get one member's shared assets (for drill-down view)
+  // One member's shared assets (drill-down). memberId is the family_vault_members row id.
   async getMemberAssets(
-    pool:          Pool,
-    vaultId:       string,
-    requestingUserId:string,    // who is asking
-    targetUserId:  string       // whose data
+    pool:             Pool,
+    vaultId:          string,
+    requestingUserId: string,
+    memberId:         string
   ): Promise<{
     member:   any
     assets:   any[]
     summary:  Record<string, number>
+    sharesNothing: boolean
   }> {
     await verifyVaultAccess(pool, vaultId, requestingUserId)
 
-    // Get member preferences
     const member = await pool.query(`
-      SELECT * FROM family_vault_members
-      WHERE vault_id = $1 AND user_id = $2 AND status = 'active'
-    `, [vaultId, targetUserId])
-
-    if (!member.rows[0]) throw new Error('Member not found')
-
+      SELECT fvm.*, u.name_encrypted AS user_name_enc
+        FROM family_vault_members fvm
+        LEFT JOIN users u ON u.id = fvm.user_id
+       WHERE fvm.vault_id = $1 AND fvm.id = $2 AND fvm.status = 'active' AND fvm.user_id IS NOT NULL
+    `, [vaultId, memberId])
     const m = member.rows[0]
+    if (!m) throw new FamilyError('Member not found', 404, 'NOT_FOUND')
 
-    // Only show what they have shared
-    const sharedClasses = Object.entries(SHARE_COLUMNS)
+    const sharedClasses = m.share_total_networth === false ? [] : Object.entries(SHARE_COLUMNS)
       .filter(([_, col]) => m[col] === true)
       .map(([cls]) => cls)
 
-    // Same safe projection as below: never return invite_token / invited_mobile
+    // Never return invite_token / invited_mobile or the member's raw sharing row
     const safeMember = {
       id:           m.id,
-      name:         m.display_name ?? m.invited_name,
+      name:         memberName(m),
       avatarColor:  m.avatar_color,
       relationship: m.relationship,
+      sharedClasses,
     }
-
     if (sharedClasses.length === 0) {
-      return {
-        member: safeMember,
-        assets: [],
-        summary: {}
-      }
+      return { member: safeMember, assets: [], summary: {}, sharesNothing: true }
     }
 
-    const placeholders = sharedClasses
-      .map((_, i) => `$${i + 2}`)
-      .join(',')
-
+    const placeholders = sharedClasses.map((_, i) => `$${i + 2}`).join(',')
+    // Family sees institution, type and value — never account/folio numbers or nominee names
     const assets = await pool.query(`
-      SELECT
-        id, asset_class, institution_name,
-        asset_name, asset_subtype,
-        current_value_paise, gain_loss_paise,
-        gain_loss_pct, quantity, unit,
-        has_nominee, maturity_date,
-        ai_category_label, ai_risk_level,
-        ai_liquidity_score, ai_summary,
-        last_synced_at
-      FROM canonical_assets
-      WHERE user_id = $1
-      AND is_active = true
-      AND asset_class IN (${placeholders})
-      ORDER BY current_value_paise DESC
-    `, [targetUserId, ...sharedClasses])
+      SELECT id, asset_class, institution_name, source,
+             current_value_paise, has_nominee, last_synced_at
+        FROM canonical_assets
+       WHERE user_id = $1 AND is_active = true AND asset_class IN (${placeholders})
+       ORDER BY current_value_paise DESC NULLS LAST
+    `, [m.user_id, ...sharedClasses])
 
     const summary: Record<string, number> = {}
-    for (const asset of assets.rows) {
-      summary[asset.asset_class] =
-        (summary[asset.asset_class] ?? 0) +
-        parseInt(asset.current_value_paise)
-    }
+    const rows = assets.rows.map((a: any) => {
+      const value = Number(a.current_value_paise) || 0
+      summary[a.asset_class] = (summary[a.asset_class] ?? 0) + value
+      return { ...a, current_value_paise: value }
+    })
 
-    return {
-      member: safeMember,
-      assets: assets.rows,
-      summary
-    }
+    return { member: safeMember, assets: rows, summary, sharesNothing: false }
   },
-
   // Get combined net worth history for chart
   async getCombinedHistory(
     pool:    Pool,
@@ -245,20 +228,21 @@ export const familyAggregator = {
     await verifyVaultAccess(pool, vaultId, userId)
 
     const members = await pool.query(`
-      SELECT user_id, display_name, invited_name, avatar_color
-      FROM family_vault_members
-      WHERE vault_id = $1 AND status = 'active'
-      AND user_id IS NOT NULL
+      SELECT fvm.id AS member_id, fvm.user_id, fvm.display_name, fvm.invited_name, fvm.avatar_color,
+             u.name_encrypted AS user_name_enc
+        FROM family_vault_members fvm
+        LEFT JOIN users u ON u.id = fvm.user_id
+       WHERE fvm.vault_id = $1 AND fvm.status = 'active' AND fvm.user_id IS NOT NULL
+       ORDER BY fvm.accepted_at ASC NULLS LAST
     `, [vaultId])
 
     const results: EstateReadinessPerMember[] = []
 
     for (const m of members.rows) {
-      // Nominee completeness
       const nomineeResult = await pool.query(`
         SELECT
-          COUNT(*) AS total,
-          COUNT(*) FILTER (WHERE has_nominee = true) AS with_nominee
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE has_nominee = true)::int AS with_nominee
         FROM canonical_assets
         WHERE user_id = $1
         AND asset_class IN (
@@ -268,32 +252,33 @@ export const familyAggregator = {
         AND is_active = true
       `, [m.user_id])
 
-      const total       = parseInt(nomineeResult.rows[0].total)
-      const withNominee = parseInt(nomineeResult.rows[0].with_nominee)
-      const nomineePct  = total > 0
-        ? Math.round(withNominee / total * 100) : 0
+      const total       = nomineeResult.rows[0].total
+      const withNominee = nomineeResult.rows[0].with_nominee
+      const nomineePct  = total > 0 ? Math.round(withNominee / total * 100) : 0
 
-      // Will status
       const willResult = await pool.query(`
-        SELECT COUNT(*) AS count
-        FROM wills
-        WHERE user_id = $1
-        AND status IN ('completed','signed')
+        SELECT status FROM wills
+         WHERE user_id = $1
+         ORDER BY CASE WHEN status IN ('completed','signed') THEN 0 ELSE 1 END, updated_at DESC NULLS LAST
+         LIMIT 1
       `, [m.user_id])
-      const hasWill = parseInt(willResult.rows[0].count) > 0
+      const willStatus = willResult.rows[0]?.status ?? null
+      const hasWill = willStatus === 'completed' || willStatus === 'signed'
 
-      // Estate score (0–100)
-      const estateScore = Math.round(
-        nomineePct * 0.7 +
-        (hasWill ? 30 : 0)
-      )
+      // 70% nominee coverage + 30% will. With no linked accounts the nominee part can't be
+      // assessed, so it doesn't drag the score to zero — the UI says "no accounts linked".
+      const estateScore = total > 0
+        ? Math.round(nomineePct * 0.7 + (hasWill ? 30 : 0))
+        : (hasWill ? 30 : 0)
 
       results.push({
+        memberId:    m.member_id,
         userId:      m.user_id,
-        name:        m.display_name ?? m.invited_name,
+        name:        memberName(m),
         avatarColor: m.avatar_color,
         nomineePct,
         hasWill,
+        willStatus,
         estateScore,
         totalAccounts:       total,
         accountsWithNominee: withNominee,
@@ -309,6 +294,7 @@ export const familyAggregator = {
 }
 
 interface MemberSummary {
+  memberId:     string
   userId:       string
   name:         string
   avatarColor:  string
@@ -319,11 +305,13 @@ interface MemberSummary {
 }
 
 interface EstateReadinessPerMember {
+  memberId:            string
   userId:              string
   name:                string
   avatarColor:         string
   nomineePct:          number
   hasWill:             boolean
+  willStatus:          string | null
   estateScore:         number
   totalAccounts:       number
   accountsWithNominee: number

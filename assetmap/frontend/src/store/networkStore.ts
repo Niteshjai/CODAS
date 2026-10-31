@@ -29,6 +29,8 @@ interface NetworkStore {
 
 let probeTimer: ReturnType<typeof setTimeout> | null = null
 let backoff = 5000
+let verifying: Promise<void> | null = null
+let pendingReadFailure = false
 
 async function probeServer(): Promise<boolean> {
   try {
@@ -101,9 +103,27 @@ export const useNetworkStore = create<NetworkStore>((set, get) => {
 
     setSlow: (slow) => { if (get().isSlow !== slow) set({ isSlow: slow }) },
 
+    // A request failing doesn't prove the server is down — one endpoint can time out or be
+    // refused while /api/health is fine. Confirm with a probe before declaring an outage;
+    // otherwise the reconnect toast + page remount would loop on a single broken endpoint.
     reportRequestFailure: (isRead = false) => {
-      if (isRead && !get().staleData) set({ staleData: true })
-      markDown()
+      const flagStale = () => { if (isRead && !get().staleData) set({ staleData: true }) }
+      if (!get().isOnline || !get().serverReachable) {
+        flagStale()
+        scheduleProbe()
+        return
+      }
+      if (isRead) pendingReadFailure = true
+      if (verifying) return
+      verifying = probeServer().then((ok) => {
+        verifying = null
+        const hadRead = pendingReadFailure
+        pendingReadFailure = false
+        if (!ok) {
+          if (hadRead && !get().staleData) set({ staleData: true })
+          markDown()
+        }
+      })
     },
     consumeStaleData: () => {
       const stale = get().staleData

@@ -147,6 +147,13 @@ const ACTION_DESCRIPTIONS: Record<AuditAction, string> = {
   CREATE_RECORD: 'Record created',
   UPDATE_RECORD: 'Record updated',
   UPLOAD_DOCUMENT: 'Document uploaded',
+  FAMILY_VAULT_CREATED: 'Family vault created',
+  FAMILY_VAULT_CLOSED: 'Family vault closed',
+  FAMILY_MEMBER_INVITED: 'Family member invited',
+  FAMILY_MEMBER_JOINED: 'Joined a family vault',
+  FAMILY_MEMBER_REMOVED: 'Family member removed',
+  FAMILY_MEMBER_LEFT: 'Left a family vault',
+  FAMILY_SHARING_UPDATED: 'Family sharing settings changed',
 };
 
 function formatAuditLog(row: any): AuditLogEntry {

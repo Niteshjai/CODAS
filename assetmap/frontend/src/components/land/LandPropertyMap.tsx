@@ -6,16 +6,17 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import {
-  Building2, ChevronDown, CheckCircle2, FileText,
-  MapPin, Layers, ShieldCheck, LineChart as LineChartIcon,
-  Map as MapIcon, AlertTriangle, FileCheck, X, TrendingUp, ArrowUpDown, RefreshCw
+  ChevronDown, CheckCircle2, FileText,
+  MapPin, ShieldCheck, LineChart as LineChartIcon,
+  Map as MapIcon, X, ArrowUpDown, RefreshCw
 } from 'lucide-react';
 
 import { toast } from 'sonner';
+import LandRecordDialog from './LandRecordDialog';
+import LandValuationDialog from './LandValuationDialog';
+import { type LandUnit, UNIT_LABELS, formatArea, formatDate, formatINR } from './landFormat';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 
 const DEFAULT_MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DEFAULT_MAP_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -73,45 +74,6 @@ const titleStatusColors = {
   mutation_pending: { color: '#854F0B', label: 'Mutation pending' },
   encumbered: { color: '#854F0B', label: 'Encumbered' },
 };
-
-function formatINR(value: number): string {
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)}Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(0)}K`;
-  return `₹${value.toLocaleString('en-IN')}`;
-}
-
-type LandUnit = 'acres' | 'hectares' | 'sqft' | 'sqm' | 'bigha' | 'guntha' | 'cent';
-
-const UNIT_LABELS: Record<LandUnit, string> = {
-  acres: 'Acres',
-  hectares: 'Hectares',
-  sqft: 'Sq. Ft',
-  sqm: 'Sq. Meters',
-  bigha: 'Bigha',
-  guntha: 'Guntha',
-  cent: 'Cent',
-};
-
-function formatArea(rawAcres: number | string, targetUnit: LandUnit): string {
-  const acres = Number(rawAcres) || 0;
-  switch (targetUnit) {
-    case 'hectares': return `${(acres * 0.404686).toFixed(2)} ha`;
-    case 'sqft': return `${Math.round(acres * 43560).toLocaleString()} sq.ft`;
-    case 'sqm': return `${Math.round(acres * 4046.86).toLocaleString()} sq.m`;
-    case 'bigha': return `${(acres * 1.6).toFixed(2)} Bigha`; // approx standard
-    case 'guntha': return `${(acres * 40).toFixed(1)} Guntha`;
-    case 'cent': return `${(acres * 100).toFixed(1)} Cent`;
-    case 'acres':
-    default: return `${acres.toFixed(2)} Acres`;
-  }
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric'
-  });
-}
 
 export interface LandParcel {
   id: string;
@@ -540,11 +502,11 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                   </div>
                   <div className="col-span-1">
                     <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Land Type</p>
-                        <p className="font-medium text-foreground truncate">{(selectedParcel as any).ownerName || 'Joint Property'}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{selectedParcel.landType}</p>
                   </div>
                   <div className="col-span-1">
                     <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Reg. Date</p>
-                    <p className="text-sm font-medium text-foreground truncate">{formatDate(selectedParcel.registrationDate)}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{formatDate(selectedParcel.registrationDate) ?? '—'}</p>
                   </div>
                   <div className="col-span-1">
                     <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Ownership</p>
@@ -615,257 +577,23 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
         )}
       </div>
 
-      {/* Full Record Modal */}
+      {/* Full Record + Valuation dialogs */}
       {selectedParcel && (
-        <Dialog open={showFullRecord} onOpenChange={setShowFullRecord}>
-          <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[calc(100dvh-2rem)] p-0 gap-0 overflow-hidden rounded-2xl border-border bg-muted/50 shadow-2xl sm:rounded-3xl">
-            <div className="relative overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 p-5 pr-14 text-white sm:p-6 sm:pr-16 md:p-7 md:pr-20">
-              <div className="pointer-events-none absolute -right-3 -top-3 opacity-10">
-                <MapIcon className="size-24 sm:size-28 md:size-32" />
-              </div>
-              <DialogHeader className="relative z-10 text-left">
-                <DialogTitle className="pr-3 text-2xl font-display font-semibold tracking-tight sm:text-3xl">
-                  {selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'Property Record'}
-                </DialogTitle>
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-zinc-300">
-                  <span className="inline-flex items-center gap-1.5"><MapPin className="size-4 shrink-0" /> {selectedParcel.village}, {selectedParcel.taluka}</span>
-                  <span className="inline-flex items-center gap-1.5"><Building2 className="size-4 shrink-0" /> {selectedParcel.district}, {selectedParcel.state}</span>
-                </div>
-                <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-200 backdrop-blur-sm">
-                  <span className="shrink-0 text-[10px] font-sans font-semibold uppercase tracking-wider text-zinc-400">Record ID</span>
-                  <span className="truncate">{selectedParcel.id.toUpperCase()}</span>
-                </div>
-              </DialogHeader>
-            </div>
-
-            <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto p-4 sm:p-6 md:p-7">
-              <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="mb-5 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl bg-zinc-200/60 dark:bg-zinc-700/60 p-1 sm:mb-6 sm:w-fit">
-                  <TabsTrigger value="overview" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Overview</TabsTrigger>
-                  <TabsTrigger value="ownership" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Ownership & Title</TabsTrigger>
-                  <TabsTrigger value="documents" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Documents</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
-                    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
-                      <h4 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        <Layers className="size-4" /> Property Details
-                      </h4>
-                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 min-[480px]:grid-cols-2">
-                        <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Land Type</p>
-                          <p className="text-base font-semibold text-foreground">{selectedParcel.landType}</p>
-                        </div>
-                        <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total Area</p>
-                          <p className="text-base font-semibold text-foreground">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
-                        </div>
-                        <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Coordinates</p>
-                          <p className="break-words font-mono text-sm font-medium text-foreground">
-                            {Number(selectedParcel.latitude)?.toFixed(4) || 'N/A'}, {Number(selectedParcel.longitude)?.toFixed(4) || 'N/A'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Registration Date</p>
-                          <p className="text-base font-semibold text-foreground">{formatDate(selectedParcel.registrationDate)}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col rounded-2xl border border-emerald-100 dark:border-emerald-800/60 bg-gradient-to-br from-white dark:from-zinc-900 to-emerald-50/70 dark:to-emerald-950/40 p-5 shadow-sm sm:p-6">
-                      <h4 className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        <LineChartIcon className="size-4" /> Valuation Analytics
-                      </h4>
-                      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Estimated Current Value</p>
-                      <p className="text-4xl font-sans font-bold tracking-tight text-emerald-600 dark:text-emerald-400 sm:text-5xl">
-                        {formatINR(selectedParcel.estimatedValue)}
-                      </p>
-                      <div className="mt-5 flex items-start gap-2 rounded-xl border border-emerald-100 dark:border-emerald-800/60 bg-emerald-50/90 dark:bg-emerald-950/40 p-3 text-xs font-medium leading-relaxed text-emerald-700 dark:text-emerald-300">
-                        <TrendingUp className="mt-0.5 size-4 shrink-0" /> Value is estimated to be +12.5% above circle rate
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="ownership" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-                    <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
-                      <div>
-                        <p className="text-[11px] text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Title Status</p>
-                        <div className="flex items-center gap-2">
-                          <div className="size-3 rounded-full" style={{ backgroundColor: titleStatusColors[selectedParcel.titleStatus].color }} />
-                          <p className="text-lg font-medium text-foreground">{titleStatusColors[selectedParcel.titleStatus].label}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[11px] text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Ownership Type</p>
-                        <p className="text-lg font-medium text-foreground capitalize">{selectedParcel.ownershipType.replace('_', ' ')}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
-                        <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-foreground mb-1">Mutation Status: <span className="capitalize">{selectedParcel.mutationStatus.replace('_', ' ')}</span></p>
-                          <p className="text-xs text-muted-foreground">The property has been successfully mutated in the local land revenue records. Ownership transfers are fully recorded.</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-xl">
-                        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">Encumbrance Warning</p>
-                          <p className="text-xs text-amber-700 dark:text-amber-300">Please fetch the latest Encumbrance Certificate (EC) to verify if there are any active loans or liabilities against this parcel.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="documents" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className={`p-5 rounded-2xl border flex flex-col items-center justify-center text-center gap-3 transition-all ${selectedParcel.digilockerDocAvailable ? 'bg-card border-border hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:shadow-md cursor-pointer' : 'bg-muted/50 border-border opacity-60 grayscale'}`}>
-                      <div className={`p-4 rounded-full ${selectedParcel.digilockerDocAvailable ? 'bg-indigo-50 text-indigo-600 dark:text-indigo-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400'}`}>
-                        <ShieldCheck className="size-8" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">DigiLocker Records</p>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-[200px] mx-auto">
-                          {selectedParcel.digilockerDocAvailable ? 'Official digitized land records are available to fetch.' : 'Not available for this region yet.'}
-                        </p>
-                      </div>
-                      {selectedParcel.digilockerDocAvailable && (
-                        <button className="mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-950/40 transition">Fetch Now</button>
-                      )}
-                    </div>
-
-                    <div className="bg-card p-5 rounded-2xl border border-border hover:border-emerald-300 dark:hover:border-emerald-800/60 hover:shadow-md transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-3">
-                      <div className="p-4 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-                        <FileCheck className="size-8" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">7/12 Extract / RTC</p>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-[200px] mx-auto">Latest extract pulled from state registry portal.</p>
-                      </div>
-                      <button className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-950/40 transition">View Document</button>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Valuation Report Modal */}
-      {selectedParcel && (
-        <Dialog open={showValuationModal} onOpenChange={setShowValuationModal}>
-          <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden bg-muted/50 border-border shadow-2xl rounded-2xl">
-            <div className="bg-zinc-950 dark:bg-zinc-800 p-5 md:p-6 text-white relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <LineChartIcon className="size-32" />
-              </div>
-              <DialogHeader className="relative z-10 text-left">
-                <div className="flex items-center gap-2 mb-2 text-emerald-200/80 uppercase tracking-widest text-xs font-bold">
-                  <TrendingUp className="size-4" /> Official Valuation Report
-                </div>
-                <DialogTitle className="text-2xl md:text-3xl font-display font-semibold mb-2">
-                  {selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'Property'}
-                </DialogTitle>
-                <div className="flex flex-wrap items-center gap-4 text-emerald-100/80 text-sm font-medium">
-                  <span className="flex items-center gap-1.5"><MapPin className="size-4" /> {selectedParcel.village}, {selectedParcel.district}</span>
-                  <span className="flex items-center gap-1.5"><Layers className="size-4" /> {formatArea(selectedParcel.areaAcres, displayUnit)}</span>
-                </div>
-              </DialogHeader>
-            </div>
-
-            <div className="p-5 md:p-6 space-y-4">
-              <div className="bg-card p-4 rounded-2xl border border-border shadow-sm text-center">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Estimated Current Market Value</p>
-                <p className="text-5xl font-sans font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-                  {formatINR(selectedParcel.estimatedValue)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Value per {displayUnit === 'acres' ? 'Acre' : displayUnit === 'hectares' ? 'Hectare' : 'Sq.Ft'}: <span className="font-semibold text-zinc-700 dark:text-zinc-300">{formatINR(selectedParcel.estimatedValue / (displayUnit === 'acres' ? selectedParcel.areaAcres : displayUnit === 'hectares' ? selectedParcel.areaAcres * 0.404686 : selectedParcel.areaAcres * 43560))}</span>
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-card p-4 rounded-2xl border border-border shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="size-2 rounded-full bg-blue-500" />
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Govt. Circle Rate</p>
-                  </div>
-                  <p className="text-xl font-bold text-foreground">{formatINR(selectedParcel.estimatedValue * 0.75)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Base rate set by {selectedParcel.state} government.</p>
-                </div>
-                <div className="bg-card p-4 rounded-2xl border border-border shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="size-2 rounded-full bg-emerald-500" />
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Market Premium</p>
-                  </div>
-                  <p className="text-xl font-bold text-foreground">+{formatINR(selectedParcel.estimatedValue * 0.25)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Based on recent registered transactions nearby.</p>
-                </div>
-              </div>
-
-              <div className="bg-card p-4 rounded-2xl border border-border shadow-sm mt-3">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">5-Year Valuation Trend</p>
-                <div className="h-[120px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={[
-                        { year: '2020', value: selectedParcel.estimatedValue * 0.72 },
-                        { year: '2021', value: selectedParcel.estimatedValue * 0.81 },
-                        { year: '2022', value: selectedParcel.estimatedValue * 0.89 },
-                        { year: '2023', value: selectedParcel.estimatedValue * 0.95 },
-                        { year: '2024', value: selectedParcel.estimatedValue },
-                      ]}
-                      margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
-                      <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#71717a' }} dy={10} />
-                      <YAxis hide domain={['dataMin - 100000', 'dataMax + 100000']} />
-                      <Tooltip
-                        formatter={(value: any) => [`₹${(value / 100).toLocaleString('en-IN')}`, "Current Value"]}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#059669"
-                        strokeWidth={3}
-                        dot={{ r: 4, fill: '#059669', strokeWidth: 2, stroke: '#fff' }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
-                <button
-                  onClick={() => setShowValuationModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:text-foreground transition"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    toast.success('Valuation report downloaded as PDF.');
-                    setShowValuationModal(false);
-                  }}
-                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 shadow-sm transition active:scale-95"
-                >
-                  Download PDF
-                </button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <>
+          <LandRecordDialog
+            parcel={selectedParcel}
+            open={showFullRecord}
+            onOpenChange={setShowFullRecord}
+            displayUnit={displayUnit}
+            onOpenValuation={() => { setShowFullRecord(false); setShowValuationModal(true); }}
+          />
+          <LandValuationDialog
+            parcel={selectedParcel}
+            open={showValuationModal}
+            onOpenChange={setShowValuationModal}
+            displayUnit={displayUnit}
+          />
+        </>
       )}
 
       {/* DigiLocker Document Modal */}

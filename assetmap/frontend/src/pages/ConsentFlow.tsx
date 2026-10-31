@@ -358,7 +358,7 @@ export default function ConsentFlow() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-foreground mb-3">Consent Granted!</h2>
-            <p className="text-zinc-600 dark:text-zinc-400 text-sm max-w-sm mx-auto mb-8">
+            <p className="text-zinc-600 dark:text-zinc-400 text-sm max-w-[24rem] mx-auto mb-8">
               Your financial data is being securely synced via the Account Aggregator network.
             </p>
             <div className="flex items-center justify-center gap-3">

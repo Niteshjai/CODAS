@@ -68,7 +68,7 @@ export default function RecoverySuccess({
       </p>
 
       {/* Amount breakdown */}
-      <div className="bg-muted/50 rounded-2xl p-5 mb-6 border border-border/60 max-w-xs mx-auto">
+      <div className="bg-muted/50 rounded-2xl p-5 mb-6 border border-border/60 max-w-[20rem] mx-auto">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">Recovered</span>
