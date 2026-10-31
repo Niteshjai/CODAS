@@ -6,6 +6,7 @@ import { UnclaimedAssetModel } from '../models/unclaimedAsset'
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants'
 import { UnclaimedSearchSchema } from '../utils/validators'
 import { planEnforcer } from '../plans/planEnforcer'
+import { UserModel } from '../models/user'
 
 export const unclaimedRoutes: FastifyPluginAsync = async (fastify, opts) => {
   fastify.get('/assets', {
@@ -33,7 +34,21 @@ export const unclaimedRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'You have reached your unclaimed search limit. Please upgrade your plan.'));
       }
 
-      const searchId = await unclaimedAssets.initiateSearch(pool, userId, body)
+      // DPDP purpose limitation: only search the caller's own verified identity, never an
+      // arbitrary third party's PAN/name supplied in the request.
+      const user = await UserModel.findById(userId)
+      if (!user?.pan) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Verify your PAN before searching for unclaimed assets.'))
+      }
+      if (body.pan && String(body.pan).trim().toUpperCase() !== user.pan.trim().toUpperCase()) {
+        return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'You can only search using your own verified PAN.'))
+      }
+
+      const searchId = await unclaimedAssets.initiateSearch(pool, userId, {
+        pan: user.pan,
+        name: user.name || `${body.firstName} ${body.lastName}`,
+        aadhaarHash: user.aadhaarHash,
+      })
 
       await planEnforcer.incrementUsage(pool, userId, 'unclaimed_search', 'year');
 

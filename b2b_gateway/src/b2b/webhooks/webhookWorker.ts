@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq'
 import crypto from 'crypto'
 import { pool } from '../../db/connection.js'
 import { redis } from '../../db/redis.js'
+import { assertSafeWebhookUrl } from './urlGuard.js'
 
 // 1s, 5s, 30s, 5m, 30m
 const backoffDelays = [1000, 5000, 30000, 300000, 1800000]
@@ -21,10 +22,16 @@ export const webhookWorker = new Worker(
       throw new Error('Client or webhook_secret not found')
     }
 
+    // Re-validate at delivery time: DNS for a previously safe host can change
+    await assertSafeWebhookUrl(webhookUrl)
+
+    // Sign timestamp + body so captured deliveries can't be replayed later.
+    // Partners verify HMAC_SHA256(`${timestamp}.${body}`) and reject stale timestamps.
     const payloadString = JSON.stringify(payload)
+    const timestamp = String(Math.floor(Date.now() / 1000))
     const signature = crypto
       .createHmac('sha256', client.webhook_secret)
-      .update(payloadString)
+      .update(`${timestamp}.${payloadString}`)
       .digest('hex')
 
     await pool.query(
@@ -39,23 +46,28 @@ export const webhookWorker = new Worker(
       headers: {
         'Content-Type': 'application/json',
         'X-AssetMap-Event': eventType,
-        'X-AssetMap-Signature': `sha256=${signature}`
+        'X-AssetMap-Signature': `sha256=${signature}`,
+        'X-AssetMap-Timestamp': timestamp,
+        'X-AssetMap-Delivery-Id': String(deliveryId)
       },
-      body: payloadString
+      body: payloadString,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10000)
     })
 
-    const responseBody = await response.text()
+    // Response bodies are never stored: they may echo data or come from a hostile endpoint
+    await response.body?.cancel()
 
     if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status} - ${responseBody}`)
+      throw new Error(`HTTP Error: ${response.status}`)
     }
 
     // Success
     await pool.query(
       `UPDATE b2b_webhook_deliveries 
-       SET status = 'delivered', delivered_at = NOW(), response_code = $2, response_body = $3
+       SET status = 'delivered', delivered_at = NOW(), response_code = $2
        WHERE id = $1`,
-      [deliveryId, response.status, responseBody.substring(0, 500)]
+      [deliveryId, response.status]
     )
 
     return { success: true }

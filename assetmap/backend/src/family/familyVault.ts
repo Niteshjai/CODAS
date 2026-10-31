@@ -60,8 +60,6 @@ export const familyVault = {
       relationship: string
     }
   ): Promise<{
-    inviteToken: string
-    inviteUrl: string
     memberId: string
   }> {
     // Get vault
@@ -152,7 +150,7 @@ export const familyVault = {
     await this.logActivity(pool, vaultId, primaryUserId, {
       type: 'member_joined',
       title: `${params.name} invited to family vault`,
-      body: `Invite sent to ${params.mobile}`,
+      body: 'Invite sent by SMS',
       meta: { memberId, relationship: params.relationship }
     })
 
@@ -166,7 +164,8 @@ export const familyVault = {
       { relationship: params.relationship }
     )
 
-    return { inviteToken, inviteUrl, memberId }
+    // The token is a bearer credential for joining the vault: deliver it only via SMS
+    return { memberId }
   },
 
   // New member accepts invite
@@ -189,6 +188,22 @@ export const familyVault = {
     }
 
     const m = member.rows[0]
+
+    // The invite is bound to the invited mobile: a forwarded or leaked link must not
+    // let a different account join and see the family's shared assets
+    if (process.env.MOCK_MODE !== 'true') {
+      const { decryptPII } = await import('../utils/encryption')
+      const acceptingUser = await pool.query(
+        'SELECT mobile_encrypted FROM users WHERE id = $1',
+        [userId]
+      )
+      const enc = acceptingUser.rows[0]?.mobile_encrypted
+      const digits = (v: string) => v.replace(/[^0-9]/g, '')
+      const invited = digits(m.invited_mobile ?? '')
+      if (!enc || invited.length < 10 || !digits(decryptPII(enc)).endsWith(invited)) {
+        throw new Error('This invite was sent to a different mobile number')
+      }
+    }
 
     // Check if this user already has an AssetMap account
     // If not, they register first, then this is called again

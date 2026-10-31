@@ -21,6 +21,18 @@ export async function b2bRoutes(app: FastifyInstance) {
     handler: async (req, reply) => {
       const body = req.body as any
 
+      if (body.webhookUrl) {
+        const { assertSafeWebhookUrl } = await import('../b2b/webhooks/urlGuard.js')
+        try {
+          await assertSafeWebhookUrl(body.webhookUrl)
+        } catch (err: any) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'INVALID_WEBHOOK_URL', message: err.message }
+          })
+        }
+      }
+
       const clientResult = await app.pg.query(`
         INSERT INTO b2b_clients (
           business_name, business_type, gstin, pan,

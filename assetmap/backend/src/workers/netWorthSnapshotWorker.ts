@@ -31,7 +31,8 @@ export function startNetWorthSnapshotWorker(pool: Pool) {
 
         for (const row of rows.rows) {
           const balanceDecrypted = decrypt(row.balance_encrypted);
-          const balance = parseInt(balanceDecrypted || '0', 10);
+          // balance_encrypted holds rupees (e.g. "450000.50"); snapshots are stored in paise
+          const balance = Math.round(parseFloat(balanceDecrypted || '0') * 100) || 0;
           
           if (row.fi_type === 'DEPOSIT') {
             bankBalancePaise += balance;
@@ -71,8 +72,12 @@ export function startNetWorthSnapshotWorker(pool: Pool) {
     logger.info('[NetWorthSnapshot] Done')
   };
 
-  runJob();
-  setInterval(runJob, 24 * 60 * 60 * 1000);
+  // A DB blip must not become an unhandled rejection that kills the API process
+  const safeRun = () => runJob().catch(err =>
+    logger.error('[NetWorthSnapshot] Job failed', { error: (err as Error).message }))
+
+  safeRun();
+  setInterval(safeRun, 24 * 60 * 60 * 1000);
 
   logger.info('[NetWorthSnapshot] Worker registered — runs daily and on startup')
 }

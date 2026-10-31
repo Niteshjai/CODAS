@@ -1,6 +1,19 @@
-import axios from 'axios'
 import { env } from '../config/env'
 import { logger } from '../utils/logger'
+import { CLAUDE_MODELS, generateJSON, describeClaudeError } from '../ai/claudeClient'
+
+const EXPLAINER_SCHEMA = {
+  type: 'object',
+  properties: {
+    summary:     { type: 'string' },
+    strengths:   { type: 'array', items: { type: 'string' } },
+    weaknesses:  { type: 'array', items: { type: 'string' } },
+    riskFlags:   { type: 'array', items: { type: 'string' } },
+    lenderNotes: { type: 'string' },
+  },
+  required: ['summary', 'strengths', 'weaknesses', 'riskFlags', 'lenderNotes'],
+  additionalProperties: false,
+}
 
 interface AIExplainerInput {
   compositeScore:       number
@@ -37,7 +50,7 @@ export async function runAIExplainer(input: AIExplainerInput): Promise<AIExplain
     Dimension Scores (0-100):
     ${Object.entries(input.dimensions).map(([k, v]) => `- ${k}: ${v.score} (Warnings: ${v.warnings.join(', ') || 'None'})`).join('\n')}
 
-    Based on this data, output a strict JSON object with exactly these keys:
+    Based on this data, return these fields:
     - "summary": string (1-2 paragraphs of overall underwriter summary)
     - "strengths": string[] (3-5 key financial strengths)
     - "weaknesses": string[] (2-4 key financial weaknesses or concerns)
@@ -45,36 +58,20 @@ export async function runAIExplainer(input: AIExplainerInput): Promise<AIExplain
     - "lenderNotes": string (specific actionable advice for the NBFC/Bank loan officer)
   `
 
-  // Using axios to call Claude directly to avoid adding new SDK dependencies
-  const anthropicApiKey = env.ANTHROPIC_API_KEY
-  if (!anthropicApiKey) {
+  if (!env.ANTHROPIC_API_KEY) {
     logger.warn('No ANTHROPIC_API_KEY found, falling back to mock AI explainer')
     return getMockAIExplainer(input)
   }
 
   try {
-    const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      {
-        model: 'claude-3-5-sonnet-20240620',
-        max_tokens: 1024,
-        temperature: 0.2,
-        system: "You are an expert loan underwriter AI. Always respond in valid JSON format.",
-        messages: [{ role: 'user', content: prompt }]
-      },
-      {
-        headers: {
-          'x-api-key': anthropicApiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json'
-        }
-      }
-    )
-
-    const textContent = response.data.content[0].text
-    // Extract JSON from response
-    const jsonStr = textContent.substring(textContent.indexOf('{'), textContent.lastIndexOf('}') + 1)
-    const result = JSON.parse(jsonStr)
+    const result = await generateJSON<AIExplainerOutput>({
+      model:     CLAUDE_MODELS.standard,
+      system:    'You are an expert loan underwriter AI.',
+      prompt,
+      schema:    EXPLAINER_SCHEMA,
+      maxTokens: 8000,
+      effort:    'medium',
+    })
 
     return {
       summary:      result.summary || 'AI Summary unavailable.',
@@ -83,8 +80,8 @@ export async function runAIExplainer(input: AIExplainerInput): Promise<AIExplain
       riskFlags:    result.riskFlags || [],
       lenderNotes:  result.lenderNotes || ''
     }
-  } catch (error: any) {
-    logger.error('AI Explainer Error', { error: error.message })
+  } catch (error) {
+    logger.error('AI Explainer Error', { error: describeClaudeError(error) })
     return getMockAIExplainer(input)
   }
 }

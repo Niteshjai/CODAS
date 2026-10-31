@@ -90,6 +90,9 @@ export function isRedisAvailable(): boolean {
 }
 
 export function useMemoryStore(): boolean {
+  // Never fall back in production: a per-process Map would silently split sessions,
+  // OTP state and rate-limit counters across instances. Let Redis errors surface instead.
+  if (process.env.NODE_ENV === 'production') return false;
   return process.env.MOCK_MODE === 'true' || !redisAvailable;
 }
 
@@ -156,9 +159,11 @@ export const kvStore = {
 
   async incr(key: string): Promise<number> {
     if (useMemoryStore()) {
-      const current = parseInt(memoryStore.get(key)?.value || '0', 10);
-      const next = current + 1;
-      memoryStore.set(key, { value: String(next) });
+      const entry = memoryStore.get(key);
+      const live = entry && !(entry.expiresAt && Date.now() > entry.expiresAt) ? entry : undefined;
+      const next = parseInt(live?.value || '0', 10) + 1;
+      // Keep the existing TTL, as Redis INCR does
+      memoryStore.set(key, { value: String(next), expiresAt: live?.expiresAt });
       return next;
     }
     return redis.incr(key);

@@ -1,4 +1,6 @@
-import { pool } from '../db/connection';
+import { pool, kvStore } from '../db/connection';
+import { sessionStore } from '../services/sessionStore';
+import { landCache } from '../services/landCache';
 import { randomUUID } from 'crypto';
 import { decryptPII, encryptPII, hashMobile, hashEmail } from '../utils/encryption';
 import { logger } from '../utils/logger';
@@ -199,6 +201,41 @@ export const UserModel = {
     try {
       await client.query('BEGIN');
 
+      // Land record ids are needed to purge per-record cache entries after commit
+      const landRecordIds = (await client.query('SELECT id FROM land_records WHERE user_id = $1', [id]))
+        .rows.map((r: { id: string }) => r.id);
+
+      // --- CHILD TABLES WITHOUT ON DELETE CASCADE ---
+      // These reference users (or user-owned parents) with NO ACTION, so they must go
+      // first or the final DELETE FROM users fails and rolls the whole erasure back.
+      await client.query('DELETE FROM asset_snapshots_aa WHERE user_id = $1', [id]); // references consents
+      await client.query('DELETE FROM land_mutations WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM land_encumbrances WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM land_sync_log WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM nominee_task_timeline WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM nominee_update_tasks WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM manual_asset_value_history WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM ancestral_offline_guides WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM ancestral_search_results WHERE user_id = $1', [id]);
+      await client.query(
+        'DELETE FROM lender_score_requests WHERE scorecard_id IN (SELECT id FROM loan_scorecards WHERE user_id = $1)',
+        [id]
+      );
+      await client.query('DELETE FROM subscription_payments WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM b2b_user_consents WHERE user_id = $1', [id]); // no FK at all
+
+      // FAMILY VAULT — memberships carry plaintext invited_mobile / invited_name
+      await client.query('DELETE FROM family_goal_contributions WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM family_activity_feed WHERE user_id = $1', [id]);
+      // Goals this user created in someone else's vault belong to that vault: hand them to its owner
+      await client.query(
+        `UPDATE family_goals g SET created_by_user_id = v.primary_user_id
+         FROM family_vaults v
+         WHERE g.vault_id = v.id AND g.created_by_user_id = $1 AND v.primary_user_id <> $1`,
+        [id]
+      );
+      await client.query('DELETE FROM family_vault_members WHERE user_id = $1 OR primary_user_id = $1', [id]);
+
       // --- PHASE 1 TABLES ---
       // Delete asset snapshots
       await client.query('DELETE FROM asset_snapshots WHERE user_id = $1', [id]);
@@ -242,6 +279,19 @@ export const UserModel = {
       // Audit logs are NOT deleted (RBI 7-year retention mandate)
 
       await client.query('COMMIT');
+
+      // Best-effort purge of cached personal data and live sessions (outside the DB transaction)
+      try {
+        await sessionStore.revokeAllForUser(id);
+        await landCache.invalidateUserRecords(id);
+        await kvStore.del(`land:stale:${id}`);
+        for (const recordId of landRecordIds) {
+          await kvStore.del(`land:record:${recordId}`);
+        }
+      } catch (cacheError) {
+        logger.error('Erasure cache purge failed', { userId: id, error: (cacheError as Error).message });
+      }
+
       logger.info('User data deleted (right to erasure)', { userId: id });
     } catch (error) {
       await client.query('ROLLBACK');

@@ -34,6 +34,9 @@ export const willRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const beneficiaryId = await willBuilder.addBeneficiary(pool, userId, willId, body)
       return successResponse({ beneficiaryId })
     } catch (error) {
+      if ((error as Error).message === 'Will not found') {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Will not found'))
+      }
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to add beneficiary'))
     }
@@ -60,6 +63,9 @@ export const willRoutes: FastifyPluginAsync = async (fastify, opts) => {
 
       return successResponse({ allocationId })
     } catch (error) {
+      if ((error as Error).message === 'Will not found') {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Will not found'))
+      }
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to add allocation'))
     }
@@ -75,6 +81,9 @@ export const willRoutes: FastifyPluginAsync = async (fastify, opts) => {
       await willBuilder.generatePDF(pool, userId, willId)
       return successResponse({ success: true })
     } catch (error) {
+      if ((error as Error).message === 'Will not found') {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Will not found'))
+      }
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to generate PDF'))
     }
@@ -90,6 +99,9 @@ export const willRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const url = await willBuilder.initiateESign(pool, userId, willId)
       return successResponse({ url })
     } catch (error) {
+      if ((error as Error).message === 'Will not found') {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Will not found'))
+      }
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Failed to initiate e-sign'))
     }

@@ -151,9 +151,17 @@ export const familyAggregator = {
       .filter(([_, col]) => m[col] === true)
       .map(([cls]) => cls)
 
+    // Same safe projection as below: never return invite_token / invited_mobile
+    const safeMember = {
+      id:           m.id,
+      name:         m.display_name ?? m.invited_name,
+      avatarColor:  m.avatar_color,
+      relationship: m.relationship,
+    }
+
     if (sharedClasses.length === 0) {
       return {
-        member: m,
+        member: safeMember,
         assets: [],
         summary: {}
       }
@@ -188,12 +196,7 @@ export const familyAggregator = {
     }
 
     return {
-      member: {
-        id:           m.id,
-        name:         m.display_name ?? m.invited_name,
-        avatarColor:  m.avatar_color,
-        relationship: m.relationship,
-      },
+      member: safeMember,
       assets: assets.rows,
       summary
     }
@@ -326,7 +329,7 @@ interface EstateReadinessPerMember {
   accountsWithNominee: number
 }
 
-async function verifyVaultAccess(
+export async function verifyVaultAccess(
   pool:    Pool,
   vaultId: string,
   userId:  string

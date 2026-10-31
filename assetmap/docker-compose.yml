@@ -35,6 +35,7 @@ services:
       - ./backend/src/db/migrations/021_fix_fkey.sql:/docker-entrypoint-initdb.d/21-021_fix_fkey.sql
       - ./backend/src/db/migrations/022_audit_will_actions.sql:/docker-entrypoint-initdb.d/22-022_audit_will_actions.sql
       - ./backend/src/db/migrations/023_fix_two_factor_schema.sql:/docker-entrypoint-initdb.d/23-023_fix_two_factor_schema.sql
+      - ./backend/src/db/migrations/024_b2b_audit_action.sql:/docker-entrypoint-initdb.d/24-024_b2b_audit_action.sql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U assetmap']
       interval: 10s

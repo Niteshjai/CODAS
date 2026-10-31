@@ -11,7 +11,7 @@ export async function verifyAccessToken(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  if (process.env.MOCK_MODE === 'true') {
+  if (process.env.MOCK_MODE === 'true' && process.env.NODE_ENV !== 'production') {
     request.user = { id: 'mock-user-1234', role: 'admin', sessionId: 'mock-session' };
     return;
   }

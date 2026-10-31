@@ -1,15 +1,28 @@
-import { FastifyInstance }    from 'fastify'
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { verifyAccessToken }  from '../middleware/auth'
 import { planEnforcer }       from '../plans/planEnforcer'
 import { pool }               from '../db/connection'
 import { familyVault }        from '../family/familyVault'
-import { familyAggregator }   from '../family/familyAggregator'
+import { familyAggregator, verifyVaultAccess } from '../family/familyAggregator'
 import { familyGoals }        from '../family/familyGoals'
 import { decryptPII }         from '../utils/encryption'
 import { require2FA }         from '../auth/twoFactorMiddleware'
 
+// Rejects with 403 unless the caller is the vault owner or an active member
+async function requireVaultAccess(req: FastifyRequest, reply: FastifyReply) {
+  const { vaultId } = req.params as { vaultId: string }
+  try {
+    await verifyVaultAccess(pool, vaultId, req.user!.id)
+  } catch {
+    return reply.status(403).send({
+      success:false, error:{ code:'FORBIDDEN', message:'You do not have access to this family vault' }
+    })
+  }
+}
+
 export async function familyRoutes(app: FastifyInstance) {
   const auth2FA = [verifyAccessToken]
+  const vaultMember = [verifyAccessToken, requireVaultAccess]
   const proOnly = [verifyAccessToken, planEnforcer.requireFeature('family_vault', pool)]
 
   // ── Vault setup
@@ -150,7 +163,7 @@ export async function familyRoutes(app: FastifyInstance) {
 
   // ── Combined net worth
   app.get('/vault/:vaultId/networth', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     handler: async (req, reply) => {
       const { vaultId } = req.params as { vaultId:string }
       const data = await familyAggregator.getCombinedNetWorth(
@@ -162,7 +175,7 @@ export async function familyRoutes(app: FastifyInstance) {
 
   // ── Combined history (for chart)
   app.get('/vault/:vaultId/history', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     schema: {
       querystring: {
         type:'object',
@@ -181,7 +194,7 @@ export async function familyRoutes(app: FastifyInstance) {
 
   // ── One member's assets (drill-down)
   app.get('/vault/:vaultId/member/:memberId/assets', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     handler: async (req, reply) => {
       const { vaultId, memberId } = req.params as any
       const data = await familyAggregator.getMemberAssets(
@@ -193,7 +206,7 @@ export async function familyRoutes(app: FastifyInstance) {
 
   // ── Estate readiness
   app.get('/vault/:vaultId/estate', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     handler: async (req, reply) => {
       const { vaultId } = req.params as { vaultId:string }
       const data = await familyAggregator.getEstateReadiness(
@@ -205,7 +218,7 @@ export async function familyRoutes(app: FastifyInstance) {
 
   // ── Activity feed
   app.get('/vault/:vaultId/activity', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     handler: async (req, reply) => {
       const { vaultId } = req.params as { vaultId:string }
       const result = await pool.query(`
@@ -234,7 +247,7 @@ export async function familyRoutes(app: FastifyInstance) {
 
   // ── Goals
   app.get('/vault/:vaultId/goals', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     handler: async (req, reply) => {
       const { vaultId } = req.params as { vaultId:string }
       const data = await familyGoals.getGoals(pool, vaultId)
@@ -243,7 +256,7 @@ export async function familyRoutes(app: FastifyInstance) {
   })
 
   app.post('/vault/:vaultId/goals', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     schema: {
       body: {
         type: 'object',
@@ -253,7 +266,7 @@ export async function familyRoutes(app: FastifyInstance) {
           description: { type: 'string' },
           goalType: { type: 'string' },
           emoji: { type: 'string' },
-          targetAmountPaise: { type: 'number' },
+          targetAmountPaise: { type: 'number', minimum: 1 },
           targetDate: { type: 'string' },
           contributingMembers: { type: 'array', items: { type: 'string' } }
         }
@@ -268,21 +281,24 @@ export async function familyRoutes(app: FastifyInstance) {
   })
 
   app.post('/vault/:vaultId/goals/:goalId/contributions', {
-    preHandler: auth2FA,
+    preHandler: vaultMember,
     schema: {
       body: {
         type: 'object',
         required: ['amountPaise'],
         properties: {
-          amountPaise: { type: 'number' },
+          amountPaise: { type: 'number', minimum: 1 },
           note: { type: 'string' }
         }
       }
     },
     handler: async (req, reply) => {
-      const { goalId } = req.params as { goalId: string }
+      const { vaultId, goalId } = req.params as { vaultId: string; goalId: string }
       const body = req.body as any
-      await familyGoals.addContribution(pool, goalId, req.user!.id, body.amountPaise, body.note)
+      const added = await familyGoals.addContribution(pool, vaultId, goalId, req.user!.id, body.amountPaise, body.note)
+      if (!added) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Goal not found' } })
+      }
       return reply.status(201).send({ success: true })
     }
   })

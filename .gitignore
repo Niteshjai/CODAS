@@ -11,3 +11,8 @@ coverage
 .DS_Store
 .agents/config
 .agents/scratch
+
+# Database dumps / production exports (never commit — DPDP)
+dump.sql
+*.dump
+*.pgdump

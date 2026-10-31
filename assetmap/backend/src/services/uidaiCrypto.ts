@@ -25,8 +25,8 @@ export function encryptSessionKey(sessionKey: Buffer): string {
     );
     return encrypted.toString('base64');
   } catch (error) {
-    // Fallback if the provided cert is a dummy/invalid RSA key
-    return Buffer.from('DUMMY_ENCRYPTED_SESSION_KEY').toString('base64');
+    // Fail closed: a dummy session key would send an Aadhaar request UIDAI can't decrypt
+    throw new Error(`UIDAI session key encryption failed: ${(error as Error).message}`);
   }
 }
 
@@ -114,8 +114,8 @@ export function buildSignedAuthXml(
 
     return sig.getSignedXml();
   } catch (error) {
-    // Fallback if the provided private key is a dummy/invalid RSA key
-    return xml;
+    // Fail closed: never send an unsigned Auth XML
+    throw new Error(`UIDAI XML signing failed: ${(error as Error).message}`);
   }
 }
 
@@ -151,7 +151,7 @@ export function buildSignedOtpXml(
     sig.computeSignature(xml);
     return sig.getSignedXml();
   } catch (error) {
-    return xml;
+    throw new Error(`UIDAI XML signing failed: ${(error as Error).message}`);
   }
 }
 
@@ -185,7 +185,7 @@ export function buildSignedKycXml(
     sig.computeSignature(xml);
     return sig.getSignedXml();
   } catch (error) {
-    return xml;
+    throw new Error(`UIDAI XML signing failed: ${(error as Error).message}`);
   }
 }
 

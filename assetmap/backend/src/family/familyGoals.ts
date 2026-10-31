@@ -37,11 +37,19 @@ export const familyGoals = {
 
   async addContribution(
     pool:       Pool,
+    vaultId:    string,
     goalId:     string,
     userId:     string,
     amountPaise:number,
     note?:      string
-  ): Promise<void> {
+  ): Promise<boolean> {
+    // The goal must belong to the vault the caller was authorised for
+    const goal = await pool.query(
+      'SELECT 1 FROM family_goals WHERE id = $1 AND vault_id = $2',
+      [goalId, vaultId]
+    )
+    if (!goal.rows.length) return false
+
     await pool.query(`
       INSERT INTO family_goal_contributions (
         goal_id, user_id, amount_paise, note
@@ -59,6 +67,7 @@ export const familyGoals = {
           updated_at = NOW()
       WHERE id = $1
     `, [goalId, amountPaise])
+    return true
   },
 
   async getGoals(

@@ -11,7 +11,34 @@ if (!jwtSecret) {
   throw new Error('JWT_SECRET environment variable is required')
 }
 
-const app = Fastify({ logger: true })
+// MOCK_MODE bypasses auth and grants admin — never allow it in production
+if (process.env.NODE_ENV === 'production' && process.env.MOCK_MODE === 'true') {
+  throw new Error('MOCK_MODE must not be enabled in production')
+}
+
+// Number of reverse-proxy hops to trust for request.ip (0 = use the socket address)
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 0)
+
+const app = Fastify({
+  logger: true,
+  trustProxy: Number.isInteger(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : false
+})
+
+// Partners only ever see a generic envelope; internal details stay in our logs
+app.setErrorHandler((err: { statusCode?: number; validation?: unknown }, request, reply) => {
+  request.log.error(err)
+  const statusCode = err.statusCode ?? 500
+  if (err.validation) {
+    return reply.status(400).send({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid request' } })
+  }
+  if (statusCode === 404) {
+    return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Resource not found' } })
+  }
+  if (statusCode < 500) {
+    return reply.status(statusCode).send({ success: false, error: { code: 'BAD_REQUEST', message: 'Request could not be processed' } })
+  }
+  return reply.status(500).send({ success: false, error: { code: 'INTERNAL_ERROR', message: 'An internal error occurred' } })
+})
 
 app.register(fastifyCookie)
 app.register(fastifyJwt, {

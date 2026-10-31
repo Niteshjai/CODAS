@@ -11,7 +11,9 @@ export function startLandSyncWorker(pool: Pool) {
     logger.info('[LandSync] Starting nightly sync job')
 
     // Find all records due for sync
-    const result = await pool.query(`
+    let result
+    try {
+      result = await pool.query(`
       SELECT DISTINCT user_id, state_code, owner_name_enc
       FROM land_records
       WHERE next_sync_at <= NOW()
@@ -19,6 +21,10 @@ export function startLandSyncWorker(pool: Pool) {
       AND source != 'manual'
       LIMIT 500
     `)
+    } catch (err) {
+      logger.error('[LandSync] Job failed', { error: (err as Error).message })
+      return
+    }
 
     let synced = 0
     for (const row of result.rows) {

@@ -106,7 +106,10 @@ export default function ConsentFlow() {
         dateRangeEnd,
       });
 
-      if (result.redirectUrl.includes('localhost') || result.redirectUrl.includes('callback')) {
+      // Mock approval is a local-dev shortcut only: real AA redirect URLs can contain "callback",
+      // and a client must never mark its own consent ACTIVE in production.
+      const isMockRedirect = result.redirectUrl.includes('localhost') || result.redirectUrl.includes('callback');
+      if (import.meta.env.DEV && isMockRedirect) {
         setStep(3);
         api.post('/consent/callback', { consentId: result.consentId, status: 'ACTIVE' })
           .then(() => {

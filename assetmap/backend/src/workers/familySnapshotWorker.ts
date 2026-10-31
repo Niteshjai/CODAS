@@ -1,6 +1,7 @@
 import cron    from 'node-cron'
 import { Pool } from 'pg'
 import { familyAggregator } from '../family/familyAggregator'
+import { logger } from '../utils/logger'
 
 export function startFamilySnapshotWorker(pool: Pool): void {
   // Run on 1st of every month at 5AM IST
@@ -10,12 +11,18 @@ export function startFamilySnapshotWorker(pool: Pool): void {
     tomorrow.setDate(tomorrow.getDate() + 1)
     if (tomorrow.getDate() !== 1) return
 
-    console.log('[FamilySnapshot] Starting monthly vault snapshot')
+    logger.info('[FamilySnapshot] Starting monthly vault snapshot')
 
-    const vaults = await pool.query(`
-      SELECT id, primary_user_id FROM family_vaults
-      WHERE is_active = true
-    `)
+    let vaults
+    try {
+      vaults = await pool.query(`
+        SELECT id, primary_user_id FROM family_vaults
+        WHERE is_active = true
+      `)
+    } catch (err) {
+      logger.error('[FamilySnapshot] Job failed', { error: (err as Error).message })
+      return
+    }
 
     for (const vault of vaults.rows) {
       try {
@@ -59,14 +66,14 @@ export function startFamilySnapshotWorker(pool: Pool): void {
 
         await new Promise(r => setTimeout(r, 500))
       } catch (err) {
-        console.error(`[FamilySnapshot] Failed for vault ${vault.id}:`, err)
+        logger.error(`[FamilySnapshot] Failed for vault ${vault.id}`, { error: (err as Error).message })
       }
     }
 
-    console.log(`[FamilySnapshot] Done — ${vaults.rows.length} vaults`)
+    logger.info(`[FamilySnapshot] Done — ${vaults.rows.length} vaults`)
   }, { timezone: 'Asia/Kolkata' })
 
-  console.log('[FamilySnapshot] Worker registered — runs monthly')
+  logger.info('[FamilySnapshot] Worker registered — runs monthly')
 }
 
 async function checkMilestones(

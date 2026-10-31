@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { Pool }          from 'pg'
 import { ancestralSearch } from '../ancestral/ancestralSearch'
+import { logger }          from '../utils/logger'
 
 let ancestralSearchQueue: Queue
 
@@ -58,7 +59,8 @@ export function startAncestralSearchWorker(pool: Pool): void {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[AncestralSearch] Job ${job?.id} failed:`, err)
+    // err can carry ancestor names / raw API bodies — log the message only
+    logger.error(`[AncestralSearch] Job ${job?.id} failed`, { error: err.message })
   })
 
   console.log('[AncestralSearch] Worker started')

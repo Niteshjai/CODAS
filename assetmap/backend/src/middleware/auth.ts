@@ -6,8 +6,8 @@ export async function verifyAccessToken(
   reply: FastifyReply
 ) {
   // In MOCK_MODE, bypass JWT and set a mock user
-  if (process.env.MOCK_MODE === 'true') {
-    request.user = { id: '00000000-0000-4000-a000-000000000001', role: 'user', sessionId: 'mock-session' }
+  if (process.env.MOCK_MODE === 'true' && process.env.NODE_ENV !== 'production') {
+    request.user = { id: '00000000-0000-4000-a000-000000000001', role: 'user', sessionId: 'mock-session', twoFactorVerified: true }
     return
   }
 
@@ -22,14 +22,14 @@ export async function verifyAccessToken(
       return reply.status(401).send({ success: false, error: { code: 'NO_TOKEN', message: 'Authentication required' } })
     }
 
-    let payload: { sub: string; role: string; sessionId: string; type: string };
+    let payload: { sub: string; role: string; sessionId: string; type: string; twoFactorVerified?: boolean };
 
     if (authHeader?.startsWith('Bearer ')) {
       // Verify from raw token (Authorization header)
-      payload = request.server.jwt.verify<{ sub: string; role: string; sessionId: string; type: string }>(token);
+      payload = request.server.jwt.verify<typeof payload>(token);
     } else {
       // Verify from cookie
-      payload = await request.jwtVerify<{ sub: string; role: string; sessionId: string; type: string }>({
+      payload = await request.jwtVerify<typeof payload>({
         onlyCookie: true,
       });
     }
@@ -47,7 +47,7 @@ export async function verifyAccessToken(
       return reply.status(401).send({ success: false, error: { code: 'SESSION_INVALID', message: 'Session expired or revoked' } })
     }
 
-    request.user = { id: payload.sub, role: payload.role, sessionId: payload.sessionId }
+    request.user = { id: payload.sub, role: payload.role, sessionId: payload.sessionId, twoFactorVerified: !!payload.twoFactorVerified }
   } catch (err) {
     return reply.status(401).send({ success: false, error: { code: 'TOKEN_INVALID', message: 'Invalid or expired token' } })
   }

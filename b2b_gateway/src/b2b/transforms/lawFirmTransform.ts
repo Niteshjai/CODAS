@@ -1,5 +1,4 @@
 import { Pool }   from 'pg'
-import { decrypt } from '../../utils/encryption.js'
 import { z }      from 'zod'
 
 export const LawFirmResponseSchema = z.object({
@@ -9,14 +8,15 @@ export const LawFirmResponseSchema = z.object({
   dataAsOf:       z.string(),
   consentVerified:z.boolean(),
 
+  // Bucketed ranges, not exact paise: with one account in a class an exact total is that account's balance
   estateValue: z.object({
-    totalNetWorthPaise:       z.number(),
-    movableAssetsPaise:       z.number(),
-    immovableAssetsPaise:     z.number(),
-    listedSecuritiesPaise:    z.number(),
-    retirementAssetsPaise:    z.number(),
-    insuranceCoverPaise:      z.number(),
-    unclaimedAssetsPaise:     z.number(),
+    totalNetWorth:            z.string(),
+    movableAssets:            z.string(),
+    immovableAssets:          z.string(),
+    listedSecurities:         z.string(),
+    retirementAssets:         z.string(),
+    insuranceCover:           z.string(),
+    unclaimedAssets:          z.string(),
     lastUpdated:              z.string(),
   }),
 
@@ -24,7 +24,6 @@ export const LawFirmResponseSchema = z.object({
     institutionName:  z.string(),
     accountType:      z.string(),
     hasNominee:       z.boolean(),
-    nomineeName:      z.string().optional(),
     approximateValue: z.string(),
     status:           z.string(),
     isDormant:        z.boolean(),
@@ -35,7 +34,6 @@ export const LawFirmResponseSchema = z.object({
     institutionName:z.string(),
     assetName:      z.string().optional(),
     hasNominee:     z.boolean(),
-    nomineeName:    z.string().optional(),
     approximateValue:z.string(),
     maturityDate:   z.string().optional(),
   })),
@@ -58,7 +56,6 @@ export const LawFirmResponseSchema = z.object({
     insurerName:    z.string(),
     sumAssured:     z.string(),
     hasNominee:     z.boolean(),
-    nomineeName:    z.string().optional(),
     expiryDate:     z.string().optional(),
     status:         z.string(),
   })),
@@ -98,7 +95,7 @@ export async function transformForLawFirm(
     SELECT
       asset_class, institution_name, asset_name,
       asset_subtype, current_value_paise,
-      has_nominee, nominee_name_enc,
+      has_nominee,
       title_status, ownership_type,
       opened_date, maturity_date,
       last_transaction_date,
@@ -113,6 +110,15 @@ export async function transformForLawFirm(
   `, [userId])
 
   const rows = assets.rows
+
+  // Identity documents: report only what the user actually verified, never assume
+  const identity = await pool.query(`
+    SELECT aadhaar_hash IS NOT NULL AS has_aadhaar,
+           pan_encrypted IS NOT NULL AS has_pan
+    FROM users WHERE id = $1
+  `, [userId])
+  const hasAadhaar = identity.rows[0]?.has_aadhaar ?? false
+  const hasPan     = identity.rows[0]?.has_pan ?? false
 
   const approxRange = (paise: number): string => {
     const v = paise / 100
@@ -212,14 +218,14 @@ export async function transformForLawFirm(
     consentVerified:true,
 
     estateValue: {
-      totalNetWorthPaise:    totalPaise,
-      movableAssetsPaise:    movable,
-      immovableAssetsPaise:  immovable,
-      listedSecuritiesPaise: byClass(['EQUITY','MUTUAL_FUND'])
-        .reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0),
-      retirementAssetsPaise: retirement,
-      insuranceCoverPaise:   insurance,
-      unclaimedAssetsPaise:  unclaimed,
+      totalNetWorth:    approxRange(totalPaise),
+      movableAssets:    approxRange(movable),
+      immovableAssets:  approxRange(immovable),
+      listedSecurities: approxRange(byClass(['EQUITY','MUTUAL_FUND'])
+        .reduce((s, r) => s + parseInt(r.current_value_paise ?? '0', 10), 0)),
+      retirementAssets: approxRange(retirement),
+      insuranceCover:   approxRange(insurance),
+      unclaimedAssets:  approxRange(unclaimed),
       lastUpdated:           new Date().toISOString(),
     },
 
@@ -227,8 +233,6 @@ export async function transformForLawFirm(
       institutionName:  r.institution_name   ?? 'Unknown',
       accountType:      r.asset_subtype ?? r.asset_class,
       hasNominee:       r.has_nominee ?? false,
-      nomineeName:      r.nominee_name_enc
-        ? decrypt(r.nominee_name_enc) : undefined,
       approximateValue: approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       status:           r.is_dormant ? 'dormant' : 'active',
       isDormant:        r.is_dormant ?? false,
@@ -241,8 +245,6 @@ export async function transformForLawFirm(
       institutionName: r.institution_name ?? 'Unknown',
       assetName:       r.asset_name,
       hasNominee:      r.has_nominee ?? false,
-      nomineeName:     r.nominee_name_enc
-        ? decrypt(r.nominee_name_enc) : undefined,
       approximateValue:approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       maturityDate:    r.maturity_date,
     })),
@@ -265,8 +267,6 @@ export async function transformForLawFirm(
       insurerName: r.institution_name ?? 'Unknown',
       sumAssured:  approxRange(parseInt(r.current_value_paise ?? '0', 10)),
       hasNominee:  r.has_nominee ?? false,
-      nomineeName: r.nominee_name_enc
-        ? decrypt(r.nominee_name_enc) : undefined,
       expiryDate:  r.maturity_date,
       status:      'active',
     })),
@@ -286,8 +286,8 @@ export async function transformForLawFirm(
     riskFlags,
 
     availableDocuments: [
-      { type:'AADHAAR',   description:'Aadhaar card',           available: true  },
-      { type:'PAN',       description:'PAN card',               available: true  },
+      { type:'AADHAAR',   description:'Aadhaar (verified)',     available: hasAadhaar },
+      { type:'PAN',       description:'PAN (verified)',         available: hasPan     },
       { type:'LAND_REC',  description:'Land record / 7-12',
         available: byClass(['LAND']).some(r => r.document_available) },
       { type:'INSURANCE', description:'Insurance policy document',

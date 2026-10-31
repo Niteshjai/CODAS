@@ -5,23 +5,41 @@ import * as winston from 'winston';
 // ─────────────────────────────────────────────
 
 function maskPII(message: string): string {
-  // Mask Aadhaar numbers (12 digits) - avoid matching phone numbers starting with '+'
-  message = message.replace(/(?<!\+)\b\d{4}\s?\d{4}\s?\d{4}\b/g, 'XXXX-XXXX-XXXX');
-  // Mask PAN numbers (ABCDE1234F pattern)
-  message = message.replace(/\b[A-Z]{5}\d{4}[A-Z]\b/g, 'XXXXX****X');
-  // Mask mobile numbers (10 digits starting with 6-9)
-  message = message.replace(/\b[6-9]\d{9}\b/g, 'XXXXXX****');
+  // Mask Aadhaar numbers (12 digits) - skip phone numbers ('+') and UUID segments ('-')
+  message = message.replace(/(?<![+\-\w])\d{4}\s?\d{4}\s?\d{4}(?![\-\w])/g, 'XXXX-XXXX-XXXX');
+  // Mask PAN numbers (ABCDE1234F pattern, any case)
+  message = message.replace(/\b[A-Za-z]{5}\d{4}[A-Za-z]\b/g, 'XXXXX****X');
+  // Mask mobile numbers (10 digits starting with 6-9, optional +91 / 91 / 0 prefix)
+  message = message.replace(/(?<!\d)(?:\+?91[\s-]?|0)?[6-9]\d{9}(?!\d)/g, 'XXXXXX****');
+  // Mask remaining long digit runs (bank account numbers), keeping the last 4 for support
+  message = message.replace(/(?<![\-\w.])\d{5,14}(\d{4})(?![\-\w.])/g, 'XXXX$1');
   return message;
 }
 
-const piiMaskFormat = winston.format((info) => {
-  if (typeof info.message === 'string') {
-    info.message = maskPII(info.message);
+// Keys whose values are always sensitive, whatever their format
+const SENSITIVE_KEY = /^(pan(_?(number|no|enc))?|aadhaar.*|mobile.*|phone.*|account_?(number|no|ref)|email.*|otp|.*token|password|.*secret|authorization|cookie)$/i;
+
+function maskValue(value: unknown, seen: WeakSet<object>): unknown {
+  if (typeof value === 'string') return maskPII(value);
+  if (!value || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const key of Object.keys(value)) {
+    const v = (value as Record<string, unknown>)[key];
+    (value as Record<string, unknown>)[key] =
+      SENSITIVE_KEY.test(key) && v != null && v !== '' ? '[REDACTED]' : maskValue(v, seen);
   }
-  // Mask PII in metadata
-  if (info.metadata && typeof info.metadata === 'object') {
-    const metaStr = JSON.stringify(info.metadata);
-    info.metadata = JSON.parse(maskPII(metaStr));
+  return value;
+}
+
+// Walks every string-keyed field (message, stack, top-level meta, nested objects).
+// Winston's internal Symbol keys and level/timestamp are left alone.
+const piiMaskFormat = winston.format((info) => {
+  const seen = new WeakSet<object>();
+  seen.add(info);
+  for (const key of Object.keys(info)) {
+    if (key === 'level' || key === 'timestamp') continue;
+    const v = info[key];
+    info[key] = SENSITIVE_KEY.test(key) && v != null && v !== '' ? '[REDACTED]' : maskValue(v, seen);
   }
   return info;
 });

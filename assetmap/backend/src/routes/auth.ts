@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { randomUUID, randomInt } from 'crypto';
+import { randomUUID, randomInt, timingSafeEqual } from 'crypto';
 import { initiateOKYC, verifyOKYC } from '../services/aadhaar';
 import { AadhaarInitiateSchema, AadhaarVerifySchema, UserDeleteSchema, PhoneInitiateSchema, PhoneVerifySchema, RegisterPanSchema, RegisterAadhaarInitiateSchema, RegisterAadhaarVerifySchema, EmailInitiateSchema, EmailVerifySchema, RegisterConfirmSchema, FcmTokenSchema } from '../utils/validators';
 import { encryptPII } from '../utils/encryption';
@@ -49,8 +49,9 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // POST /api/auth/dev-login — bypass for development
   // ─────────────────────────────────────────────
   fastify.post('/dev-login', async (request, reply) => {
-    if (process.env.NODE_ENV === 'production') {
-      return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Dev login is disabled in production'));
+    // Opt-in only: NODE_ENV defaults to development, so it alone must not unlock a credential-less login
+    if (process.env.NODE_ENV !== 'development' || process.env.ENABLE_DEV_LOGIN !== 'true') {
+      return reply.status(403).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Dev login is disabled'));
     }
     try {
 
@@ -346,6 +347,10 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(400).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'OTP has expired. Please request a new one.'));
       }
 
+      if (await otpGuard.isLocked(txn.phone)) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.RATE_LIMITED, 'Too many failed attempts. Please try again later.'));
+      }
+
       if (txn.used) {
         return reply.status(400).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'OTP has already been used.'));
       }
@@ -355,10 +360,16 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(400).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'OTP has expired. Please request a new one.'));
       }
 
-      const otpValid = txn.otp === otp;
+      const expected = Buffer.from(String(txn.otp));
+      const received = Buffer.from(String(otp));
+      const otpValid = expected.length === received.length && timingSafeEqual(expected, received);
 
       if (!otpValid) {
-        await otpGuard.recordFailure(txn.phone);
+        const failures = await otpGuard.recordFailure(txn.phone);
+        // Burn the transaction after repeated misses so guesses can't be spread across IPs
+        if (failures >= 3) {
+          await otpStore.deletePhoneOtp(transactionId);
+        }
         return reply.status(400).send(errorResponse(ERROR_CODES.OTP_INVALID, 'Invalid OTP. Please try again.'));
       }
 
@@ -492,7 +503,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       // Check strict matches returned by Sandbox API
       if (process.env.MOCK_MODE !== 'true') {
         if (panResult.nameMatch === false) {
-           return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, `Name mismatch. PAN is registered to: ${panResult.fullName}`));
+           return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Name does not match PAN records.'));
         }
         if (panResult.dobMatch === false) {
            return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Date of Birth does not match the PAN records.'));
@@ -806,7 +817,7 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       }
 
       await sessionStore.revoke(payload.sessionId);
-      await issueTokenPair(fastify, payload.sub, session.role, reply);
+      await issueTokenPair(fastify, payload.sub, session.role, reply, !!session.twoFactorVerified);
 
       await auditLogger.log(payload.sub, 'TOKEN_REFRESHED', 'auth', undefined, request.ip, request.headers['user-agent']);
 

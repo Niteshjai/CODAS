@@ -3,6 +3,7 @@ import { AncestralSearchForm }  from './AncestralSearchForm'
 import { AncestralResultCard }  from './AncestralResultCard'
 import { OfflineGuide }         from './OfflineGuide'
 import { Map, ArrowLeft, Loader2, FileX } from 'lucide-react'
+import { api }                  from '../../services/api'
 
 type Stage = 'form' | 'searching' | 'results' | 'no_results' | 'offline'
 
@@ -15,23 +16,16 @@ export default function AncestralSearchPage() {
   const handleSearch = async (formData: any) => {
     setStage('searching')
     try {
-      const res  = await fetch('/api/ancestral/search', {
-        method:  'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body:    JSON.stringify(formData)
-      })
-      if (!res.ok) throw new Error('Network error or server restarting')
-      const data = await res.json()
-      if (!data.success) {
-        if (data.error?.code === 'PLAN_GATE') {
-          window.dispatchEvent(new CustomEvent('plan-gate', { detail: data.error }))
-          setStage('form')
-          return
-        }
-        throw new Error(data.error?.message)
-      }
+      // Shared client: API base URL, cookie credentials and token refresh
+      const { data } = await api.post('/ancestral/search', formData)
       setSearchId(data.data.searchId)
     } catch (err: any) {
+      const apiError = err?.response?.data?.error
+      if (apiError?.code === 'PLAN_GATE') {
+        window.dispatchEvent(new CustomEvent('plan-gate', { detail: apiError }))
+        setStage('form')
+        return
+      }
       console.error(err)
       alert('Failed to start search. Please try again.')
       setStage('form')
@@ -44,11 +38,7 @@ export default function AncestralSearchPage() {
 
     const poll = async () => {
       try {
-        const res  = await fetch(`/api/ancestral/search/${searchId}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-        if (!res.ok) return // Ignore transient errors (e.g. server restart)
-        const data = await res.json()
+        const { data } = await api.get(`/ancestral/search/${searchId}`)
 
         if (data.data?.isComplete) {
           setSearchData(data.data)
@@ -73,31 +63,18 @@ export default function AncestralSearchPage() {
   }, [searchId, stage])
 
   const handleConfirm = async (resultId: string, notes?: string) => {
-    await fetch(`/api/ancestral/results/${resultId}/confirm`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
-      body: JSON.stringify({ notes })
-    })
+    await api.post(`/ancestral/results/${resultId}/confirm`, { notes })
     // Refresh results
     if (searchId) {
-      const res  = await fetch(`/api/ancestral/search/${searchId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      })
-      const data = await res.json()
+      const { data } = await api.get(`/ancestral/search/${searchId}`)
       setSearchData(data.data)
     }
   }
 
   const handleReject = async (resultId: string) => {
-    await fetch(`/api/ancestral/results/${resultId}/reject`, { 
-      method:'POST',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
+    await api.post(`/ancestral/results/${resultId}/reject`)
     if (searchId) {
-      const res  = await fetch(`/api/ancestral/search/${searchId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      })
-      const data = await res.json()
+      const { data } = await api.get(`/ancestral/search/${searchId}`)
       setSearchData(data.data)
     }
   }
@@ -227,10 +204,7 @@ export default function AncestralSearchPage() {
                 <button
                   onClick={async () => {
                     if (searchId) {
-                      const res  = await fetch(`/api/ancestral/search/${searchId}/offline-guide`, {
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                      })
-                      const data = await res.json()
+                      const { data } = await api.get(`/ancestral/search/${searchId}/offline-guide`)
                       setSearchData({ ...searchData, offlineGuide: data.data })
                       setStage('offline')
                     }

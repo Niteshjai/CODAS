@@ -7,6 +7,30 @@ import { backupCodeService } from '../auth/backupCodeService'
 import { totpService } from '../auth/totpService'
 import { pool } from '../db/connection'
 
+// Step-up check: once 2FA is enabled, changing it requires a fresh code from the
+// current factor (or a backup code), so a stolen access token alone can't take it over.
+async function verifyCurrentFactor(userId: string, code: unknown, ip: string): Promise<boolean> {
+  const record = await pool.query(
+    'SELECT is_enabled, totp_secret_enc, method FROM user_two_factor WHERE user_id=$1',
+    [userId]
+  )
+  const row = record.rows[0]
+  if (!row?.is_enabled) return true
+  if (typeof code !== 'string' || !code) return false
+
+  if (row.method === 'totp' && row.totp_secret_enc) {
+    if (totpService.verifyToken(row.totp_secret_enc, code).valid) return true
+  } else if (row.method === 'email') {
+    if (await otpService.verifyOTP(pool, userId, code)) return true
+  }
+  return backupCodeService.verifyAndConsume(pool, userId, code, ip)
+}
+
+const STEP_UP_REQUIRED = {
+  success: false,
+  error: { code: 'STEP_UP_REQUIRED', message: 'Enter a current 2FA or backup code to change 2FA settings.' }
+}
+
 export async function twoFactorRoutes(app: FastifyInstance) {
 
   // GET 2FA status for settings page
@@ -27,6 +51,9 @@ export async function twoFactorRoutes(app: FastifyInstance) {
     preHandler: [verifyAccessToken],
     config: { rateLimit: { max: 3, timeWindow: '1 hour' } },
     handler: async (req, reply) => {
+      if (!(await verifyCurrentFactor((req as any).user!.id, (req.body as any)?.verificationCode, req.ip || ''))) {
+        return reply.status(401).send(STEP_UP_REQUIRED)
+      }
       const result = await twoFactorAuth.beginTOTPSetup(
         pool, (req as any).user!.id
       )
@@ -71,13 +98,18 @@ export async function twoFactorRoutes(app: FastifyInstance) {
       body: {
         type: 'object',
         properties: {
-          email: { type: 'string', format: 'email' }
+          email: { type: 'string', format: 'email' },
+          verificationCode: { type: 'string' }
         },
         nullable: true
       }
     },
     handler: async (req, reply) => {
-      const { email } = (req.body as any) || {}
+      const { email, verificationCode } = (req.body as any) || {}
+
+      if (!(await verifyCurrentFactor((req as any).user!.id, verificationCode, req.ip || ''))) {
+        return reply.status(401).send(STEP_UP_REQUIRED)
+      }
 
       try {
         if (email) {
@@ -211,8 +243,7 @@ export async function twoFactorRoutes(app: FastifyInstance) {
         code: body.code,
         method: body.method,
         trustDevice: body.trustDevice ?? false,
-        ipAddress: req.headers['x-forwarded-for'] as string ||
-          req.socket.remoteAddress || '',
+        ipAddress: req.ip || '',
         userAgent: req.headers['user-agent'] || '',
       })
 
@@ -285,8 +316,7 @@ export async function twoFactorRoutes(app: FastifyInstance) {
         })
       }
 
-      const ip = req.headers['x-forwarded-for'] as string ||
-        req.socket.remoteAddress || ''
+      const ip = req.ip || ''
       await twoFactorAuth.disable(pool, userId, ip)
 
       return { success: true, data: { message: '2FA disabled successfully.' } }
@@ -300,6 +330,9 @@ export async function twoFactorRoutes(app: FastifyInstance) {
     preHandler: [verifyAccessToken],
     config: { rateLimit: { max: 3, timeWindow: '24 hours' } },
     handler: async (req, reply) => {
+      if (!(await verifyCurrentFactor((req as any).user!.id, (req.body as any)?.verificationCode, req.ip || ''))) {
+        return reply.status(401).send(STEP_UP_REQUIRED)
+      }
       const codes = await backupCodeService.generateCodes(
         pool, (req as any).user!.id
       )

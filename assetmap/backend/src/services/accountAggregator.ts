@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
 import { pool } from '../db/connection';
 import { decryptPII, encryptPII } from '../utils/encryption';
 import { nomineeChecker } from './nomineeChecker';
@@ -68,7 +68,8 @@ export async function createAAHandle(
 
     // Sandbox: generate mock AA handle
     const aaHandle = `${mobile}@aa-sandbox`;
-    logger.info('AA handle created (sandbox)', { userId, aaHandle });
+    // aaHandle embeds the user's mobile number — never log it
+    logger.info('AA handle created (sandbox)', { userId });
     return aaHandle;
   } catch (error) {
     logger.error('Failed to create AA handle', { userId, error: (error as Error).message });
@@ -176,7 +177,8 @@ export async function createConsentRequest(
     logger.error('Failed to create consent request with Setu', {
       userId,
       error: errMsg,
-      setuResponse: error?.response?.data,
+      // Raw Setu bodies can echo PII; log only the HTTP status
+      setuStatus: error?.response?.status,
     });
     
     // Fallback to mock consent creation if Setu fails (e.g. invalid mock credentials in dev)
@@ -205,17 +207,46 @@ export async function createConsentRequest(
 // Handle Consent Callback (Webhook)
 // ─────────────────────────────────────────────
 
+/**
+ * Verifies the HMAC-SHA256 (hex) of the raw webhook body against SETU_WEBHOOK_SECRET.
+ * Returns false when no secret is configured; the route then falls back to
+ * fetchSetuConsentStatus rather than trusting the body.
+ */
+export function verifySetuWebhookSignature(rawBody: string | undefined, signature: string | undefined): boolean {
+  const secret = process.env.SETU_WEBHOOK_SECRET;
+  if (!secret || !rawBody || !signature) return false;
+
+  const expected = Buffer.from(createHmac('sha256', secret).update(rawBody).digest('hex'), 'utf8');
+  const received = Buffer.from(signature.replace(/^sha256=/, ''), 'utf8');
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
+/**
+ * Authoritative consent status straight from Setu (server-to-server, with our credentials).
+ * Used when a callback can't be signature-verified, so a forged callback can't change state
+ * and real callbacks keep working whatever signing scheme Setu uses.
+ */
+export async function fetchSetuConsentStatus(consentId: string): Promise<string | null> {
+  try {
+    const response = await createSetuClient().get(`/v2/consents/${encodeURIComponent(consentId)}`);
+    return typeof response.data?.status === 'string' ? response.data.status : null;
+  } catch (error: any) {
+    logger.warn('Setu consent status lookup failed', { consentId, httpStatus: error?.response?.status });
+    return null;
+  }
+}
+
+const CONSENT_AUDIT_ACTIONS: Record<string, 'CONSENT_APPROVED' | 'CONSENT_REVOKED' | 'CONSENT_EXPIRED'> = {
+  ACTIVE: 'CONSENT_APPROVED',
+  REVOKED: 'CONSENT_REVOKED',
+  REJECTED: 'CONSENT_REVOKED',
+  EXPIRED: 'CONSENT_EXPIRED',
+};
+
 export async function handleConsentCallback(
   consentId: string,
-  status: string,
-  webhookSignature?: string
+  status: string
 ): Promise<void> {
-  // Verify webhook signature in production
-  if (process.env.NODE_ENV === 'production' && process.env.SETU_WEBHOOK_SECRET) {
-    // Signature verification would go here
-    // Using HMAC-SHA256 with SETU_WEBHOOK_SECRET
-  }
-
   const mappedStatus = status.toUpperCase() === 'APPROVED' ? 'ACTIVE' : status.toUpperCase();
 
   const result = await pool.query(
@@ -232,20 +263,22 @@ export async function handleConsentCallback(
 
   const userId = result.rows[0].user_id;
 
-  await auditLogger.log(userId, 'CONSENT_APPROVED', 'consents', consentId);
+  const auditAction = CONSENT_AUDIT_ACTIONS[mappedStatus];
+  if (auditAction) {
+    await auditLogger.log(userId, auditAction, 'consents', consentId, undefined, undefined, { status: mappedStatus });
+  }
 
   logger.info('Consent status updated', { consentId, status: mappedStatus });
 
-  // If consent was approved, trigger data fetch
+  // If consent was approved, fetch data in the background so the webhook acks quickly
+  // (Setu retries slow callbacks, which would re-trigger the fetch)
   if (mappedStatus === 'ACTIVE') {
-    try {
-      await fetchFinancialData(consentId, userId);
-    } catch (error) {
+    fetchFinancialData(consentId, userId).catch((error) => {
       logger.error('Auto data fetch after consent approval failed', {
         consentId,
         error: (error as Error).message,
       });
-    }
+    });
   }
 }
 
@@ -400,8 +433,9 @@ export async function fetchFinancialData(
 
       const accountId = insertRes.rows[0].id;
 
-      // Simulate incremental transactions fetch by inserting 2 mock transactions with current timestamp
-      if (item.fiType === 'DEPOSIT') {
+      // Simulate incremental transactions fetch by inserting 2 mock transactions with current timestamp.
+      // Never in production: it would fabricate entries in real users' bank histories.
+      if (item.fiType === 'DEPOSIT' && process.env.NODE_ENV !== 'production') {
         await TransactionModel.bulkInsert(accountId, userId, [
           { date: new Date().toISOString(), type: 'CREDIT', amount: 5000, narration: 'Incremental Sync Credit' },
           { date: new Date().toISOString(), type: 'DEBIT', amount: 1200, narration: 'Incremental Sync Debit' }
@@ -414,7 +448,7 @@ export async function fetchFinancialData(
       await nomineeChecker.processAAData(pool, userId, financialData);
       await dormantAccountFinder.analyzeAccounts(pool, userId, financialData);
     } catch (e) {
-      logger.error('Failed to run engagement checks', { error: e });
+      logger.error('Failed to run engagement checks', { error: (e as Error).message });
     }
 
     // Audit log

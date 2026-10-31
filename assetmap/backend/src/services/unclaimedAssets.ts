@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio'
 import { Pool } from 'pg'
 import { encryptPII as encrypt, decryptPII as decrypt } from '../utils/encryption'
 import { auditLogger } from './auditLogger'
+import { logger } from '../utils/logger'
 
 // IEPF, EPFO, IRDAI portals — public data
 const IEPF_SEARCH_URL =
@@ -14,7 +15,8 @@ const IRDAI_UNCLAIMED_URL =
 
 export const unclaimedAssets = {
 
-  // Initiate a paid search after payment verified
+  // Initiate a search. Entitlement is enforced server-side by the caller's plan
+  // (feature gate + yearly limit in the route); a client-supplied payment id is never trusted.
   async initiateSearch(
     pool: Pool,
     userId: string,
@@ -22,7 +24,6 @@ export const unclaimedAssets = {
       pan:          string
       name:         string
       aadhaarHash?: string
-      paymentId:    string
     }
   ): Promise<string> {
     const result = await pool.query(`
@@ -30,14 +31,13 @@ export const unclaimedAssets = {
         user_id, pan_enc, name_enc,
         aadhaar_hash, payment_id, payment_status,
         search_status
-      ) VALUES ($1,$2,$3,$4,$5,'completed','pending')
+      ) VALUES ($1,$2,$3,$4,NULL,'completed','pending')
       RETURNING id
     `, [
       userId,
       encrypt(params.pan),
       encrypt(params.name),
-      params.aadhaarHash,
-      params.paymentId
+      params.aadhaarHash
     ])
 
     const searchId = result.rows[0].id
@@ -103,7 +103,7 @@ export const unclaimedAssets = {
       `, [searchId])
 
     } catch (err) {
-      console.error('[UnclaimedSearch] Failed:', err)
+      logger.error('[UnclaimedSearch] Failed', { searchId, error: (err as Error).message })
       await pool.query(`
         UPDATE unclaimed_search_requests
         SET search_status = 'failed'
@@ -170,7 +170,7 @@ export const unclaimedAssets = {
 
       return results
     } catch (err) {
-      console.error('[IEPF Search] Failed:', err)
+      logger.error('[IEPF Search] Failed', { error: (err as Error).message })
       return []
     }
   },
@@ -270,7 +270,7 @@ export const unclaimedAssets = {
 
       return results
     } catch (err) {
-      console.error('[IRDAI Search] Failed:', err)
+      logger.error('[IRDAI Search] Failed', { error: (err as Error).message })
       return []
     }
   },

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 
-const client = new Client({ connectionString: 'postgresql://postgres:Nitesh123@localhost:5432/assetmap' });
+const client = new Client({ connectionString: process.env.DATABASE_URL });
 
 async function runMigration() {
   try {

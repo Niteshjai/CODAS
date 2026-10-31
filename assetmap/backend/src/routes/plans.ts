@@ -5,9 +5,24 @@ import { planEnforcer }            from '../plans/planEnforcer'
 import { razorpaySubscriptionService } from '../billing/razorpaySubscription'
 import { PLANS }                   from '../plans/planConfig'
 import crypto                      from 'crypto'
-import { pool }                    from '../db/connection'
+import { pool, kvStore }           from '../db/connection'
+import { errorResponse, ERROR_CODES } from '../utils/constants'
+
+function safeEqualHex(expected: string, received: string): boolean {
+  const a = Buffer.from(expected, 'utf8')
+  const b = Buffer.from(received || '', 'utf8')
+  return a.length === b.length && crypto.timingSafeEqual(new Uint8Array(a), new Uint8Array(b))
+}
 
 export async function plansRoutes(app: FastifyInstance) {
+
+  // Keep the raw JSON body (scoped to this plugin) so webhook HMACs are computed over the exact bytes sent
+  const defaultJsonParser = app.getDefaultJsonParser('error', 'ignore')
+  app.removeContentTypeParser('application/json')
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    (req as any).rawBody = body
+    defaultJsonParser(req, body as string, done)
+  })
 
   // ── GET all plans (public — pricing page)
   app.get('/api/plans', {
@@ -140,7 +155,7 @@ export async function plansRoutes(app: FastifyInstance) {
     schema: {
       body: {
         type: 'object',
-        required: ['razorpaySubscriptionId'],
+        required: ['razorpayPaymentId', 'razorpaySubscriptionId', 'razorpaySignature'],
         properties: {
           razorpayPaymentId:      { type: 'string' },
           razorpaySubscriptionId: { type: 'string' },
@@ -149,13 +164,27 @@ export async function plansRoutes(app: FastifyInstance) {
       }
     },
     handler: async (req, reply) => {
-      const { razorpayPaymentId, razorpaySubscriptionId } = req.body as any
+      const { razorpayPaymentId, razorpaySubscriptionId, razorpaySignature } = req.body as any
       const userId = req.user!.id
+
+      // Razorpay checkout signature: HMAC_SHA256(payment_id|subscription_id, key_secret).
+      // Without this check any client could activate a paid plan without paying.
+      const keySecret = process.env.RAZORPAY_KEY_SECRET
+      if (!keySecret) {
+        return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Payments are not configured'))
+      }
+      const expectedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${razorpayPaymentId}|${razorpaySubscriptionId}`)
+        .digest('hex')
+      if (!safeEqualHex(expectedSignature, razorpaySignature)) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Invalid payment signature'))
+      }
 
       // Find the pending subscription
       const subRes = await pool.query(
         `SELECT * FROM user_subscriptions 
-         WHERE user_id = $1 AND razorpay_subscription_id = $2`,
+         WHERE user_id = $1 AND razorpay_subscription_id = $2 AND status = 'pending'`,
         [userId, razorpaySubscriptionId]
       )
 
@@ -276,18 +305,34 @@ export async function plansRoutes(app: FastifyInstance) {
   // ── POST Razorpay webhook
   app.post('/api/plans/webhook/razorpay', {
     handler: async (req, reply) => {
+      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET
+      if (!webhookSecret) {
+        // Fail closed: never process unauthenticated billing events
+        return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Webhook not configured'))
+      }
+
       const signature = req.headers['x-razorpay-signature'] as string
-      const body      = JSON.stringify(req.body)
+      const rawBody   = (req as any).rawBody as string | undefined
+      if (!rawBody) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Missing body'))
+      }
       const expected  = crypto
-        .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!)
-        .update(body)
+        .createHmac('sha256', webhookSecret)
+        .update(rawBody)
         .digest('hex')
 
-      const expectedBuffer = Buffer.from(expected, 'utf8')
-      const signatureBuffer = Buffer.from(signature || '', 'utf8')
+      if (!safeEqualHex(expected, signature)) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Invalid signature'))
+      }
 
-      if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(new Uint8Array(expectedBuffer), new Uint8Array(signatureBuffer))) {
-        return reply.status(400).send({ error: 'Invalid signature' })
+      // Idempotency: Razorpay retries deliveries; process each event id once
+      const eventId = req.headers['x-razorpay-event-id'] as string | undefined
+      if (eventId) {
+        const seenKey = `razorpay_event:${eventId}`
+        if (await kvStore.get(seenKey)) {
+          return { success: true, data: { duplicate: true } }
+        }
+        await kvStore.setex(seenKey, 60 * 60 * 24 * 7, '1')
       }
 
       const event   = (req.body as any).event

@@ -7,6 +7,45 @@
 import { pool } from '../db/connection'
 import { ASSET_CATEGORIES } from './assetCategories'
 import { logger } from '../utils/logger'
+import { CLAUDE_MODELS, generateJSON, describeClaudeError } from '../ai/claudeClient'
+
+interface Enrichment {
+  ai_category_label:  string
+  ai_risk_level:      'very_low' | 'low' | 'medium' | 'high' | 'very_high'
+  ai_liquidity_score: number
+  ai_summary:         string
+  ai_suggestions:     string[]
+}
+
+const ENRICHMENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    ai_category_label:  { type: 'string' },
+    ai_risk_level:      { type: 'string', enum: ['very_low', 'low', 'medium', 'high', 'very_high'] },
+    ai_liquidity_score: { type: 'integer' },
+    ai_summary:         { type: 'string' },
+    ai_suggestions:     { type: 'array', items: { type: 'string' } },
+  },
+  required: ['ai_category_label', 'ai_risk_level', 'ai_liquidity_score', 'ai_summary', 'ai_suggestions'],
+  additionalProperties: false,
+}
+
+
+// extra_fields keys that describe the asset without identifying a person, property or entity
+const AI_SAFE_EXTRA_FIELDS = new Set([
+  'property_type', 'monthly_rent', 'city', 'state', 'area_sqft', 'area_acres', 'land_type',
+  'year', 'year_created', 'weight_grams', 'purity', 'form', 'item_type', 'is_hallmarked',
+  'has_certificate', 'quantity', 'vehicle_type', 'make', 'model', 'fuel_type',
+  'token_symbol', 'token_name', 'purchase_price_per_token', 'exchange_name', 'storage_type',
+  'title_status', 'ownership_type', 'ownership_pct', 'stake_type', 'stake_pct',
+  'number_of_shares', 'vesting_schedule', 'last_funding_round', 'industry', 'business_type',
+  'annual_revenue', 'annual_profit', 'generates_revenue', 'relationship', 'recovery_confidence',
+  'loan_date', 'loan_outstanding', 'interest_rate_pct', 'expected_repayment_date',
+  'has_written_agreement', 'has_home_loan', 'is_self_occupied', 'is_rented', 'is_insured', 'insured',
+  'months_completed', 'monthly_contribution', 'duration_months', 'chit_value', 'already_received_prize',
+  'ip_type', 'expiry_date', 'currency', 'foreign_currency', 'amount_in_foreign_currency',
+  'country', 'fema_compliant', 'asset_type',
+])
 
 export const manualAIEnricher = {
 
@@ -29,19 +68,25 @@ export const manualAIEnricher = {
       return
     }
 
+    // Data minimisation: only non-identifying structured fields leave our systems.
+    // Free text (name, description) and identifiers (borrower name, registration/survey numbers,
+    // CIN, GSTIN, exact locations) are never sent to the LLM provider.
+    const extraFields = Object.fromEntries(
+      Object.entries((a.extra_fields ?? {}) as Record<string, unknown>)
+        .filter(([key]) => AI_SAFE_EXTRA_FIELDS.has(key))
+    )
+
     const prompt = `
 You are a financial advisor analysing a manually entered asset for an Indian user.
 
 Asset details:
 Category:      ${config?.label ?? a.asset_category}
-Name:          ${a.asset_name}
-Description:   ${a.description ?? 'Not provided'}
 Current value: ₹${Math.round(a.current_value_paise / 100).toLocaleString('en-IN')}
 Purchase value:₹${Math.round((a.purchase_value_paise ?? 0) / 100).toLocaleString('en-IN')}
-Extra details: ${JSON.stringify(a.extra_fields)}
+Extra details: ${JSON.stringify(extraFields)}
 Valuation:     ${a.valuation_method}
 
-Return ONLY a JSON object:
+Return these fields:
 {
   "ai_category_label": "<emoji + descriptive label, e.g. '🥇 22K Gold Jewellery — 50g'>",
   "ai_risk_level": "<very_low|low|medium|high|very_high>",
@@ -49,28 +94,17 @@ Return ONLY a JSON object:
   "ai_summary": "<one sentence plain English description>",
   "ai_suggestions": ["<actionable suggestion 1>", "<actionable suggestion 2>"]
 }
-
-No preamble. Pure JSON only.
 `.trim()
 
     try {
-      const { default: Anthropic } = await import('@anthropic-ai/sdk')
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-      const response = await anthropic.messages.create({
-        model:      'claude-sonnet-4-20250514',
-        max_tokens: 512,
-        messages:   [{ role: 'user', content: prompt }],
+      const enrichment = await generateJSON<Enrichment>({
+        model:     CLAUDE_MODELS.standard,
+        prompt,
+        schema:    ENRICHMENT_SCHEMA,
+        maxTokens: 4000,
+        effort:    'low',
       })
-
-      const text = response.content
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('')
-        .replace(/```json|```/g, '')
-        .trim()
-
-      const enrichment = JSON.parse(text)
+      const liquidity = Math.min(100, Math.max(0, Math.round(enrichment.ai_liquidity_score)))
 
       await pool.query(`
         UPDATE manual_assets SET
@@ -85,14 +119,14 @@ No preamble. Pure JSON only.
         assetId,
         enrichment.ai_category_label,
         enrichment.ai_risk_level,
-        enrichment.ai_liquidity_score,
+        liquidity,
         enrichment.ai_summary,
         enrichment.ai_suggestions ?? [],
       ])
 
       logger.info('[ManualAIEnricher] Enriched asset', { assetId })
     } catch (err) {
-      logger.error('[ManualAIEnricher] Failed', { error: (err as Error).message })
+      logger.error('[ManualAIEnricher] Failed', { error: describeClaudeError(err) })
       // Don't throw — enrichment failure should not block asset creation
     }
   },

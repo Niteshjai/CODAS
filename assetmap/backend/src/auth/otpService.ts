@@ -50,9 +50,10 @@ export const otpService = {
     // Record send in Redis
     await this.recordSend(userId)
 
-    console.log('\n======================================================');
-    console.log(`[2FA Email OTP] Verification code for ${email}: ${otp}`);
-    console.log('======================================================\n');
+    // Never print OTPs or emails outside local mock runs — logs are shipped and retained
+    if (process.env.NODE_ENV === 'development' && process.env.MOCK_MODE === 'true') {
+      console.log(`[2FA Email OTP] Verification code: ${otp}`);
+    }
 
     // Send email via configured provider
     await alertService.sendEmail({

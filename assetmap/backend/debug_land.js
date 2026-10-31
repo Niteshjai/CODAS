@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const pool = new Pool({ connectionString: 'postgresql://postgres:Nitesh123@localhost:5432/assetmap' });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function debugLand() {
   try {

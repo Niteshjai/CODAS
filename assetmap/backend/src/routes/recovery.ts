@@ -3,6 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { FastifyPluginAsync } from 'fastify'
+import { randomUUID } from 'crypto'
+import path from 'path'
 import { verifyAccessToken } from '../middleware/auth'
 import { pool } from '../db/connection'
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants'
@@ -20,6 +22,13 @@ import { require2FA } from '../auth/twoFactorMiddleware'
 // NOTE: All success_fee_recovery routes are EXPLICITLY UNGATED.
 // They are free on all plans by business decision. Do not add planEnforcer here.
 // ─────────────────────────────────────────────
+
+const ALLOWED_DOC_TYPES: Record<string, string> = {
+  '.pdf':  'application/pdf',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png':  'image/png',
+}
 
 export const recoveryRoutes: FastifyPluginAsync = async (fastify, opts) => {
   const auth2FA = [verifyAccessToken, require2FA()]
@@ -170,10 +179,7 @@ export const recoveryRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const { id } = request.params as { id: string }
       const body = request.body as {
         docType:       string
-        s3Key:         string
         fileName:      string
-        fileSizeBytes: number
-        mimeType:      string
       }
 
       if (!body.docType || !body.fileName) {
@@ -183,17 +189,31 @@ export const recoveryRoutes: FastifyPluginAsync = async (fastify, opts) => {
         ))
       }
 
+      // Storage keys are generated server-side; the client filename is display-only
+      const ext = path.extname(body.fileName).toLowerCase()
+      const mimeType = ALLOWED_DOC_TYPES[ext]
+      if (!mimeType) {
+        return reply.status(400).send(errorResponse(
+          ERROR_CODES.VALIDATION_ERROR,
+          'Only PDF, JPG and PNG documents are accepted'
+        ))
+      }
+      const fileName = path.basename(body.fileName).slice(0, 200)
+
       const result = await recoveryEngine.uploadDocument(
         pool, userId, id,
         body.docType,
-        body.s3Key || `uploads/${userId}/${id}/${body.fileName}`,
-        body.fileName,
-        body.fileSizeBytes || 0,
-        body.mimeType || 'application/octet-stream'
+        `recovery/${userId}/${id}/${randomUUID()}${ext}`,
+        fileName,
+        0,
+        mimeType
       )
 
       return successResponse(result)
     } catch (error: any) {
+      if (error.message === 'Recovery case not found') {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Recovery case not found'))
+      }
       request.log.error(error)
       return reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'An unexpected error occurred'))
     }
@@ -350,7 +370,10 @@ export const recoveryRoutes: FastifyPluginAsync = async (fastify, opts) => {
       })
 
       // Auto-accept fee for legacy flow
-      await recoveryEngine.acceptFeeAgreement(pool, userId, result.caseId, '0.0.0.0', 'legacy')
+      await recoveryEngine.acceptFeeAgreement(
+        pool, userId, result.caseId,
+        request.ip || '0.0.0.0', request.headers['user-agent'] || 'legacy'
+      )
 
       return successResponse({
         id:               result.caseId,

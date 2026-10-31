@@ -32,8 +32,8 @@ export async function b2bMiddleware(
 
   const { valid, client, keyId, environment, error } = await apiKeyManager.validate(
     pool, apiKey,
-    request.headers['x-forwarded-for'] as string ||
-    request.socket.remoteAddress
+    // request.ip honours TRUST_PROXY_HOPS; the raw X-Forwarded-For header is client-controlled
+    request.ip
   )
 
   if (!valid || !client || !environment) {

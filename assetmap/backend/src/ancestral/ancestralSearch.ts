@@ -265,20 +265,19 @@ export const ancestralSearch = {
     resultId: string,
     notes?:   string
   ): Promise<string> {
-    await pool.query(`
+    // Scoped to the caller: RETURNING avoids a second, unscoped lookup by id
+    const result = await pool.query(`
       UPDATE ancestral_search_results
       SET user_status = 'confirmed',
           user_notes  = $3,
           confirmed_at= NOW(),
           updated_at  = NOW()
       WHERE id = $1 AND user_id = $2
+      RETURNING *
     `, [resultId, userId, notes ?? null])
 
-    // Fetch result to add to canonical_assets
-    const result = await pool.query(
-      'SELECT * FROM ancestral_search_results WHERE id=$1', [resultId]
-    )
     const r = result.rows[0]
+    if (!r) throw new Error('Search result not found')
 
     // Add to canonical_assets as AGRICULTURAL_LAND_MANUAL
     // (user still needs to legally verify — this is a lead, not proof)

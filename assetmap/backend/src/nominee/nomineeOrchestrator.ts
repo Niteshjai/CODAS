@@ -481,18 +481,19 @@ export const nomineeOrchestrator = {
     taskId: string,
     userId: string
   ): Promise<void> {
-    await pool.query(`
+    // RETURNING keeps the follow-up event/notification scoped to the caller's own task
+    const task = await pool.query(`
       UPDATE nominee_update_tasks
       SET status = 'user_completed',
           user_completed_at = NOW(),
           updated_at = NOW()
       WHERE id = $1 AND user_id = $2
+      RETURNING batch_id, institution_name
     `, [taskId, userId]);
 
-    const task = await pool.query(
-      'SELECT batch_id, institution_name FROM nominee_update_tasks WHERE id = $1',
-      [taskId]
-    );
+    if (!task.rows.length) {
+      throw new Error('Task not found');
+    }
 
     await logTaskEvent(taskId, userId,
       'USER_COMPLETED',

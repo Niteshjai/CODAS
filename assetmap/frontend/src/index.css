@@ -274,13 +274,58 @@
 ───────────────────────────────────────── */
 
 @layer base {
+  html {
+    min-width: 320px;
+    min-height: 100%;
+    overflow-x: clip;
+  }
+
+  body,
+  #root {
+    width: 100%;
+    min-height: 100%;
+    overflow-x: clip;
+  }
+
   * {
     border-color: var(--color-border);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  img,
+  video {
+    height: auto;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+  }
+}
+
+/* Prevent mobile browsers from zooming inputs and keep embedded visualisations fluid. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .recharts-responsive-container,
+  .leaflet-container {
+    max-width: 100%;
   }
 }
 

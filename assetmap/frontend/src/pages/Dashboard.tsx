@@ -480,11 +480,11 @@ export default function Dashboard() {
         </aside>
 
         {/* ════════ MAIN ════════ */}
-        <main className={`flex-1 min-w-0 px-6 md:px-10 pt-2 pb-8 md:pt-4 md:pb-10 transition-all duration-300 ${isSidebarOpen ? 'md:ml-[232px]' : 'md:ml-[76px]'}`}>
+        <main className={`flex-1 min-w-0 overflow-x-clip px-4 sm:px-6 md:px-10 pt-2 pb-8 md:pt-4 md:pb-10 transition-all duration-300 ${isSidebarOpen ? 'md:ml-[232px]' : 'md:ml-[76px]'}`}>
           <ErrorBoundary>
             {/* Top bar */}
-            <div className="relative z-50 flex flex-nowrap items-center justify-between gap-2 sm:gap-4 mb-8 sm:mb-10 pb-2 -mb-2" style={{ minHeight: '56px' }}>
-              <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="relative z-50 flex flex-nowrap items-center justify-between gap-2 sm:gap-4 mb-6 sm:mb-8 pb-2 -mb-2" style={{ minHeight: '48px' }}>
+              <div className="flex flex-1 md:flex-none min-w-0 items-center gap-2.5 sm:gap-3">
                 
                 <button 
                   onClick={() => setIsSidebarOpen(true)} 
@@ -494,19 +494,19 @@ export default function Dashboard() {
                   <Menu className="size-[18px]" strokeWidth={2} />
                 </button>
 
-                <div className={`min-w-0 flex items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 w-auto justify-between px-3 sm:px-4 py-1.5 sm:py-2 gap-2 sm:gap-4`}>
+                <div className={`min-w-0 flex w-full md:w-auto items-center bg-[#0a0a0b] text-white rounded-full transition-all duration-500 ease-out shadow-xl border border-white/5 ring-1 ring-white/10 justify-between px-3 sm:px-4 md:px-4 py-1.5 sm:py-2 md:py-2 gap-2 sm:gap-4 md:gap-4`}>
 
                   {/* LEFT - CODAS */}
                   <div className="flex shrink-0 items-center justify-start">
                     <div className="flex items-center gap-2 sm:gap-2.5">
                       <span className="size-2 md:size-3 rounded-full bg-lime-300 shadow-[0_0_12px_rgba(190,242,100,0.9)] animate-pulse shrink-0"></span>
-                      <span className="text-[13px] sm:text-[16px] md:text-[17px] font-bold font-display tracking-widest whitespace-nowrap text-white">CODAS</span>
+                      <span className="text-[13px] sm:text-sm md:text-[16px] font-bold font-display tracking-widest whitespace-nowrap text-white">CODAS</span>
                     </div>
                   </div>
 
                   {/* CENTER - Calendar */}
                   <div className="hidden md:flex flex-1 items-center justify-center px-4">
-                    <span className={`flex items-center gap-3 bg-white/5 rounded-full transition-all duration-500 ease-out ${isSidebarOpen ? 'px-4 py-1' : 'px-6 py-1.5'} text-white/90 border border-white/5`}>
+                    <span className={`flex items-center gap-2 bg-white/5 rounded-full transition-all duration-500 ease-out ${isSidebarOpen ? 'px-4 py-1.5' : 'px-5 py-1.5'} text-white/90 border border-white/5`}>
                       <Calendar className="size-4 text-white" strokeWidth={2} />
                       <span className="text-sm font-medium whitespace-nowrap">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}</span>
                     </span>
@@ -515,7 +515,7 @@ export default function Dashboard() {
                   {/* RIGHT - Synced */}
                   <div className="flex flex-1 items-center justify-end pl-2 sm:pl-4">
                     {summary?.lastFetchedAt && (
-                      <span className={`flex items-center gap-1.5 sm:gap-3 bg-lime-300 text-black rounded-full transition-all duration-500 ease-out px-2.5 sm:px-4 py-0.5 sm:py-1.5 shadow-[0_0_12px_rgba(190,242,100,0.3)]`}>
+                      <span className={`flex items-center gap-1.5 sm:gap-2 bg-lime-300 text-black rounded-full transition-all duration-500 ease-out px-2.5 sm:px-4 py-0.5 sm:py-1.5 shadow-[0_0_12px_rgba(190,242,100,0.3)]`}>
                         <span className="text-[10px] sm:text-sm font-bold whitespace-nowrap tracking-tight">
                           <span className="hidden sm:inline">Synced </span>{new Date(summary.lastFetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -526,8 +526,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 justify-end">
-                <div className="flex items-center gap-2 sm:gap-4 mr-1 sm:mr-2">
+              <div className="flex w-auto items-center gap-1.5 sm:gap-3 shrink-0 justify-end">
+                <div className="hidden md:flex items-center gap-2 sm:gap-4 mr-1 sm:mr-2">
                   <AnimatedNetWorthKpi summary={summary} isPrivacyMode={isPrivacyMode} delta={netWorthDelta} />
                   <div className="hidden md:block h-10 w-px bg-zinc-300/70" />
                   <div className="hidden md:block">
@@ -544,12 +544,12 @@ export default function Dashboard() {
             {/* Heading + CTA */}
             {activeTab === 'overview' && (
               <div className="flex flex-wrap items-center justify-between gap-y-4 gap-x-6 mb-8">
-                <h1 className="font-display text-4xl sm:text-5xl lg:text-[4rem] leading-[0.9] tracking-tighter text-zinc-900 dark:text-zinc-100 truncate font-light min-w-[200px] flex-1">Welcome, {firstName}</h1>
-                <div className="flex items-center gap-3 shrink-0">
+                <h1 className="font-display text-4xl sm:text-5xl lg:text-[4rem] leading-[0.9] tracking-tighter text-zinc-900 dark:text-zinc-100 truncate font-light min-w-0 sm:min-w-[200px] flex-1">Welcome, {firstName}</h1>
+                <div className="flex w-full sm:w-auto items-center gap-3 shrink-0">
                   <button
                     onClick={handleGenerateReport}
                     disabled={isGeneratingPdf}
-                    className="flex items-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 px-5 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-lg shadow-zinc-900/20 dark:shadow-none"
+                    className="flex w-full sm:w-auto items-center justify-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 px-5 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-lg shadow-zinc-900/20 dark:shadow-none"
                   >
                     {isGeneratingPdf ? (
                       <div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />

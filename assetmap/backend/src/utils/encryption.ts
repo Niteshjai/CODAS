@@ -66,7 +66,12 @@ export function decryptPII(encryptedText: string): string {
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  // Reject truncated GCM tags: Node accepts 4-16 bytes, which weakens forgery resistance
+  if (authTag.length !== AUTH_TAG_LENGTH) {
+    throw new Error('Invalid auth tag');
+  }
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(authTag);
 
   let decrypted = decipher.update(ciphertext, 'hex', 'utf8');

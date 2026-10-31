@@ -276,7 +276,8 @@ async function handleResponse<T>(
         errorLogger.log({
           error:   new Error(`Server error ${response.status}`),
           context,
-          extra:   { status: response.status, body },
+          // Response bodies are not shipped to logs: they can contain user financial data
+          extra:   { status: response.status },
         })
         const msg = getErrorMessage('SERVER_ERROR')
         if (!silent) {

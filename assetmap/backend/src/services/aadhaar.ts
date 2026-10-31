@@ -64,7 +64,7 @@ export async function initiateOKYC(
   // In mock mode, skip real API call
   if (process.env.MOCK_MODE === 'true') {
     const mockOtp = String(randomInt(100000, 999999));
-    logger.info(`[MOCK] Aadhaar OTP for ${aadhaarNumber}: ${mockOtp}`);
+    logger.info(`[MOCK] Aadhaar OTP for XXXX-XXXX-${aadhaarNumber.slice(-4)}: ${mockOtp}`);
     
     await kvStore.setex(
       `okyc:txn:${transactionId}`,
@@ -121,9 +121,11 @@ export async function initiateOKYC(
       message: response.data?.message || 'OTP sent successfully',
     };
   } catch (error: any) {
+    // Response bodies can echo identity data — log only status and provider error code
     logger.error('OKYC initiation failed via Sandbox', {
       error: error.message,
-      response: error.response?.data
+      status: error.response?.status,
+      code: error.response?.data?.code
     });
     throw new Error('Failed to initiate Aadhaar OKYC. Please try again.');
   }
@@ -202,10 +204,11 @@ export async function verifyOKYC(
     };
 
   } catch (error: any) {
-    logger.error('Aadhaar API verify failed via Sandbox', { 
-      transactionId, 
+    logger.error('Aadhaar API verify failed via Sandbox', {
+      transactionId,
       error: error.message,
-      response: error.response?.data 
+      status: error.response?.status,
+      code: error.response?.data?.code
     });
     
     if (error.response?.status === 422 || error.response?.status === 400) {

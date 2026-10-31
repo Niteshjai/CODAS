@@ -19,7 +19,8 @@ export const errorLogger = {
       timestamp:  new Date().toISOString(),
       context:    context ?? 'unknown',
       userId,
-      url:        url ?? window.location.href,
+      // Origin + path only: query strings and fragments can carry tokens or PII
+      url:        (url ?? `${window.location.origin}${window.location.pathname}`).split(/[?#]/)[0],
       errorCode:  isAppError ? error.code : 'JS_ERROR',
       category:   isAppError ? error.category : 'client',
       severity:   isAppError ? error.severity : 'error',
@@ -39,7 +40,7 @@ export const errorLogger = {
 
     // Send to backend error tracking
     if (import.meta.env.PROD) {
-      fetch('/api/logs/frontend', {
+      fetch(`${import.meta.env.VITE_API_URL || ''}/api/logs/frontend`, {
         method:  'POST',
         headers: { 'Content-Type':'application/json' },
         body:    JSON.stringify(log),

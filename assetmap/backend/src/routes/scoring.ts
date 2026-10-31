@@ -5,6 +5,7 @@ import { generateScorecard, ScoringRequest } from '../scoring/loanScoringEngine'
 import { generateScorecardPDF } from '../scoring/scorecardGenerator'
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants'
 import { logger } from '../utils/logger'
+import { verifyAccessToken } from '../middleware/auth'
 
 const generateScorecardSchema = z.object({
   loanProduct: z.enum([
@@ -18,18 +19,12 @@ const generateScorecardSchema = z.object({
 })
 
 export const scoringRoutes: FastifyPluginAsync = async (app) => {
-  // Requires authentication
-  app.addHook('onRequest', async (request, reply) => {
-    try {
-      await request.jwtVerify()
-    } catch (err) {
-      reply.status(401).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Authentication required'))
-    }
-  })
+  // Standard auth: rejects refresh tokens and revoked sessions, and sets request.user.id
+  app.addHook('preHandler', verifyAccessToken)
 
   // Generate a new loan scorecard
   app.post('/generate', async (request, reply) => {
-    const userId = request.user.id
+    const userId = request.user!.id
     
     const parsed = generateScorecardSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -37,9 +32,6 @@ export const scoringRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      // Set RLS for standard DB access in other queries
-      await pool.query('SELECT set_config($1, $2, false)', ['app.current_user_id', userId])
-
       const scoringRequest: ScoringRequest = {
         userId,
         loanProduct: parsed.data.loanProduct,
@@ -59,11 +51,9 @@ export const scoringRoutes: FastifyPluginAsync = async (app) => {
 
   // Get scorecard history
   app.get('/history', async (request, reply) => {
-    const userId = request.user.id
+    const userId = request.user!.id
     
     try {
-      await pool.query('SELECT set_config($1, $2, false)', ['app.current_user_id', userId])
-      
       const result = await pool.query(`
         SELECT id, scorecard_id, composite_score, decision, loan_product, scored_at
         FROM loan_score_history
@@ -81,12 +71,10 @@ export const scoringRoutes: FastifyPluginAsync = async (app) => {
 
   // Download scorecard PDF
   app.get('/:scorecardId/pdf', async (request, reply) => {
-    const userId = request.user.id
+    const userId = request.user!.id
     const { scorecardId } = request.params as { scorecardId: string }
     
     try {
-      await pool.query('SELECT set_config($1, $2, false)', ['app.current_user_id', userId])
-      
       // Verify scorecard belongs to user
       const result = await pool.query(`
         SELECT id FROM loan_scorecards 

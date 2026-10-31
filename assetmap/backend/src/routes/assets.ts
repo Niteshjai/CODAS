@@ -16,6 +16,18 @@ import { logger } from '../utils/logger';
 import { planEnforcer } from '../plans/planEnforcer';
 import { manualAssetService } from '../manual/manualAssetService';
 
+const MAX_PAGE_SIZE = 100;
+
+// Account-scoped routes take accountId from the URL, so ownership must be checked explicitly
+async function ownsAccount(accountId: string, userId: string): Promise<boolean> {
+  if (process.env.MOCK_MODE === 'true') return true;
+  const res = await pool.query(
+    'SELECT 1 FROM financial_accounts WHERE id = $1 AND user_id = $2',
+    [accountId, userId]
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
 const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
 
   // ─────────────────────────────────────────────
@@ -183,9 +195,16 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
         limit?: string; offset?: string; startDate?: string; endDate?: string;
       };
 
+      if (!(await ownsAccount(accountId, request.user!.id))) {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Account not found'));
+      }
+
+      const pageSize = Math.min(Math.max(parseInt(limit || '50', 10) || 50, 1), MAX_PAGE_SIZE);
+      const pageOffset = Math.max(parseInt(offset || '0', 10) || 0, 0);
+
       const transactions = await TransactionModel.findByAccountId(accountId, {
-        limit: limit ? parseInt(limit, 10) : 50,
-        offset: offset ? parseInt(offset, 10) : 0,
+        limit: pageSize,
+        offset: pageOffset,
         startDate,
         endDate,
       });
@@ -195,8 +214,8 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
       return reply.send(successResponse({
         transactions,
         total,
-        limit: limit ? parseInt(limit, 10) : 50,
-        offset: offset ? parseInt(offset, 10) : 0,
+        limit: pageSize,
+        offset: pageOffset,
       }));
     } catch (error) {
       logger.error('Transaction fetch failed', { error: (error as Error).message });
@@ -213,6 +232,9 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
   }, async (request, reply) => {
     try {
       const { accountId } = request.params as { accountId: string };
+      if (!(await ownsAccount(accountId, request.user!.id))) {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Account not found'));
+      }
       const holdings = await InvestmentHoldingModel.findByAccountId(accountId);
       return reply.send(successResponse({ holdings }));
     } catch (error) {
@@ -230,6 +252,9 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
   }, async (request, reply) => {
     try {
       const { accountId } = request.params as { accountId: string };
+      if (!(await ownsAccount(accountId, request.user!.id))) {
+        return reply.status(404).send(errorResponse(ERROR_CODES.NOT_FOUND, 'Account not found'));
+      }
       const policies = await InsurancePolicyModel.findByAccountId(accountId);
       return reply.send(successResponse({ policies }));
     } catch (error) {

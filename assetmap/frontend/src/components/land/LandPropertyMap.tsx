@@ -17,6 +17,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+const DEFAULT_MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const DEFAULT_MAP_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const mapTileUrl = import.meta.env.VITE_MAP_TILE_URL?.trim() || DEFAULT_MAP_TILE_URL;
+const mapAttribution = import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim() || DEFAULT_MAP_ATTRIBUTION;
+
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
@@ -474,8 +479,8 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
           <div className="w-full h-[320px] md:h-[450px] rounded-[24px] overflow-hidden border border-zinc-200 shadow-sm relative z-0">
             <MapContainer center={mapCenter} zoom={mapZoom} className="w-full h-full" zoomControl={false}>
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution={mapAttribution}
+              url={mapTileUrl}
             />
             <FlyToMarker position={mapCenter} zoom={mapZoom} offsetPixels={selectedParcelId ? [0, 90] : undefined} />
             {filteredParcels.map((parcel, index) => {
@@ -613,69 +618,72 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
       {/* Full Record Modal */}
       {selectedParcel && (
         <Dialog open={showFullRecord} onOpenChange={setShowFullRecord}>
-          <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden bg-zinc-50 border-zinc-200 shadow-2xl rounded-2xl">
-            <div className="bg-zinc-900 p-6 md:p-8 text-white relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <MapIcon className="size-32" />
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[calc(100dvh-2rem)] p-0 gap-0 overflow-hidden rounded-2xl border-zinc-200 bg-zinc-50 shadow-2xl sm:rounded-3xl">
+            <div className="relative overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 p-5 pr-14 text-white sm:p-6 sm:pr-16 md:p-7 md:pr-20">
+              <div className="pointer-events-none absolute -right-3 -top-3 opacity-10">
+                <MapIcon className="size-24 sm:size-28 md:size-32" />
               </div>
               <DialogHeader className="relative z-10 text-left">
-                <DialogTitle className="text-2xl md:text-3xl font-display font-semibold mb-2">
+                <DialogTitle className="pr-3 text-2xl font-display font-semibold tracking-tight sm:text-3xl">
                   {selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'Property Record'}
                 </DialogTitle>
-                <div className="flex flex-wrap items-center gap-4 text-zinc-300 text-sm font-medium">
-                  <span className="flex items-center gap-1.5"><MapPin className="size-4" /> {selectedParcel.village}, {selectedParcel.taluka}</span>
-                  <span className="flex items-center gap-1.5"><Building2 className="size-4" /> {selectedParcel.district}, {selectedParcel.state}</span>
-                  <span className="bg-white/10 px-2.5 py-1 rounded-md text-white border border-white/10">ID: {selectedParcel.id.toUpperCase()}</span>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-zinc-300">
+                  <span className="inline-flex items-center gap-1.5"><MapPin className="size-4 shrink-0" /> {selectedParcel.village}, {selectedParcel.taluka}</span>
+                  <span className="inline-flex items-center gap-1.5"><Building2 className="size-4 shrink-0" /> {selectedParcel.district}, {selectedParcel.state}</span>
+                </div>
+                <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-200 backdrop-blur-sm">
+                  <span className="shrink-0 text-[10px] font-sans font-semibold uppercase tracking-wider text-zinc-400">Record ID</span>
+                  <span className="truncate">{selectedParcel.id.toUpperCase()}</span>
                 </div>
               </DialogHeader>
             </div>
 
-            <div className="p-6 md:p-8 max-h-[70vh] overflow-y-auto">
+            <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto p-4 sm:p-6 md:p-7">
               <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="mb-6 bg-zinc-100/50 p-1 rounded-xl">
-                  <TabsTrigger value="overview" className="rounded-lg">Overview</TabsTrigger>
-                  <TabsTrigger value="ownership" className="rounded-lg">Ownership & Title</TabsTrigger>
-                  <TabsTrigger value="documents" className="rounded-lg">Documents</TabsTrigger>
+                <TabsList className="mb-5 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl bg-zinc-200/60 p-1 sm:mb-6 sm:w-fit">
+                  <TabsTrigger value="overview" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Overview</TabsTrigger>
+                  <TabsTrigger value="ownership" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Ownership & Title</TabsTrigger>
+                  <TabsTrigger value="documents" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Documents</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm">
-                      <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <TabsContent value="overview" className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+                    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+                      <h4 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                         <Layers className="size-4" /> Property Details
                       </h4>
-                      <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 min-[480px]:grid-cols-2">
                         <div>
-                          <p className="text-[11px] text-zinc-500 mb-1">Land Type</p>
-                          <p className="text-sm font-medium text-zinc-900">{selectedParcel.landType}</p>
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Land Type</p>
+                          <p className="text-base font-semibold text-zinc-900">{selectedParcel.landType}</p>
                         </div>
                         <div>
-                          <p className="text-[11px] text-zinc-500 mb-1">Total Area</p>
-                          <p className="text-sm font-medium text-zinc-900">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Total Area</p>
+                          <p className="text-base font-semibold text-zinc-900">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
                         </div>
                         <div>
-                          <p className="text-[11px] text-zinc-500 mb-1">Coordinates</p>
-                          <p className="text-sm font-medium text-zinc-900 font-mono">
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Coordinates</p>
+                          <p className="break-words font-mono text-sm font-medium text-zinc-900">
                             {Number(selectedParcel.latitude)?.toFixed(4) || 'N/A'}, {Number(selectedParcel.longitude)?.toFixed(4) || 'N/A'}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[11px] text-zinc-500 mb-1">Registration Date</p>
-                          <p className="text-sm font-medium text-zinc-900">{formatDate(selectedParcel.registrationDate)}</p>
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Registration Date</p>
+                          <p className="text-base font-semibold text-zinc-900">{formatDate(selectedParcel.registrationDate)}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center">
-                      <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <div className="flex flex-col rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/70 p-5 shadow-sm sm:p-6">
+                      <h4 className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                         <LineChartIcon className="size-4" /> Valuation Analytics
                       </h4>
-                      <p className="text-[11px] text-zinc-500 mb-1">Estimated Current Value</p>
-                      <p className="text-4xl font-sans font-bold text-emerald-600 mb-2">
+                      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Estimated Current Value</p>
+                      <p className="text-4xl font-sans font-bold tracking-tight text-emerald-600 sm:text-5xl">
                         {formatINR(selectedParcel.estimatedValue)}
                       </p>
-                      <div className="flex items-center gap-2 mt-2 p-3 bg-emerald-50 rounded-lg text-emerald-700 text-xs font-medium">
-                        <TrendingUp className="size-4" /> Value is estimated to be +12.5% above circle rate
+                      <div className="mt-5 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/90 p-3 text-xs font-medium leading-relaxed text-emerald-700">
+                        <TrendingUp className="mt-0.5 size-4 shrink-0" /> Value is estimated to be +12.5% above circle rate
                       </div>
                     </div>
                   </div>

@@ -1,11 +1,20 @@
-import Anthropic    from '@anthropic-ai/sdk'
+import { getClaude, describeClaudeError } from '../ai/claudeClient'
+import { logger } from '../utils/logger'
 import { Pool }     from 'pg'
 import { CATEGORIES } from './categoryConfig'
 import { classifyByRules } from './ruleEngine'
 import { normaliseMerchant } from './merchantNormaliser'
 import { createHash } from 'crypto'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+// Strip identifiers from bank narrations before they leave our systems (DPDP data minimisation).
+// Counterparty names in UPI narrations are kept: they're the main classification signal.
+function redactNarration(text: string): string {
+  return text
+    .replace(/[\w.\-]+@[\w.\-]+/g, '[VPA]')          // UPI VPAs (often <mobile>@bank) and emails
+    .replace(/\b[A-Z]{4}0[A-Z0-9]{6}\b/gi, '[IFSC]')  // IFSC codes
+    .replace(/\d{6,}/g, '[REF]')                      // account, reference, mobile and card numbers
+}
+
 
 export interface Transaction {
   id?:             string
@@ -92,8 +101,8 @@ export const transactionClassifier = {
 Classify this Indian bank transaction into exactly one category.
 
 TRANSACTION:
-Narration: "${tx.narration}"
-Merchant: "${merchant}"
+Narration: "${redactNarration(tx.narration)}"
+Merchant: "${redactNarration(merchant)}"
 Amount: ₹${amtRupees}
 Type: ${tx.type} (${tx.type === 'debit' ? 'money going OUT' : 'money coming IN'})
 Date: ${tx.date.toDateString()}
@@ -128,7 +137,9 @@ No preamble. Pure JSON.
 `.trim()
 
     try {
-      const response = await anthropic.messages.create({
+      const claude = getClaude()
+      if (!claude) throw new Error('ANTHROPIC_API_KEY is not configured')
+      const response = await claude.messages.create({
         model:      'claude-haiku-4-5-20251001',
         max_tokens: 200,
         messages:   [{ role:'user', content:prompt }]
@@ -168,7 +179,7 @@ No preamble. Pure JSON.
       }
 
     } catch (err) {
-      console.error('[Classifier] Claude error:', err)
+      logger.error('[Classifier] Claude error', { error: describeClaudeError(err) })
       return {
         category:      tx.type === 'credit' ? 'OTHER_INCOME' : 'OTHER_EXPENSE',
         subcategory:   'Other',
@@ -253,8 +264,8 @@ No preamble. Pure JSON.
 
     const txList = txs.map((tx, i) => ({
       index:    i,
-      narration:tx.narration,
-      merchant: normaliseMerchant(tx.narration),
+      narration:redactNarration(tx.narration),
+      merchant: redactNarration(normaliseMerchant(tx.narration)),
       amount:   `₹${Math.round(tx.amount/100).toLocaleString('en-IN')}`,
       type:     tx.type,
     }))
@@ -280,7 +291,9 @@ Pure JSON array only.
     const results = new Map<string, ClassificationResult>()
 
     try {
-      const response = await anthropic.messages.create({
+      const claude = getClaude()
+      if (!claude) throw new Error('ANTHROPIC_API_KEY is not configured')
+      const response = await claude.messages.create({
         model:      'claude-haiku-4-5-20251001',
         max_tokens: 2000,
         messages:   [{ role:'user', content:prompt }]
@@ -311,7 +324,7 @@ Pure JSON array only.
         })
       }
     } catch (err) {
-      console.error('[Classifier] Batch Claude error:', err)
+      logger.error('[Classifier] Batch Claude error', { error: describeClaudeError(err) })
       // Fallback: mark all as uncategorised
       for (const tx of txs) {
         results.set(tx.narration, {
@@ -439,7 +452,7 @@ Pure JSON array only.
         await this.generateInsights(pool, userId)
 
       } catch (err) {
-        console.error(`[Classifier] Account ${account.account_id} failed:`, err)
+        logger.error('[Classifier] Account classification failed', { accountId: account.account_id, error: (err as Error).message })
         failed++
       }
     }

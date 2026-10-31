@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { createConsentRequest, handleConsentCallback, revokeConsent } from '../services/accountAggregator';
+import { createConsentRequest, handleConsentCallback, revokeConsent, verifySetuWebhookSignature, fetchSetuConsentStatus } from '../services/accountAggregator';
 import { ConsentCreateSchema, ConsentCallbackSchema } from '../utils/validators';
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants';
 import { ConsentModel } from '../models/consent';
@@ -7,6 +7,14 @@ import { logger } from '../utils/logger';
 import { verifyAccessToken } from '../middleware/auth';
 
 const consentRoutes: FastifyPluginAsync = async (fastify, opts) => {
+
+  // Keep the raw JSON body (scoped to this plugin) so the webhook HMAC covers the exact bytes sent
+  const defaultJsonParser = fastify.getDefaultJsonParser('error', 'ignore');
+  fastify.removeContentTypeParser('application/json');
+  fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    (req as any).rawBody = body;
+    defaultJsonParser(req, body as string, done);
+  });
 
   // ─────────────────────────────────────────────
   // POST /api/consent/create
@@ -70,13 +78,31 @@ const consentRoutes: FastifyPluginAsync = async (fastify, opts) => {
     try {
       const body = request.body as Record<string, any>;
       const consentId = body.consentId;
-      // Setu sends 'consentStatus', but accept 'status' too for compatibility
-      const status = body.consentStatus || body.status || 'ACTIVE';
       const webhookSignature = request.headers['x-setu-signature'] as string | undefined;
+
+      // Setu sends 'consentStatus', but accept 'status' too for compatibility.
+      // No default: a callback without a status must not activate a consent.
+      let status = body.consentStatus || body.status;
+
+      const signed = verifySetuWebhookSignature((request as any).rawBody, webhookSignature);
+      // Unsigned body is only trusted for the local mock flow (dev, no secret configured).
+      // Otherwise never trust the body: confirm the status with Setu directly.
+      const trustUnsignedBody = process.env.NODE_ENV !== 'production' && !process.env.SETU_WEBHOOK_SECRET;
+      if (!signed && !trustUnsignedBody) {
+        const confirmed = consentId ? await fetchSetuConsentStatus(consentId) : null;
+        if (!confirmed) {
+          logger.warn('Consent callback rejected: unverified and not confirmed by Setu', { consentId });
+          return reply.status(401).send(errorResponse(ERROR_CODES.UNAUTHORIZED, 'Unverified callback'));
+        }
+        status = confirmed;
+      }
+      if (!status) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Missing consent status'));
+      }
 
       logger.info('Consent callback received', { consentId, status, type: body.type });
 
-      await handleConsentCallback(consentId, status, webhookSignature);
+      await handleConsentCallback(consentId, status);
 
       return reply.send(successResponse({ message: 'Callback processed' }));
     } catch (error) {

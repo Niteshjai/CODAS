@@ -372,7 +372,7 @@ export default function InsuranceGapFinder() {
                       </div>
                       <button
                         className="shrink-0 inline-flex items-center gap-1 bg-lime-300 hover:bg-lime-400 text-zinc-950 text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
-                        onClick={() => window.open(rec.affiliateUrl || 'https://www.policybazaar.com/', '_blank')}
+                        onClick={() => window.open(rec.affiliateUrl || 'https://www.policybazaar.com/', '_blank', 'noopener,noreferrer')}
                       >
                         <span>Compare Plans</span>
                         <ArrowUpRight className="size-3.5 stroke-[2.5]" />

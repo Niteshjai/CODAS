@@ -1,13 +1,13 @@
 export const sandboxFixtures: Record<string, any> = {
   law_firm: {
     estateValue: {
-      totalNetWorthPaise: 850000000,
-      movableAssetsPaise: 320000000,
-      immovableAssetsPaise: 450000000,
-      listedSecuritiesPaise: 120000000,
-      retirementAssetsPaise: 80000000,
-      insuranceCoverPaise: 200000000,
-      unclaimedAssetsPaise: 15000000,
+      totalNetWorth: "₹50L–₹1Cr",
+      movableAssets: "₹10L–₹50L",
+      immovableAssets: "₹10L–₹50L",
+      listedSecurities: "₹10L–₹50L",
+      retirementAssets: "₹5L–₹10L",
+      insuranceCover: "₹10L–₹50L",
+      unclaimedAssets: "₹1L–₹5L",
       lastUpdated: new Date().toISOString()
     },
     bankAccounts: [
@@ -15,7 +15,6 @@ export const sandboxFixtures: Record<string, any> = {
         institutionName: "HDFC Bank",
         accountType: "SAVINGS",
         hasNominee: true,
-        nomineeName: "Priya Sharma",
         approximateValue: "₹10L–₹50L",
         status: "active",
         isDormant: false

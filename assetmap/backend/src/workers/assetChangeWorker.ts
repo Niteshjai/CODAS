@@ -9,7 +9,9 @@ export function startAssetChangeWorker(pool: Pool) {
   setInterval(async () => {
     logger.info('[AssetChange] Starting daily asset comparison job')
 
-    const users = await pool.query(`
+    let users
+    try {
+      users = await pool.query(`
       SELECT DISTINCT u.id, u.mobile_encrypted,
              ap.balance_drop_pct,
              ap.balance_drop_min_paise,
@@ -23,6 +25,10 @@ export function startAssetChangeWorker(pool: Pool) {
       LEFT JOIN alert_preferences ap ON ap.user_id = u.id
       WHERE s.snapshot_date = CURRENT_DATE - 1
     `)
+    } catch (err) {
+      logger.error('[AssetChange] Job failed', { error: (err as Error).message })
+      return
+    }
 
     for (const user of users.rows) {
       try {

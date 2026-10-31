@@ -48,6 +48,10 @@ const estateRoutes: FastifyPluginAsync = async (fastify, opts) => {
         return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Both death certificate and legal heir document are required'));
       }
 
+      if (!deathCertExt || !legalHeirExt) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Documents must be PDF, JPG or PNG'));
+      }
+
       if (!deceasedName || !deceasedAadhaar || !relationship) {
         return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Missing required form fields'));
       }
@@ -198,9 +202,12 @@ const estateRoutes: FastifyPluginAsync = async (fastify, opts) => {
   });
 };
 
+const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
+
+// Returns '' for anything outside the allowlist so client filenames never shape S3 keys
 function getExtension(filename: string): string {
-  const ext = filename.split('.').pop();
-  return ext ? `.${ext}` : '';
+  const ext = `.${(filename.split('.').pop() ?? '').toLowerCase()}`;
+  return ALLOWED_EXTENSIONS.includes(ext) ? ext : '';
 }
 
 export default estateRoutes;

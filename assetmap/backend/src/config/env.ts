@@ -39,6 +39,9 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
 
   UIDAI_PUBLIC_CERT: z.string().optional().transform(val => val ? val.replace(/\\n/g, '\n') : val),
+}).refine(e => !(e.NODE_ENV === 'production' && e.MOCK_MODE === 'true'), {
+  message: 'MOCK_MODE must not be enabled in production (it bypasses authentication)',
+  path: ['MOCK_MODE'],
 });
 
 const _env = envSchema.safeParse(process.env);

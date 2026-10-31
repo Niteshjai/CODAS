@@ -19,6 +19,15 @@ qualified lawyer. Codas Pvt. Ltd. does not provide legal
 advice and this document creates no legal obligations.
 `.trim()
 
+// willId comes from the URL: every write must confirm the caller owns the will
+async function assertWillOwner(pool: Pool, willId: string, userId: string): Promise<void> {
+  const owned = await pool.query(
+    'SELECT 1 FROM wills WHERE id = $1 AND user_id = $2',
+    [willId, userId]
+  )
+  if (!owned.rows.length) throw new Error('Will not found')
+}
+
 export const willBuilder = {
 
   async createWill(
@@ -104,6 +113,8 @@ export const willBuilder = {
       pan?:         string
     }
   ): Promise<string> {
+    await assertWillOwner(pool, willId, userId)
+
     const result = await pool.query(`
       INSERT INTO will_beneficiaries (
         will_id, user_id,
@@ -143,6 +154,8 @@ export const willBuilder = {
       notes?:              string
     }
   ): Promise<string> {
+    await assertWillOwner(pool, willId, userId)
+
     // Validate total allocation for this asset does not exceed 100%
     const existing = await pool.query(`
       SELECT COALESCE(SUM(allocation_pct), 0) AS total
@@ -202,27 +215,27 @@ export const willBuilder = {
       // Header / Title
       doc.fontSize(22).font('Helvetica-Bold').fillColor('#111827').text('LAST WILL AND TESTAMENT', { align: 'center' })
       doc.moveDown(0.5)
-      doc.fontSize(12).font('Helvetica').fillColor('#4b5563').text(`Of ${will.testator_name}`, { align: 'center' })
+      doc.fontSize(12).font('Helvetica').fillColor('#4b5563').text(`Of ${will.testatorName}`, { align: 'center' })
       doc.moveDown(1.5)
 
       // Testator Details
       doc.fontSize(14).font('Helvetica-Bold').fillColor('#111827').text('1. Testator Information')
       doc.moveDown(0.3)
       doc.fontSize(10).font('Helvetica').fillColor('#374151')
-      doc.text(`Name: ${will.testator_name}`)
-      doc.text(`Date of Birth: ${will.testator_dob}`)
-      doc.text(`Address: ${will.testator_address}`)
-      doc.text(`PAN: ${will.testator_pan}`)
+      doc.text(`Name: ${will.testatorName}`)
+      doc.text(`Date of Birth: ${will.testatorDob}`)
+      doc.text(`Address: ${will.testatorAddress}`)
+      doc.text(`PAN: ${will.testatorPan}`)
       doc.moveDown(1)
 
       // Executor Details
       doc.fontSize(14).font('Helvetica-Bold').fillColor('#111827').text('2. Appointed Executor')
       doc.moveDown(0.3)
       doc.fontSize(10).font('Helvetica').fillColor('#374151')
-      doc.text(`Executor: ${will.executor_name} (${will.executor_relation})`)
-      doc.text(`Mobile: ${will.executor_mobile}`)
-      if (will.alt_executor_name) {
-        doc.text(`Alternate Executor: ${will.alt_executor_name}`)
+      doc.text(`Executor: ${will.executorName} (${will.executor_relation})`)
+      doc.text(`Mobile: ${will.executorMobile}`)
+      if (will.altExecutorName) {
+        doc.text(`Alternate Executor: ${will.altExecutorName}`)
       }
       doc.moveDown(1)
 
@@ -231,9 +244,11 @@ export const willBuilder = {
       doc.moveDown(0.3)
       if (will.beneficiaries && will.beneficiaries.length > 0) {
         for (const b of will.beneficiaries) {
-          doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937').text(`Beneficiary: ${b.name} (${b.relationship})`)
-          if (b.allocations && b.allocations.length > 0) {
-            for (const a of b.allocations) {
+          doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937').text(`Beneficiary: ${b.name} (${b.relation})`)
+          // Allocations are stored against the beneficiary's name, not an id
+          const allocations = (will.allocations ?? []).filter((a: any) => a.beneficiaryName === b.name)
+          if (allocations.length > 0) {
+            for (const a of allocations) {
               doc.fontSize(10).font('Helvetica').fillColor('#4b5563')
                 .text(`  • ${a.asset_type.replace(/_/g, ' ').toUpperCase()}: ${a.asset_description || 'Asset'} — ${a.allocation_pct}%`)
             }
@@ -303,8 +318,16 @@ export const willBuilder = {
   ): Promise<string> {
     // DigiSign / Zoho Sign API integration
     // Returns redirect URL for user to sign
-    const will = await this.getFullWill(pool, userId, willId)
-    if (!will?.pdf_s3_key) throw new Error('Generate PDF first')
+    const willRow = await pool.query(`
+      SELECT w.pdf_s3_key, w.testator_name_enc, u.email_encrypted
+      FROM wills w
+      JOIN users u ON u.id = w.user_id
+      WHERE w.id = $1 AND w.user_id = $2
+    `, [willId, userId])
+    const will = willRow.rows[0]
+    if (!will) throw new Error('Will not found')
+    if (!will.pdf_s3_key) throw new Error('Generate PDF first')
+    if (!will.email_encrypted) throw new Error('Add an email address to sign the will')
 
     const response = await axios.post(
       'https://api.zoho.com/sign/v1/requests',
@@ -312,7 +335,7 @@ export const willBuilder = {
         templates: { field_data: { field_text_data: {} } },
         actions: [{
           recipient_name:  decrypt(will.testator_name_enc),
-          recipient_email: decrypt(will.testator_email_enc ?? ''),
+          recipient_email: decrypt(will.email_encrypted),
           action_type:     'SIGN',
           signing_order:    1
         }],
@@ -326,8 +349,8 @@ export const willBuilder = {
     await pool.query(`
       UPDATE wills
       SET esign_ref = $2, esign_status = 'pending', updated_at = NOW()
-      WHERE id = $1
-    `, [willId, signRef])
+      WHERE id = $1 AND user_id = $3
+    `, [willId, signRef, userId])
 
     return response.data?.requests?.sign_url
   },
@@ -342,11 +365,11 @@ export const willBuilder = {
         [willId, userId]),
       pool.query(
         `SELECT * FROM will_allocations
-         WHERE will_id=$1 ORDER BY asset_type, created_at`,
-        [willId]
+         WHERE will_id=$1 AND user_id=$2 ORDER BY asset_type, created_at`,
+        [willId, userId]
       ),
       pool.query(
-        'SELECT * FROM will_beneficiaries WHERE will_id=$1', [willId]
+        'SELECT * FROM will_beneficiaries WHERE will_id=$1 AND user_id=$2', [willId, userId]
       )
     ])
 
@@ -356,15 +379,19 @@ export const willBuilder = {
     return {
       ...will,
       testatorName:    decrypt(will.testator_name_enc),
+      testatorDob:     decrypt(will.testator_dob_enc),
       testatorAddress: decrypt(will.testator_address_enc),
+      testatorPan:     decrypt(will.testator_pan_enc),
       executorName:    decrypt(will.executor_name_enc),
       executorMobile:  decrypt(will.executor_mobile_enc),
+      altExecutorName: will.alt_executor_name_enc ? decrypt(will.alt_executor_name_enc) : null,
       testator_name_enc:    undefined,
       testator_dob_enc:     undefined,
       testator_address_enc: undefined,
       testator_pan_enc:     undefined,
       executor_name_enc:    undefined,
       executor_mobile_enc:  undefined,
+      alt_executor_name_enc: undefined,
       allocations: allocResult.rows.map(a => ({
         ...a,
         beneficiaryName: decrypt(a.beneficiary_name_enc),

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { Pool } from 'pg'
 import { redis } from '../db/connection'
+import { logger } from '../utils/logger'
 
 import twilio from 'twilio'
 
@@ -51,12 +52,13 @@ export const alertService = {
       const count = countStr ? parseInt(countStr) : 0
       
       if (count >= 3) {
-        console.warn(`[AlertService] SMS limit reached for user ${userId} today`)
+        logger.warn(`[AlertService] SMS limit reached for user ${userId} today`)
         return false
       }
 
       if (!twilioClient) {
-        console.warn(`[AlertService] Twilio not configured. Would have sent: ${message}`)
+        // SMS bodies can carry family-invite join tokens and balances — never log them
+        logger.warn(`[AlertService] Twilio not configured; SMS for user ${userId} not sent`)
         return false
       }
 
@@ -73,7 +75,7 @@ export const alertService = {
       
       return true
     } catch (err) {
-      console.error('[AlertService] SMS failed:', err)
+      logger.error('[AlertService] SMS failed', { error: (err as Error).message })
       return false
     }
   },
@@ -92,10 +94,10 @@ export const alertService = {
           html: options.html,
         });
         if (result.error) {
-          console.error(`[AlertService] Resend API error:`, result.error);
+          logger.error('[AlertService] Resend API error', { error: result.error.message });
           return false;
         }
-        console.log(`[AlertService] Email successfully sent via Resend to ${options.to}. ID: ${result.data?.id}`);
+        logger.info(`[AlertService] Email sent via Resend. ID: ${result.data?.id}`);
         return true;
       }
 
@@ -118,19 +120,20 @@ export const alertService = {
           subject: options.subject,
           html: options.html,
         });
-        console.log(`[AlertService] Email successfully sent via SMTP to ${options.to}`);
+        logger.info('[AlertService] Email sent via SMTP');
         return true;
       }
 
       // 3. Fallback for development/testing when no email provider keys are set in .env
-      console.log('\n======================================================');
-      console.log(`[AlertService] Email to: ${options.to}`);
-      console.log(`[AlertService] Subject: ${options.subject}`);
-      console.log(`[AlertService] Tip: Configure SMTP_USER/SMTP_PASS or RESEND_API_KEY in .env to send real emails over the internet.`);
-      console.log('======================================================\n');
+      // In production, report failure instead of pretending an email (e.g. a 2FA OTP) went out
+      if (process.env.NODE_ENV === 'production') {
+        logger.error('[AlertService] No email provider configured; email not sent');
+        return false;
+      }
+      logger.warn(`[AlertService] No email provider configured; skipped "${options.subject}". Set RESEND_API_KEY or SMTP_USER/SMTP_PASS.`);
       return true;
     } catch (err) {
-      console.error('[AlertService] Email delivery failed:', err);
+      logger.error('[AlertService] Email delivery failed', { error: (err as Error).message });
       return false;
     }
   },
@@ -170,7 +173,7 @@ export const alertService = {
       })
       return true
     } catch (err) {
-      console.error('[AlertService] Push failed:', err)
+      logger.error('[AlertService] Push failed', { error: (err as Error).message })
       return false 
     }
   },

@@ -1,6 +1,30 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { CLAUDE_MODELS, generateJSON } from '../ai/claudeClient'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+interface AIScore {
+  nameMatchScore:  number
+  locationScore:   number
+  timePeriodScore: number
+  ownershipScore:  number
+  reasons:         string[]
+  concerns:        string[]
+}
+
+const SCORE_SCHEMA = {
+  type: 'object',
+  properties: {
+    nameMatchScore:  { type: 'integer' },
+    locationScore:   { type: 'integer' },
+    timePeriodScore: { type: 'integer' },
+    ownershipScore:  { type: 'integer' },
+    reasons:         { type: 'array', items: { type: 'string' } },
+    concerns:        { type: 'array', items: { type: 'string' } },
+  },
+  required: ['nameMatchScore', 'locationScore', 'timePeriodScore', 'ownershipScore', 'reasons', 'concerns'],
+  additionalProperties: false,
+}
+
+// Keep each component inside its documented range so the total stays 0–100
+const clamp = (v: unknown, max: number) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)))
 
 export interface ConfidenceScore {
   overall:         number          // 0–100
@@ -59,7 +83,7 @@ WHAT THE LAND RECORD SHOWS:
 - Area: ${result.areaAcres ? result.areaAcres + ' acres' : 'unknown'}
 - Mutations: ${result.mutationHistory?.length ?? 0} recorded changes
 
-Score this match. Return ONLY JSON:
+Score this match. Return these fields:
 {
   "nameMatchScore": <0-40>,
   "locationScore": <0-30>,
@@ -94,28 +118,24 @@ ownershipScore:
   0 = sold to unknown third party (harder to recover)
 
 Keep reasons and concerns to 1-3 items each. Be specific.
-Pure JSON only. No preamble.
 `.trim()
 
   try {
-    const response = await anthropic.messages.create({
-      model:      'claude-3-5-haiku-20241022', // updated model name from user prompt "claude-haiku-4-5-20251001" to valid existing one if possible, but actually I should keep what was in prompt or correct it to a valid model
-      max_tokens: 300,
-      messages:   [{ role: 'user', content: prompt }]
+    const ai = await generateJSON<AIScore>({
+      model:     CLAUDE_MODELS.fast,
+      prompt,
+      schema:    SCORE_SCHEMA,
+      maxTokens: 4000,
+      effort:    'low',
     })
-
-    const text = response.content
-      .filter(b => b.type === 'text')
-      .map(b => (b as any).text)
-      .join('')
-      .replace(/```json|```/g, '')
-      .trim()
-
-    const scored = JSON.parse(text)
-    const overall = (scored.nameMatchScore ?? 0) +
-                    (scored.locationScore   ?? 0) +
-                    (scored.timePeriodScore ?? 0) +
-                    (scored.ownershipScore  ?? 0)
+    const scored = {
+      nameMatchScore:  clamp(ai.nameMatchScore, 40),
+      locationScore:   clamp(ai.locationScore, 30),
+      timePeriodScore: clamp(ai.timePeriodScore, 20),
+      ownershipScore:  clamp(ai.ownershipScore, 10),
+    }
+    const overall = scored.nameMatchScore + scored.locationScore +
+                    scored.timePeriodScore + scored.ownershipScore
 
     const label = overall >= 75 ? 'very_likely' :
                   overall >= 55 ? 'likely'      :
@@ -124,12 +144,9 @@ Pure JSON only. No preamble.
     return {
       overall,
       label,
-      nameMatchScore:  scored.nameMatchScore  ?? 0,
-      locationScore:   scored.locationScore   ?? 0,
-      timePeriodScore: scored.timePeriodScore ?? 0,
-      ownershipScore:  scored.ownershipScore  ?? 0,
-      reasons:         scored.reasons  ?? [],
-      concerns:        scored.concerns ?? [],
+      ...scored,
+      reasons:         ai.reasons  ?? [],
+      concerns:        ai.concerns ?? [],
     }
 
   } catch (err) {

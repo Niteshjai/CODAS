@@ -41,6 +41,18 @@ const ErrorBanner = ({ message, className = "" }: { message: string, className?:
   </div>
 );
 
+const LEGACY_SENSITIVE_LOGIN_KEYS = [
+  'login_phone', 'login_regToken', 'login_aadhaar', 'login_email',
+  'login_pan', 'login_pan_name', 'login_pan_dob_year', 'login_pan_dob_month', 'login_pan_dob_day',
+  'login_2fa_token', 'login_2fa_method',
+];
+
+function clearLoginStorage() {
+  Object.keys(sessionStorage)
+    .filter((key) => key.startsWith('login_'))
+    .forEach((key) => sessionStorage.removeItem(key));
+}
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const setUser = useAssetStore((s) => s.setUser);
@@ -49,14 +61,16 @@ export default function Onboarding() {
   // ── State ──
   const [step, setStep] = useState<'phone' | 'otp' | 'pan' | 'aadhaar' | 'aadhaar_otp' | 'identity' | 'email' | '2fa' | 'success'>(() => {
     if (isAuthenticated) return 'success';
-    return (sessionStorage.getItem('login_step') as any) || 'phone';
+    // Only the phone-OTP step can resume after a reload: later steps depend on identity data
+    // (Aadhaar, PAN, DOB, tokens) that is deliberately kept in memory only.
+    return sessionStorage.getItem('login_step') === 'otp' && sessionStorage.getItem('login_txId') ? 'otp' : 'phone';
   });
   const [redirectPath, setRedirectPath] = useState('/dashboard');
   const [selectedCountry, setSelectedCountry] = useState(() => {
     const stored = sessionStorage.getItem('login_country');
     return stored ? JSON.parse(stored) : COUNTRIES[0];
   });
-  const [phoneNumber, setPhoneNumber] = useState(() => sessionStorage.getItem('login_phone') || '');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneError, setPhoneError] = useState('');
 
   const validatePhone = (number: string, code: string): string | null => {
@@ -78,28 +92,28 @@ export default function Onboarding() {
   const [, setMessage] = useState('');
 
   // Registration state
-  const [registrationToken, setRegistrationToken] = useState(() => sessionStorage.getItem('login_regToken') || '');
-  const [aadhaarNumber, setAadhaarNumber] = useState(() => sessionStorage.getItem('login_aadhaar') || '');
+  const [registrationToken, setRegistrationToken] = useState('');
+  const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [aadhaarReferenceId, setAadhaarReferenceId] = useState('');
   const [aadhaarOtpDigits, setAadhaarOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [identityData, setIdentityData] = useState<IdentityData | null>(null);
 
   // PAN state
-  const [panNumber, setPanNumber] = useState(() => sessionStorage.getItem('login_pan') || '');
-  const [panDobYear, setPanDobYear] = useState(() => sessionStorage.getItem('login_pan_dob_year') || '');
-  const [panDobMonth, setPanDobMonth] = useState(() => sessionStorage.getItem('login_pan_dob_month') || '');
-  const [panDobDay, setPanDobDay] = useState(() => sessionStorage.getItem('login_pan_dob_day') || '');
-  const [panName, setPanName] = useState(() => sessionStorage.getItem('login_pan_name') || '');
+  const [panNumber, setPanNumber] = useState('');
+  const [panDobYear, setPanDobYear] = useState('');
+  const [panDobMonth, setPanDobMonth] = useState('');
+  const [panDobDay, setPanDobDay] = useState('');
+  const [panName, setPanName] = useState('');
   const [panConsent, setPanConsent] = useState(false);
 
   // Email state
-  const [emailAddress, setEmailAddress] = useState(() => sessionStorage.getItem('login_email') || '');
+  const [emailAddress, setEmailAddress] = useState('');
   const [emailOtpActive, setEmailOtpActive] = useState(false);
   const [emailOtpDigits, setEmailOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
 
   // 2FA state
-  const [twoFactorPendingToken, setTwoFactorPendingToken] = useState(() => sessionStorage.getItem('login_2fa_token') || '');
-  const [twoFactorMethod, setTwoFactorMethod] = useState(() => sessionStorage.getItem('login_2fa_method') || 'totp');
+  const [twoFactorPendingToken, setTwoFactorPendingToken] = useState('');
+  const [twoFactorMethod, setTwoFactorMethod] = useState('totp');
 
   // Country dropdown
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -186,39 +200,25 @@ export default function Onboarding() {
   }, [isAuthenticated, step, navigate, logout, redirectPath]);
 
   // ── Persist State ──
+  // Only non-identifying flow state (step, OTP transaction id, country, timer) is persisted.
+  // Identity data and auth tokens stay in memory so an abandoned login leaves nothing behind.
   useEffect(() => {
     if (step === 'success') {
-      sessionStorage.removeItem('login_step');
-      sessionStorage.removeItem('login_phone');
-      sessionStorage.removeItem('login_txId');
-      sessionStorage.removeItem('login_regToken');
-      sessionStorage.removeItem('login_aadhaar');
-      sessionStorage.removeItem('login_email');
-      sessionStorage.removeItem('login_country');
-      sessionStorage.removeItem('login_otp_timestamp');
-      sessionStorage.removeItem('login_pan');
-      sessionStorage.removeItem('login_pan_dob_year');
-      sessionStorage.removeItem('login_pan_dob_month');
-      sessionStorage.removeItem('login_pan_dob_day');
-      sessionStorage.removeItem('login_2fa_token');
-      sessionStorage.removeItem('login_2fa_method');
+      clearLoginStorage();
     } else {
       sessionStorage.setItem('login_step', step);
     }
   }, [step]);
 
-  useEffect(() => { sessionStorage.setItem('login_phone', phoneNumber); }, [phoneNumber]);
+  useEffect(() => {
+    // Purge keys written by older builds that persisted identity data
+    LEGACY_SENSITIVE_LOGIN_KEYS.forEach((key) => sessionStorage.removeItem(key));
+    // Leaving the page abandons the flow (a reload does not unmount, so it can still resume)
+    return clearLoginStorage;
+  }, []);
+
   useEffect(() => { sessionStorage.setItem('login_txId', transactionId); }, [transactionId]);
-  useEffect(() => { sessionStorage.setItem('login_regToken', registrationToken); }, [registrationToken]);
-  useEffect(() => { sessionStorage.setItem('login_aadhaar', aadhaarNumber); }, [aadhaarNumber]);
-  useEffect(() => { sessionStorage.setItem('login_email', emailAddress); }, [emailAddress]);
   useEffect(() => { sessionStorage.setItem('login_country', JSON.stringify(selectedCountry)); }, [selectedCountry]);
-  useEffect(() => { sessionStorage.setItem('login_pan', panNumber); }, [panNumber]);
-  useEffect(() => { sessionStorage.setItem('login_pan_dob_year', panDobYear); }, [panDobYear]);
-  useEffect(() => { sessionStorage.setItem('login_pan_dob_month', panDobMonth); }, [panDobMonth]);
-  useEffect(() => { sessionStorage.setItem('login_pan_dob_day', panDobDay); }, [panDobDay]);
-  useEffect(() => { sessionStorage.setItem('login_2fa_token', twoFactorPendingToken); }, [twoFactorPendingToken]);
-  useEffect(() => { sessionStorage.setItem('login_2fa_method', twoFactorMethod); }, [twoFactorMethod]);
 
   // ── Handlers ──
   async function handleSendOtp(e?: React.FormEvent, channel: 'sms' | 'whatsapp' = 'sms') {
@@ -323,10 +323,6 @@ export default function Onboarding() {
     try {
       const dob = `${panDobYear}-${panDobMonth.padStart(2, '0')}-${panDobDay.padStart(2, '0')}`;
       await registerPan(registrationToken, panNumber.toUpperCase(), panName, dob);
-      
-      // Save for subsequent loads if they refresh
-      sessionStorage.setItem('login_pan_name', panName);
-      sessionStorage.setItem('login_pan', panNumber.toUpperCase());
       
       setStep('aadhaar');
     } catch (err: any) {
@@ -508,7 +504,7 @@ export default function Onboarding() {
   // RENDER
   // ═══════════════════════════════════════════════════════════════
   return (
-    <main className="min-h-screen flex flex-col md:flex-row bg-surface font-body-md text-on-surface antialiased overflow-hidden selection:bg-brand-secondary/20">
+    <main className="min-h-[100dvh] flex flex-col md:flex-row bg-surface font-body-md text-on-surface antialiased overflow-x-hidden selection:bg-brand-secondary/20">
       {/* Left Pane: Authentication */}
       <section className="flex flex-col justify-center items-center px-margin py-lg z-10 bg-[linear-gradient(145deg,#e4e4e7_0%,#d4d4d8_30%,#a1a1aa_60%,#d4d4d8_80%,#71717a_100%)] dark:bg-[linear-gradient(to_bottom_right,#0F1117,#151825,#0F1117)] md:w-[40%] w-full relative">
 
@@ -574,7 +570,7 @@ export default function Onboarding() {
 
                     {/* Country Dropdown Menu */}
                     {dropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-[340px] bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-50 py-4 border border-gray-100">
+                      <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] max-w-[340px] bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-50 py-4 border border-gray-100">
                         <div className="px-4 pb-3">
                           <div className="flex items-center gap-2 bg-[#f0f2f5] rounded-full px-4 py-3">
                             <span className="material-symbols-outlined text-[#191c1e] text-[20px]">search</span>

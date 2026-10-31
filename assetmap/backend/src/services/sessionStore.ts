@@ -10,17 +10,17 @@ function getStorage() {
 
 export const sessionStore = {
 
-  async create(userId: string, sessionId: string, role: string): Promise<void> {
+  async create(userId: string, sessionId: string, role: string, twoFactorVerified: boolean = false): Promise<void> {
     const storage = getStorage();
     const sessionData = JSON.stringify({
-      userId, role,
+      userId, role, twoFactorVerified,
       createdAt: Date.now(),
       lastSeenAt: Date.now()
     })
     await storage.setex(`${SESSION_PREFIX}${sessionId}`, 60 * 60 * 24 * 7, sessionData)
   },
 
-  async get(sessionId: string): Promise<{ userId: string; role: string } | null> {
+  async get(sessionId: string): Promise<{ userId: string; role: string; twoFactorVerified?: boolean } | null> {
     const storage = getStorage();
     const data = await storage.get(`${SESSION_PREFIX}${sessionId}`)
     if (!data) return null

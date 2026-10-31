@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger';
 
 let uidaiCert: Buffer | undefined;
 
@@ -14,15 +15,15 @@ try {
     uidaiCert = fs.readFileSync(certPath);
   }
 } catch (error) {
-  console.warn(`[UIDAI Service] Could not load UIDAI public certificate from env or file.`);
+  logger.warn('[UIDAI Service] Could not load UIDAI public certificate from env or file.');
 }
 
 // Create a custom HTTPS agent configured to use the certificate
 export const uidaiHttpsAgent = new https.Agent({
   ca: uidaiCert,
-  // UIDAI developer staging environment often uses a self-signed or NIC certificate chain
-  // that Node.js doesn't natively trust. Setting this to false allows the connection in dev.
-  rejectUnauthorized: process.env.NODE_ENV === 'production' ? true : false,
+  // Always verify TLS: Aadhaar traffic must never go over an unverified channel.
+  // If the UIDAI staging chain isn't publicly trusted, supply it via UIDAI_PUBLIC_CERT / certs/uidai_cert.cer (used as `ca`).
+  rejectUnauthorized: true,
   // Note: If UIDAI requires mutual TLS (2-way SSL) in the future, 
   // you would attach your client private key or .p12/.pfx file here like this:
   // pfx: fs.readFileSync(path.resolve(process.cwd(), 'certs/client_cert.p12')),
@@ -55,7 +56,8 @@ export async function callUidaiApi(endpoint: string, xmlPayload: string) {
     
     return response.data;
   } catch (error) {
-    console.error("[UIDAI Service] API call failed:", error);
+    // The axios error carries the request payload (encrypted PID block) — log the message only
+    logger.error('[UIDAI Service] API call failed', { error: (error as Error).message });
     throw error;
   }
 }

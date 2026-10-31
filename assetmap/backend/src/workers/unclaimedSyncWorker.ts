@@ -1,6 +1,7 @@
 import { Pool } from 'pg'
 import { unclaimedAssets } from '../services/unclaimedAssets'
 import { logger } from '../utils/logger'
+import { decryptPII } from '../utils/encryption'
 
 // Simple worker to pick up 'pending' searches and run them
 export async function runUnclaimedSyncWorker(pool: Pool) {
@@ -16,13 +17,17 @@ export async function runUnclaimedSyncWorker(pool: Pool) {
       `)
       
       for (const row of result.rows) {
-        // Run search in background
-        await unclaimedAssets.runSearch(
-          pool, 
-          row.id, 
-          row.user_id, 
-          { pan: row.pan_enc, name: row.name_enc }
-        )
+        // Columns hold ciphertext; the registries need the plaintext PAN/name
+        try {
+          await unclaimedAssets.runSearch(
+            pool,
+            row.id,
+            row.user_id,
+            { pan: decryptPII(row.pan_enc), name: decryptPII(row.name_enc) }
+          )
+        } catch (err) {
+          logger.error(`UnclaimedSyncWorker failed for search ${row.id}`, { error: (err as Error).message })
+        }
       }
     } catch (err) {
       logger.error('UnclaimedSyncWorker error:', { error: (err as Error).message })

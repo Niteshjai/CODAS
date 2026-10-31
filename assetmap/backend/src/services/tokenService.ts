@@ -24,7 +24,7 @@ export async function issueTokenPair(
 
   // Store session + refresh token hash in Redis
   const refreshHash = createHash('sha256').update(refreshToken).digest('hex')
-  await sessionStore.create(userId, sessionId, role)
+  await sessionStore.create(userId, sessionId, role, twoFactorVerified)
   await sessionStore.storeRefreshToken(sessionId, refreshHash)
 
   // Set cookies (fallback) and headers (for cross-domain)

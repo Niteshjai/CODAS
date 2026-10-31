@@ -2,12 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 
-// ⚠️ PASTE YOUR AZURE DATABASE URL HERE
-const AZURE_DATABASE_URL = 'postgresql://codas_admin:Nitesh123@codas-db-server.postgres.database.azure.com:5432/postgres?sslmode=require';
+// Run with: AZURE_DATABASE_URL=... node migrate_azure.js (never commit the URL)
+const AZURE_DATABASE_URL = process.env.AZURE_DATABASE_URL;
+if (!AZURE_DATABASE_URL) {
+  console.error('AZURE_DATABASE_URL is not set');
+  process.exit(1);
+}
 
 const client = new Client({
   connectionString: AZURE_DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Azure
+  ssl: { rejectUnauthorized: true } // Azure certs chain to a public CA; keep verification on
 });
 
 async function runAzureMigrations() {

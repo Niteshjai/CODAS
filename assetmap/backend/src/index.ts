@@ -47,7 +47,12 @@ import { twoFactorRoutes } from './routes/twoFactor';
 import { startTwoFactorSweeper } from './cron/twoFactorSweeper';
 import { verifyAccessToken, requireRole } from './middleware/auth';
 
+const TRUST_PROXY_HOPS = parseInt(process.env.TRUST_PROXY_HOPS || (process.env.NODE_ENV === 'production' ? '1' : '0'), 10) || 0;
+
 const app = Fastify({
+  // Behind Azure App Service / a load balancer, trust exactly N proxy hops so request.ip
+  // is the real client (rate limits, audit IPs) and spoofed X-Forwarded-For entries are ignored.
+  trustProxy: (_address: string, hop: number) => hop < TRUST_PROXY_HOPS,
   logger: {
     level: 'info',
     serializers: {
@@ -79,11 +84,13 @@ declare module '@fastify/jwt' {
       role: string;
       sessionId: string;
       type: string;
+      twoFactorVerified?: boolean;
     };
     user: {
       id: string;
       role: string;
       sessionId: string;
+      twoFactorVerified?: boolean;
     };
   }
 }
@@ -108,7 +115,7 @@ async function registerPlugins() {
     credentials: true,
     exposedHeaders: ['x-access-token', 'x-refresh-token']
   });
-  await app.register(rateLimit, { max: 500, timeWindow: '3 seconds' }); // General limit
+  await app.register(rateLimit, { max: 300, timeWindow: '1 minute' }); // General per-IP limit
 
   await app.register(fastifyCookie, {
     secret: env.COOKIE_SECRET, // for cookie signature

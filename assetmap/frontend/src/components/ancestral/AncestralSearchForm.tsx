@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { api } from '../../services/api'
 
 interface Props {
   onSubmit: (data: any) => void
@@ -20,15 +21,13 @@ export function AncestralSearchForm({ onSubmit }: Props) {
   const [states, setStates] = useState<{value:string, label:string, method:string}[]>([])
 
   useEffect(() => {
-    fetch('/api/ancestral/states', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => res.json())
-      .then(data => {
+    api.get('/ancestral/states')
+      .then(({ data }) => {
         if (data.success) {
           setStates(data.data)
         }
       })
+      .catch(() => {})
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {

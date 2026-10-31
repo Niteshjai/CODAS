@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 const { fetchFinancialData } = require('./src/services/accountAggregator');
 
-const client = new Client({ connectionString: 'postgresql://postgres:Nitesh123@localhost:5432/assetmap' });
+const client = new Client({ connectionString: process.env.DATABASE_URL });
 
 async function fixConsentAndFetch() {
   try {

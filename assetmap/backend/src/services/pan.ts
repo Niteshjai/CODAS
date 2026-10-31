@@ -19,7 +19,7 @@ export interface PanVerificationResult {
 export async function verifyPanDetails(panNumber: string, panName: string, dobYYYYMMDD: string): Promise<PanVerificationResult> {
   // In mock mode, skip real API call and simulate success
   if (process.env.MOCK_MODE === 'true') {
-    logger.info(`[MOCK] Verifying PAN: ${panNumber}`);
+    logger.info(`[MOCK] Verifying PAN: XXXXX****${panNumber.slice(-1)}`);
     return {
       isValid: true,
       fullName: panName || 'Arjun Sharma',
@@ -76,7 +76,8 @@ export async function verifyPanDetails(panNumber: string, panName: string, dobYY
   } catch (error: any) {
     logger.error('PAN verification failed via Sandbox', {
       error: error.message,
-      response: error.response?.data
+      status: error.response?.status,
+      code: error.response?.data?.code
     });
     
     if (error.response?.status === 422 || error.response?.status === 400 || error.response?.status === 404) {

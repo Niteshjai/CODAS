@@ -29,12 +29,16 @@ ENV PORT=3000
 COPY package.json package-lock.json* ./
 
 # Install only production dependencies (no devDependencies, keeps image tiny)
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy compiled files from the builder stage
 COPY --from=builder /app/dist ./dist
 # Copy migrations files so the server can run migration checks if needed
 COPY --from=builder /app/src/db/migrations ./dist/db/migrations
+
+# Drop root: run as the unprivileged node user (logger writes to ./logs)
+RUN mkdir -p logs && chown -R node:node /app
+USER node
 
 # Expose backend port
 EXPOSE 3000

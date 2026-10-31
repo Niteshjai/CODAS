@@ -282,6 +282,16 @@ export const twoFactorAuth = {
 
     let isValid = false
 
+    // The enrolled method is authoritative: a TOTP user must not be downgraded to email OTP.
+    // Backup codes stay valid for every method.
+    const enrolled = await pool.query(
+      'SELECT method FROM user_two_factor WHERE user_id=$1',
+      [userId]
+    )
+    if (params.method !== 'backup' && params.method !== enrolled.rows[0]?.method) {
+      return { success: false, error: 'Invalid verification method' }
+    }
+
     // Verify based on method
     try {
       if (params.method === 'totp') {

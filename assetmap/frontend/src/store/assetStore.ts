@@ -120,6 +120,11 @@ export const useAssetStore = create<AssetStore>()(
           consents: [],
           auditLogs: [],
           hasConsent: false,
+          unclaimedAssets: null,
+          recoveryCases: null,
+          netWorthData: null,
+          dormantData: null,
+          nomineeData: null,
         });
       },
 
@@ -183,6 +188,13 @@ export const useAssetStore = create<AssetStore>()(
     {
       name: 'assetmap-store', // key in storage
       storage: createJSONStorage(() => sessionStorage),
+      // Persist UI preferences only. Financial data, consents and audit logs are refetched
+      // from the API so they never sit in browser storage where XSS or the next user could read them.
+      partialize: (state) => ({
+        sidebarOpen: state.sidebarOpen,
+        dashboardFilter: state.dashboardFilter,
+        dataConsents: state.dataConsents,
+      }),
     }
   )
 );

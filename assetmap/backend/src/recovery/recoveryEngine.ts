@@ -324,8 +324,8 @@ export const recoveryEngine = {
         metadata: { status: 'documents_collecting', ipAddress, userAgent }
     })
 
-    // Simulated Digilocker fetch
-    try {
+    // Simulated Digilocker fetch — never in production, where 'mock-token' would hit the real gateway
+    if (process.env.NODE_ENV !== 'production') try {
         const docs = await digilocker.fetchDocuments('mock-token');
         if (docs && docs.length > 0) {
             for(let doc of docs) {
@@ -394,6 +394,9 @@ export const recoveryEngine = {
       return { allDocumentsComplete: allComplete }
     }
 
+    // caseId comes from the URL: confirm ownership before touching documents or case status
+    await getCaseOrThrow(pool, caseId, userId)
+
     // Real DB mode
     await pool.query(`
       UPDATE recovery_documents
@@ -418,8 +421,8 @@ export const recoveryEngine = {
         COUNT(*) FILTER (WHERE is_required = true)  AS required_total,
         COUNT(*) FILTER (WHERE is_required = true AND is_received = true) AS required_received
       FROM recovery_documents
-      WHERE case_id = $1
-    `, [caseId])
+      WHERE case_id = $1 AND user_id = $2
+    `, [caseId, userId])
 
     const total    = parseInt(docsStatus.rows[0].required_total)
     const received = parseInt(docsStatus.rows[0].required_received)
@@ -429,8 +432,8 @@ export const recoveryEngine = {
       await pool.query(`
         UPDATE recovery_cases
         SET status = 'documents_complete', updated_at = NOW()
-        WHERE id = $1 AND status = 'documents_collecting'
-      `, [caseId])
+        WHERE id = $1 AND user_id = $2 AND status = 'documents_collecting'
+      `, [caseId, userId])
 
       await logTimeline(pool, caseId, userId,
         'documents_collecting', 'documents_complete',

@@ -19,7 +19,13 @@ const logsRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const payload = request.body as LogPayload;
       
-      const { message, type, stack, url, timestamp, userAgent } = payload;
+      // Strip CR/LF so clients can't forge extra log lines
+      const clean = (v?: string) => v?.replace(/[\r\n]+/g, ' ').slice(0, 4000);
+      const { type, timestamp, userAgent } = payload;
+      const message = clean(payload.message);
+      const stack = clean(payload.stack);
+      // Drop query strings: they can carry tokens or PII
+      const url = payload.url?.split('?')[0];
       
       const logData = {
         errorType: type || 'UnknownError',

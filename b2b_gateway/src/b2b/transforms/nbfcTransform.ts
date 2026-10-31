@@ -81,7 +81,7 @@ export async function transformForNBFC(
     WHERE id = $1 AND user_id = $2
   `, [scorecardId, userId])
 
-  if (!result.rows[0]) throw new Error('Scorecard not found')
+  if (!result.rows[0]) throw Object.assign(new Error('Scorecard not found'), { statusCode: 404 })
 
   const sc = result.rows[0]
 
