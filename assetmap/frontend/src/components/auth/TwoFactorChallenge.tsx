@@ -139,7 +139,7 @@ export default function TwoFactorChallenge({
               onChange={(e) => handleOtpChange(i, e.target.value)}
               onKeyDown={(e) => handleOtpKeyDown(i, e)}
               className={`w-[40px] h-[48px] md:w-[46px] md:h-[54px] text-center text-xl font-bold rounded-lg border outline-none transition-all ${
-                digit ? 'border-brand-secondary bg-brand-secondary/5 text-brand-secondary' : 'border-outline-variant bg-white text-on-surface'
+                digit ? 'border-brand-secondary bg-brand-secondary/5 text-brand-secondary' : 'border-outline-variant bg-card text-on-surface'
               } focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20`}
             />
           ))}
@@ -166,7 +166,7 @@ export default function TwoFactorChallenge({
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 mt-2 rounded-xl bg-red-50/80 border border-red-100 text-red-600 text-sm font-medium">
+        <div className="flex items-start gap-2 p-3 mt-2 rounded-xl bg-red-50/80 dark:bg-red-950/40 border border-red-100 dark:border-red-800/60 text-red-600 dark:text-red-400 text-sm font-medium">
           <span className="material-symbols-outlined text-base mt-0.5">error</span>
           <span>{error}</span>
         </div>

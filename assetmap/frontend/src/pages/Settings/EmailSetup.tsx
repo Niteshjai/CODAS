@@ -52,13 +52,13 @@ export default function EmailSetup() {
   }
 
   return (
-    <div className="min-h-screen text-zinc-900 font-sans pb-20" style={{ background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+    <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20">
       <header className="sticky top-0 z-20 pt-4">
         <div className="w-full px-6 md:px-10 py-2 flex items-center justify-between">
           <button 
             type="button"
             onClick={() => navigate('/settings/2fa')}
-            className="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 bg-white/50 hover:bg-white/80 border border-zinc-300/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
           >
             <ArrowLeft className="size-4" />
             Back to 2FA Settings
@@ -68,25 +68,25 @@ export default function EmailSetup() {
 
       <main className="max-w-[576px] mx-auto px-6 mt-0">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-display font-light tracking-tight text-zinc-900">Set Up Email OTP</h1>
-          <p className="text-zinc-600 mt-2">We'll send a 6-digit code to your registered email address.</p>
+          <h1 className="text-3xl font-display font-light tracking-tight text-foreground">Set Up Email OTP</h1>
+          <p className="text-zinc-600 dark:text-zinc-400 mt-2">We'll send a 6-digit code to your registered email address.</p>
         </div>
 
         {step === 'intro' && (
-          <div className="bg-white rounded-[24px] shadow-sm border border-zinc-200/50 p-8 flex flex-col items-center">
-            <div className="w-16 h-16 bg-lime-100 text-lime-700 rounded-full flex items-center justify-center mb-6">
+          <div className="bg-card rounded-[24px] shadow-sm border border-border/50 p-8 flex flex-col items-center">
+            <div className="w-16 h-16 bg-lime-100 dark:bg-lime-950/40 text-lime-700 dark:text-lime-300 rounded-full flex items-center justify-center mb-6">
               <MessageSquare className="w-8 h-8" />
             </div>
             
             <h3 className="font-semibold text-lg mb-2 text-center">Verify Your Email</h3>
-            <p className="text-zinc-600 mb-8 text-center px-4 w-full">
+            <p className="text-zinc-600 dark:text-zinc-400 mb-8 text-center px-4 w-full">
               Click below to send a verification code to your email. You'll need to enter it on the next screen.
             </p>
             
             <button
               onClick={handleSendOTP}
               disabled={loading}
-              className="w-full py-3 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
               {loading ? 'Sending...' : 'Send OTP'}
             </button>
@@ -94,20 +94,20 @@ export default function EmailSetup() {
         )}
 
         {step === 'provide-email' && (
-          <div className="bg-white rounded-[24px] shadow-sm border border-zinc-200/50 p-8 flex flex-col items-center">
-            <div className="w-16 h-16 bg-lime-100 text-lime-700 rounded-full flex items-center justify-center mb-6">
+          <div className="bg-card rounded-[24px] shadow-sm border border-border/50 p-8 flex flex-col items-center">
+            <div className="w-16 h-16 bg-lime-100 dark:bg-lime-950/40 text-lime-700 dark:text-lime-300 rounded-full flex items-center justify-center mb-6">
               <MessageSquare className="w-8 h-8" />
             </div>
             
             <h3 className="font-semibold text-lg mb-2 text-center">Add Your Email</h3>
-            <p className="text-zinc-600 mb-8 text-center px-4 w-full">
+            <p className="text-zinc-600 dark:text-zinc-400 mb-8 text-center px-4 w-full">
               We need an email address to send your verification code.
             </p>
             
             <input
               type="email"
               placeholder="Enter your email address"
-              className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl mb-6 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20"
+              className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl mb-6 outline-none focus:border-foreground focus:ring-2 focus:ring-foreground/20"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -115,7 +115,7 @@ export default function EmailSetup() {
             <button
               onClick={handleSendOTP}
               disabled={loading || !email.includes('@')}
-              className="w-full py-3 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
               {loading ? 'Sending...' : 'Save & Send OTP'}
             </button>
@@ -123,9 +123,9 @@ export default function EmailSetup() {
         )}
 
         {step === 'verify' && (
-          <div className="bg-white rounded-[24px] shadow-sm border border-zinc-200/50 p-8 flex flex-col items-center">
+          <div className="bg-card rounded-[24px] shadow-sm border border-border/50 p-8 flex flex-col items-center">
             <h3 className="font-semibold text-lg mb-2 text-center">Enter the 6-digit code</h3>
-            <p className="text-sm text-zinc-500 mb-6 text-center">Check your email inbox for the code.</p>
+            <p className="text-sm text-muted-foreground mb-6 text-center">Check your email inbox for the code.</p>
             
             <div className="flex gap-2 justify-center mb-6">
               {otpDigits.map((digit, i) => (
@@ -151,7 +151,7 @@ export default function EmailSetup() {
                       otpRefs.current[i - 1]?.focus();
                     }
                   }}
-                  className={`w-[46px] h-[54px] text-center text-xl font-bold rounded-lg border outline-none transition-all ${digit ? 'border-zinc-900 bg-zinc-50 text-zinc-900' : 'border-zinc-200 bg-white text-zinc-900'} focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20`}
+                  className={`w-[46px] h-[54px] text-center text-xl font-bold rounded-lg border outline-none transition-all ${digit ? 'border-foreground bg-muted/50 text-foreground' : 'border-border bg-card text-foreground'} focus:border-foreground focus:ring-2 focus:ring-foreground/20`}
                 />
               ))}
             </div>
@@ -159,7 +159,7 @@ export default function EmailSetup() {
             <button
               onClick={handleVerify}
               disabled={verifying || otpDigits.some(d => !d)}
-              className="w-full py-3 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
               {verifying ? 'Verifying...' : 'Verify & Enable'}
             </button>

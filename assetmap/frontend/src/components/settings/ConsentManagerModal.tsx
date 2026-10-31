@@ -81,32 +81,32 @@ export default function ConsentManagerModal({ onClose }: Props) {
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
       <div 
-        className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300"
+        className="bg-card rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300"
         style={{ width: '100%', maxWidth: '672px', backgroundColor: 'white', borderRadius: '24px' }}
       >
         {success ? (
           <div className="p-12 flex flex-col items-center justify-center animate-[scale-in_0.3s_ease]">
-            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mb-6">
+            <div className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center mb-6">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-zinc-900 mb-2">Preferences Saved!</h2>
-            <p className="text-zinc-500 text-sm">Your dashboard is being updated...</p>
+            <h2 className="text-xl font-bold text-foreground mb-2">Preferences Saved!</h2>
+            <p className="text-muted-foreground text-sm">Your dashboard is being updated...</p>
           </div>
         ) : (
           <>
-            <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+            <div className="px-6 py-5 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="size-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                <div className="size-10 rounded-full bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center text-rose-600 dark:text-rose-400">
                   <Shield className="size-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-zinc-900">Manage Consent Approvals</h2>
-                  <p className="text-xs text-zinc-500">Select which data sources you want to sync.</p>
+                  <h2 className="text-lg font-semibold text-foreground">Manage Consent Approvals</h2>
+                  <p className="text-xs text-muted-foreground">Select which data sources you want to sync.</p>
                 </div>
               </div>
-              <button onClick={onClose} className="size-8 flex items-center justify-center rounded-full hover:bg-zinc-100 transition text-zinc-500">
+              <button onClick={onClose} className="size-8 flex items-center justify-center rounded-full hover:bg-muted transition text-muted-foreground">
                 <X className="size-5" />
               </button>
             </div>
@@ -118,21 +118,21 @@ export default function ConsentManagerModal({ onClose }: Props) {
                   onClick={() => toggleSelection(opt.value)}
                   className={`flex items-center gap-4 p-4 md:p-5 rounded-2xl border cursor-pointer transition-all hover:shadow-sm ${
                     selectedTypes.includes(opt.value)
-                      ? 'border-lime-500 bg-white'
-                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50'
+                      ? 'border-lime-500 bg-card'
+                      : 'border-border bg-card hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-muted/25'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-xl shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xl shrink-0">
                     {opt.icon}
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm md:text-base font-semibold text-zinc-900 mb-0.5">{opt.label}</div>
-                    <div className="text-xs md:text-sm text-zinc-500">{opt.desc}</div>
+                    <div className="text-sm md:text-base font-semibold text-foreground mb-0.5">{opt.label}</div>
+                    <div className="text-xs md:text-sm text-muted-foreground">{opt.desc}</div>
                   </div>
                   <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
                     selectedTypes.includes(opt.value)
                       ? 'border-lime-500 bg-lime-500 text-white'
-                      : 'border-zinc-300 bg-white'
+                      : 'border-zinc-300 dark:border-zinc-700 bg-card'
                   }`}>
                     {selectedTypes.includes(opt.value) && <span className="text-[10px] font-bold">✓</span>}
                   </div>
@@ -148,7 +148,7 @@ export default function ConsentManagerModal({ onClose }: Props) {
               <button 
                 onClick={handleSave} 
                 disabled={saving || loading}
-                className="w-full py-3 rounded-full bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3 rounded-full bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-medium hover:bg-zinc-800 transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {saving ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

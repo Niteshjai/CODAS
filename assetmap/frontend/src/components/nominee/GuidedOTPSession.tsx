@@ -45,9 +45,9 @@ export default function GuidedOTPSession({ taskId, onClose, onDone }: GuidedOTPS
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 max-w-[512px] w-full text-center">
-          <div className="size-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-zinc-600 text-sm">Preparing guided session...</p>
+        <div className="bg-card rounded-3xl p-8 max-w-[512px] w-full text-center">
+          <div className="size-8 border-2 border-zinc-300 dark:border-zinc-700 border-t-foreground rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-zinc-600 dark:text-zinc-400 text-sm">Preparing guided session...</p>
         </div>
       </div>
     );
@@ -56,10 +56,10 @@ export default function GuidedOTPSession({ taskId, onClose, onDone }: GuidedOTPS
   if (error || !session) {
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 max-w-[512px] w-full text-center">
+        <div className="bg-card rounded-3xl p-8 max-w-[512px] w-full text-center">
           <AlertTriangle className="size-8 text-red-400 mx-auto mb-2" />
           <p className="text-red-600 text-sm mb-4">{error || 'Failed to load session'}</p>
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 text-sm font-medium">Close</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-muted text-zinc-700 dark:text-zinc-300 text-sm font-medium">Close</button>
         </div>
       </div>
     );
@@ -67,22 +67,22 @@ export default function GuidedOTPSession({ taskId, onClose, onDone }: GuidedOTPS
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl max-w-[672px] w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-card rounded-3xl max-w-[672px] w-full max-h-[90vh] overflow-y-auto shadow-2xl">
 
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-zinc-100 px-6 py-4 rounded-t-3xl flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 rounded-t-3xl flex items-center justify-between z-10">
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">{session.institution}</h2>
-            <p className="text-sm text-zinc-500 capitalize">{session.institutionType.replace('_', ' ')} • Guided Update</p>
+            <h2 className="text-lg font-bold text-foreground">{session.institution}</h2>
+            <p className="text-sm text-muted-foreground capitalize">{session.institutionType.replace('_', ' ')} • Guided Update</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-zinc-100 transition-colors">
-            <X className="size-5 text-zinc-500" />
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-muted transition-colors">
+            <X className="size-5 text-muted-foreground" />
           </button>
         </div>
 
         {/* Nominee details to copy */}
-        <div className="px-6 py-4 bg-lime-50 border-b border-lime-100">
-          <h3 className="text-sm font-semibold text-zinc-800 mb-3">📋 Nominee Details — Copy & Paste</h3>
+        <div className="px-6 py-4 bg-lime-50 dark:bg-lime-950/40 border-b border-lime-100 dark:border-lime-800/60">
+          <h3 className="text-sm font-semibold text-foreground mb-3">📋 Nominee Details — Copy & Paste</h3>
           <div className="grid grid-cols-2 gap-2">
             {[
               { label: 'Name',         value: session.nominee.name },
@@ -94,15 +94,15 @@ export default function GuidedOTPSession({ taskId, onClose, onDone }: GuidedOTPS
             ].filter(item => item.value).map(item => (
               <button key={item.label}
                 onClick={() => copyToClipboard(item.value, item.label)}
-                className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-lime-200 text-left hover:bg-lime-50 transition-colors group">
+                className="flex items-center gap-2 px-3 py-2 bg-card rounded-xl border border-lime-200 dark:border-lime-800/60 text-left hover:bg-lime-50 dark:hover:bg-lime-950/40 transition-colors group">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">{item.label}</p>
-                  <p className="text-sm text-zinc-900 font-medium truncate">{item.value}</p>
+                  <p className="text-sm text-foreground font-medium truncate">{item.value}</p>
                 </div>
                 {copied === item.label ? (
                   <Check className="size-4 text-emerald-500 shrink-0" />
                 ) : (
-                  <Copy className="size-3.5 text-zinc-300 group-hover:text-zinc-500 shrink-0" />
+                  <Copy className="size-3.5 text-zinc-300 group-hover:text-muted-foreground shrink-0" />
                 )}
               </button>
             ))}
@@ -111,23 +111,23 @@ export default function GuidedOTPSession({ taskId, onClose, onDone }: GuidedOTPS
 
         {/* Step-by-step instructions */}
         <div className="px-6 py-5">
-          <h3 className="text-sm font-semibold text-zinc-800 mb-4">Step-by-Step Instructions</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">Step-by-Step Instructions</h3>
           <div className="space-y-3">
             {session.instructions.map((instruction, i) => (
               <div key={i}
                 className={`flex items-start gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
                   i === currentStep
-                    ? 'bg-zinc-900 text-white shadow-lg'
+                    ? 'bg-zinc-900 dark:bg-zinc-800 text-white shadow-lg'
                     : i < currentStep
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                    : 'bg-zinc-50 text-zinc-600 border border-zinc-100'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 border border-emerald-100 dark:border-emerald-800/60'
+                    : 'bg-muted/50 text-zinc-600 dark:text-zinc-400 border border-border'
                 }`}
                 onClick={() => setStep(i)}
               >
                 <span className={`size-6 rounded-full grid place-items-center text-xs font-bold shrink-0 ${
-                  i === currentStep ? 'bg-lime-300 text-black'
-                  : i < currentStep ? 'bg-emerald-200 text-emerald-800'
-                  : 'bg-zinc-200 text-zinc-500'
+                  i === currentStep ? 'bg-lime-300 text-foreground'
+                  : i < currentStep ? 'bg-emerald-200 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-zinc-200 dark:bg-zinc-700 text-muted-foreground'
                 }`}>
                   {i < currentStep ? '✓' : i + 1}
                 </span>
@@ -138,7 +138,7 @@ export default function GuidedOTPSession({ taskId, onClose, onDone }: GuidedOTPS
         </div>
 
         {/* Action buttons */}
-        <div className="sticky bottom-0 bg-white border-t border-zinc-100 px-6 py-4 rounded-b-3xl flex items-center gap-3">
+        <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 rounded-b-3xl flex items-center gap-3">
           <a href={session.sessionUrl} target="_blank" rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors shadow-md">
             <ExternalLink className="size-4" /> Open {session.institutionType === 'epfo' ? 'EPFO Portal' : session.institutionType === 'nps' ? 'NPS Portal' : 'Portal'}

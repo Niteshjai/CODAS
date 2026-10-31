@@ -4,7 +4,7 @@ import { familyAggregator } from '../family/familyAggregator'
 import { logger } from '../utils/logger'
 
 export function startFamilySnapshotWorker(pool: Pool): void {
-  // Run on 1st of every month at 5AM IST
+  // Runs at 11:30PM IST on the last day of each month (fires 28th-31st, skips non-last days)
   cron.schedule('30 23 28-31 * *', async () => {
     // Only run on actual last day of month
     const tomorrow = new Date()

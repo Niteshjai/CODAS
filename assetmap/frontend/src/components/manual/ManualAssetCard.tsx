@@ -101,7 +101,7 @@ export function ManualAssetCard({ asset, onUpdateValue, onDelete }: Props) {
       <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-[#2E3148] flex items-center justify-between">
         {gainLoss !== null ? (
           <div className={`flex items-center gap-1 text-xs font-medium ${
-            gainLoss >= 0 ? 'text-emerald-600' : 'text-red-500'
+            gainLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
           }`}>
             {gainLoss >= 0
               ? <TrendingUp className="size-3.5" />
@@ -121,7 +121,7 @@ export function ManualAssetCard({ asset, onUpdateValue, onDelete }: Props) {
           {onUpdateValue && (
             <button
               onClick={(e) => { e.stopPropagation(); onUpdateValue(asset.id) }}
-              className="text-[10px] font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 px-2 py-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 transition opacity-0 group-hover:opacity-100"
+              className="text-[10px] font-medium text-muted-foreground hover:text-zinc-900 dark:hover:text-zinc-200 px-2 py-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 transition opacity-0 group-hover:opacity-100"
             >
               Update
             </button>

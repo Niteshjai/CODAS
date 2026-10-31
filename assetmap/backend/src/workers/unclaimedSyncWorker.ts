@@ -9,11 +9,17 @@ export async function runUnclaimedSyncWorker(pool: Pool) {
   
   setInterval(async () => {
     try {
+      // Claim rows atomically so overlapping ticks / instances can't run a search twice
       const result = await pool.query(`
-        SELECT id, user_id, pan_enc, name_enc 
-        FROM unclaimed_search_requests 
-        WHERE search_status = 'pending' AND payment_status = 'completed'
-        LIMIT 5
+        UPDATE unclaimed_search_requests
+        SET search_status = 'running', searched_at = NOW()
+        WHERE id IN (
+          SELECT id FROM unclaimed_search_requests
+          WHERE search_status = 'pending' AND payment_status = 'completed'
+          LIMIT 5
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING id, user_id, pan_enc, name_enc
       `)
       
       for (const row of result.rows) {

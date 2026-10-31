@@ -72,13 +72,13 @@ export default function TOTPSetup() {
   };
 
   return (
-    <div className="min-h-screen text-zinc-900 font-sans pb-20" style={{ background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+    <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20">
       <header className="sticky top-0 z-20 pt-4">
         <div className="w-full px-6 md:px-10 py-2 flex items-center justify-between">
           <button 
             type="button"
             onClick={() => navigate('/settings/2fa')}
-            className="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 bg-white/50 hover:bg-white/80 border border-zinc-300/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
           >
             <ArrowLeft className="size-4" />
             Back to 2FA Settings
@@ -92,22 +92,22 @@ export default function TOTPSetup() {
       ) : (
         <main className="max-w-4xl mx-auto px-6 mt-8">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl sm:text-4xl font-display font-light tracking-tight text-zinc-900">Set Up Authenticator</h1>
-            <p className="text-zinc-600 mt-2 text-sm sm:text-base">Connect Google Authenticator, Authy, or 1Password to secure your account.</p>
+            <h1 className="text-3xl sm:text-4xl font-display font-light tracking-tight text-foreground">Set Up Authenticator</h1>
+            <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-sm sm:text-base">Connect Google Authenticator, Authy, or 1Password to secure your account.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
             {/* Step 1: Scan QR Code */}
-            <div className="bg-white/95 backdrop-blur-md rounded-[24px] shadow-sm border border-zinc-200/60 p-7 sm:p-8 flex flex-col justify-between">
+            <div className="bg-card/95 backdrop-blur-md rounded-[24px] shadow-sm border border-border/60 p-7 sm:p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2.5 mb-1.5">
-                  <span className="size-6 rounded-full bg-zinc-900 text-white text-xs font-semibold flex items-center justify-center">1</span>
-                  <h3 className="font-semibold text-lg text-zinc-900">Scan the QR Code</h3>
+                  <span className="size-6 rounded-full bg-zinc-900 dark:bg-zinc-800 text-white text-xs font-semibold flex items-center justify-center">1</span>
+                  <h3 className="font-semibold text-lg text-foreground">Scan the QR Code</h3>
                 </div>
-                <p className="text-sm text-zinc-500 mb-6">Open your authenticator app and scan this code.</p>
+                <p className="text-sm text-muted-foreground mb-6">Open your authenticator app and scan this code.</p>
                 
                 <div className="flex justify-center mb-6">
-                  <div className="p-3.5 bg-white border border-zinc-200/80 rounded-2xl shadow-sm inline-flex items-center justify-center">
+                  <div className="p-3.5 bg-card border border-border/80 rounded-2xl shadow-sm inline-flex items-center justify-center">
                     {setupData?.qrCode ? (
                       setupData.qrCode.startsWith('data:image') ? (
                         <img src={setupData.qrCode} alt="Authenticator QR Code" className="w-[180px] h-[180px] object-contain rounded-lg" />
@@ -123,30 +123,30 @@ export default function TOTPSetup() {
                 </div>
               </div>
 
-              <div className="w-full pt-4 border-t border-zinc-100">
+              <div className="w-full pt-4 border-t border-border">
                 <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2 text-center">Can't scan the code?</p>
-                <div className="flex items-center gap-2 bg-zinc-50/80 hover:bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/80 transition-colors">
-                  <code className="text-xs font-mono text-zinc-700 flex-1 break-all select-all text-center tracking-wider">{setupData?.secret}</code>
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/50 p-2.5 rounded-xl border border-border/80 transition-colors">
+                  <code className="text-xs font-mono text-zinc-700 dark:text-zinc-300 flex-1 break-all select-all text-center tracking-wider">{setupData?.secret}</code>
                   <button 
                     type="button"
                     onClick={handleCopy}
-                    className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/60 rounded-lg transition-colors shrink-0"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 rounded-lg transition-colors shrink-0"
                     title="Copy Secret"
                   >
-                    {copied ? <Check className="size-4 text-lime-600" /> : <Copy className="size-4" />}
+                    {copied ? <Check className="size-4 text-lime-600 dark:text-lime-400" /> : <Copy className="size-4" />}
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Step 2: Enter 6-digit Code */}
-            <div className="bg-white/95 backdrop-blur-md rounded-[24px] shadow-sm border border-zinc-200/60 p-7 sm:p-8 flex flex-col justify-between">
+            <div className="bg-card/95 backdrop-blur-md rounded-[24px] shadow-sm border border-border/60 p-7 sm:p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2.5 mb-1.5">
-                  <span className="size-6 rounded-full bg-zinc-900 text-white text-xs font-semibold flex items-center justify-center">2</span>
-                  <h3 className="font-semibold text-lg text-zinc-900">Enter 6-digit code</h3>
+                  <span className="size-6 rounded-full bg-zinc-900 dark:bg-zinc-800 text-white text-xs font-semibold flex items-center justify-center">2</span>
+                  <h3 className="font-semibold text-lg text-foreground">Enter 6-digit code</h3>
                 </div>
-                <p className="text-sm text-zinc-500 mb-8">Enter the 6-digit code generated by your authenticator app to complete setup.</p>
+                <p className="text-sm text-muted-foreground mb-8">Enter the 6-digit code generated by your authenticator app to complete setup.</p>
                 
                 <div className="flex gap-2 justify-center my-4" onPaste={handlePaste}>
                   {otpDigits.map((digit, i) => (
@@ -174,9 +174,9 @@ export default function TOTPSetup() {
                       }}
                       className={`w-[44px] h-[52px] text-center text-xl font-bold rounded-xl border outline-none transition-all ${
                         digit 
-                          ? 'border-zinc-900 bg-zinc-50 text-zinc-900 ring-1 ring-zinc-900/10' 
-                          : 'border-zinc-200 bg-white text-zinc-900 hover:border-zinc-300'
-                      } focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/20`}
+                          ? 'border-foreground bg-muted/50 text-foreground ring-1 ring-foreground/10' 
+                          : 'border-border bg-card text-foreground hover:border-zinc-300 dark:hover:border-zinc-700'
+                      } focus:border-foreground focus:ring-2 focus:ring-foreground/20`}
                     />
                   ))}
                 </div>
@@ -191,7 +191,7 @@ export default function TOTPSetup() {
                   type="button"
                   onClick={handleVerify}
                   disabled={verifying || otpDigits.some(d => !d)}
-                  className="w-full py-3.5 bg-zinc-900 text-white font-medium text-sm rounded-xl hover:bg-zinc-800 transition-all shadow-sm active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-medium text-sm rounded-xl hover:bg-zinc-800 transition-all shadow-sm active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
                 >
                   {verifying ? (
                     <>

@@ -1,10 +1,10 @@
+import cron from 'node-cron';
 import { pool } from '../db/connection';
 import { logger } from '../utils/logger';
-import axios from 'axios';
 
 export function startStatusSweeper() {
   // Run every 6 hours
-  setInterval(async () => {
+  cron.schedule('0 */6 * * *', async () => {
     logger.info('[Cron Sweeper] Running sweep for stale PENDING_RTA nomination requests');
 
     try {
@@ -15,6 +15,15 @@ export function startStatusSweeper() {
         WHERE status = 'PENDING_RTA' 
         AND updated_at < NOW() - INTERVAL '24 hours'
       `);
+
+      // There is no real RTA status API wired up yet. Simulated outcomes are a dev aid only:
+      // in production they would tell users their nominee was updated when nothing happened.
+      if (process.env.NODE_ENV === 'production') {
+        if (res.rows.length) {
+          logger.warn('[Cron Sweeper] Stale PENDING_RTA requests need manual follow-up', { count: res.rows.length });
+        }
+        return;
+      }
 
       for (const row of res.rows) {
         logger.info(`[Cron Sweeper] Re-polling status for request ${row.id} (${row.platform} tracking: ${row.tracking_id})`);
@@ -31,13 +40,13 @@ export function startStatusSweeper() {
 
           logger.info(`[Cron Sweeper] Updated request ${row.id} to ${simulatedStatus}`);
         } catch (pollErr) {
-          logger.error(`[Cron Sweeper] Failed to poll status for request ${row.id}`, { error: pollErr });
+          logger.error(`[Cron Sweeper] Failed to poll status for request ${row.id}`, { error: (pollErr as Error).message });
         }
       }
     } catch (error) {
-      logger.error('[Cron Sweeper] Failed to run sweeper query', { error });
+      logger.error('[Cron Sweeper] Failed to run sweeper query', { error: (error as Error).message });
     }
-  }, 6 * 60 * 60 * 1000); // 6 hours
+  }, { timezone: 'Asia/Kolkata' });
 
   logger.info('[Cron Sweeper] Registered sweeper for stale PENDING_RTA requests');
 }

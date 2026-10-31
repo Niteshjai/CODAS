@@ -103,23 +103,21 @@ export default function NomineeUpdatePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col text-zinc-900 font-sans" style={{
-      background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)',
-    }}>
+    <div className="page-gradient-bg min-h-screen flex flex-col text-foreground font-sans">
       {/* Top Navigation Bar */}
       {step !== 'complete' && (
-        <nav className="bg-white/30 backdrop-blur-xl px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-40 border-b border-white/20 shadow-sm">
+        <nav className="bg-white/30 dark:bg-card/40 backdrop-blur-xl px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-40 border-b border-white/20 shadow-sm">
           <button 
             onClick={() => {
               if (step === 'form') navigate('/dashboard', { state: { openNomineeModal: true } });
               else if (step === 'review') setStep('form');
             }} 
-            className="flex items-center gap-2 text-zinc-800 hover:text-black bg-white/50 hover:bg-white/80 border border-zinc-300/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="flex items-center gap-2 text-foreground hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
           >
             <ArrowLeft className="size-4" />
             <span>Back</span>
           </button>
-          <div className="font-semibold tracking-wide text-zinc-900">
+          <div className="font-semibold tracking-wide text-foreground">
             {targetInstitution || 'Update Nominees'}
           </div>
           <div className="w-20 hidden sm:block"></div> {/* Spacer for perfect centering on desktop */}
@@ -131,7 +129,7 @@ export default function NomineeUpdatePage() {
         {/* Page header */}
         {(step === 'form' || step === 'review') && (
           <div className="mb-6">
-            <p className="text-zinc-500 text-sm max-w-[500px]">
+            <p className="text-muted-foreground text-sm max-w-[500px]">
               {targetInstitution
                 ? `Update the nominee details specifically for your ${targetInstitution} account.`
                 : 'Fill one form. We update your nominees across all your financial accounts — mutual funds, EPF, NPS, banks, insurance, and demat & trading accounts.'}
@@ -140,11 +138,11 @@ export default function NomineeUpdatePage() {
             {/* Summary badges */}
             {filteredAccounts.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-4">
-                <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+                <span className="px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs font-semibold">
                   {filteredAccounts.length} account{filteredAccounts.length > 1 ? 's' : ''} missing nominees
                 </span>
                 {totalValueAtRiskPaise > 0 && (
-                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                  <span className="px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs font-semibold">
                     ₹{(totalValueAtRiskPaise / 100).toLocaleString('en-IN')} at risk
                   </span>
                 )}
@@ -155,9 +153,9 @@ export default function NomineeUpdatePage() {
 
         {/* Legal disclaimer (at top of form) */}
         {step === 'form' && (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 mb-6 flex items-start gap-3 border border-zinc-200">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-4 mb-6 flex items-start gap-3 border border-border">
             <Shield className="size-5 text-zinc-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-zinc-500 leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Codas facilitates nominee updates on your behalf where permitted by law.
               For banks, EPFO, and insurers, you will complete a simple OTP step inside our app.
               We never store your banking passwords or government portal credentials.
@@ -167,7 +165,7 @@ export default function NomineeUpdatePage() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-red-600 text-sm">
+          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-xl p-4 mb-6 text-red-600 dark:text-red-400 text-sm">
             {error}
             <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
           </div>
@@ -182,19 +180,19 @@ export default function NomineeUpdatePage() {
         {step === 'review' && (
           <div className="space-y-6">
             {/* Nominee summary */}
-            <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
-              <h3 className="text-base font-semibold text-zinc-900 mb-3 flex items-center gap-2">
+            <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
+              <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
                 <Users className="size-5" /> Nominee{nominees.length > 1 ? 's' : ''} to Apply
               </h3>
               <div className="space-y-2">
                 {nominees.map((n, i) => (
-                  <div key={i} className="flex items-center justify-between bg-zinc-50 rounded-xl px-4 py-3">
+                  <div key={i} className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium text-zinc-900">{n.nomineeName}</p>
-                      <p className="text-xs text-zinc-500 capitalize">{n.relationship} • DOB: {n.nomineeDob}</p>
+                      <p className="text-sm font-medium text-foreground">{n.nomineeName}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{n.relationship} • DOB: {n.nomineeDob}</p>
                     </div>
                     {nominees.length > 1 && (
-                      <span className="text-sm font-bold text-zinc-700">{n.allocationPct}%</span>
+                      <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{n.allocationPct}%</span>
                     )}
                   </div>
                 ))}
@@ -202,8 +200,8 @@ export default function NomineeUpdatePage() {
             </div>
 
             {/* Accounts breakdown */}
-            <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
-              <h3 className="text-base font-semibold text-zinc-900 mb-3">
+            <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
+              <h3 className="text-base font-semibold text-foreground mb-3">
                 Accounts to Update ({filteredAccounts.length})
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
@@ -230,7 +228,7 @@ export default function NomineeUpdatePage() {
 
             {/* Confirm button */}
             <button onClick={handleStartBatch} disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-zinc-900 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg">
+              className="w-full py-3.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-semibold text-sm hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg">
               {loading ? (
                 <>
                   <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -247,8 +245,8 @@ export default function NomineeUpdatePage() {
         {step === 'progress' && batchId && (
           <>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-zinc-900 mb-1">Updating Nominees</h2>
-              <p className="text-zinc-500 text-sm">Real-time progress across all your accounts</p>
+              <h2 className="text-2xl font-bold text-foreground mb-1">Updating Nominees</h2>
+              <p className="text-muted-foreground text-sm">Real-time progress across all your accounts</p>
             </div>
             <ProgressTracker
               batchId={batchId}
@@ -286,9 +284,9 @@ function MethodCard({ icon, label, count, method, color }: {
   icon: React.ReactNode; label: string; count: number; method: string; color: string;
 }) {
   const colors: Record<string, string> = {
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    blue:    'bg-blue-50 text-blue-700 border-blue-100',
-    amber:   'bg-amber-50 text-amber-700 border-amber-100',
+    emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800/60',
+    blue:    'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-800/60',
+    amber:   'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-800/60',
   };
   return (
     <div className={`rounded-xl p-3 border ${colors[color] ?? colors.blue}`}>

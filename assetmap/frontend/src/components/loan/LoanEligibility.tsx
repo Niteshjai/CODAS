@@ -117,13 +117,13 @@ export default function LoanEligibility() {
               ))}
 
               <button
-                className="w-full mt-2 py-2.5 rounded-2xl bg-lime-300 hover:bg-lime-400 text-zinc-950 font-bold text-base shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer"
+                className="w-full mt-2 py-2.5 rounded-2xl bg-lime-300 hover:bg-lime-400 text-foreground font-bold text-base shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer"
                 onClick={handleAssess}
                 disabled={loading}
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
                     Calculating...
                   </span>
                 ) : 'Calculate Eligibility'}

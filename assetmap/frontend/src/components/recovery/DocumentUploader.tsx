@@ -59,14 +59,14 @@ export default function DocumentUploader({ caseId, documents, onDocumentUploaded
     <div>
       {/* Progress header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[15px] font-semibold text-zinc-800">Required Documents</h3>
-        <span className="text-sm font-medium text-zinc-500">
+        <h3 className="text-[15px] font-semibold text-foreground">Required Documents</h3>
+        <span className="text-sm font-medium text-muted-foreground">
           {receivedCount}/{totalRequired} uploaded
         </span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden mb-5">
+      <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-5">
         <div
           className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
           style={{ width: `${pctDone}%` }}
@@ -74,7 +74,7 @@ export default function DocumentUploader({ caseId, documents, onDocumentUploaded
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm flex items-center gap-2">
+        <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 text-sm flex items-center gap-2">
           <AlertCircle className="size-4 shrink-0" />
           {error}
         </div>
@@ -95,7 +95,7 @@ export default function DocumentUploader({ caseId, documents, onDocumentUploaded
       {/* Optional docs */}
       {optional.length > 0 && (
         <div className="mt-6">
-          <h4 className="text-[13px] font-medium text-zinc-500 uppercase tracking-wider mb-3">
+          <h4 className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider mb-3">
             Optional Documents
           </h4>
           <div className="space-y-2.5">
@@ -122,26 +122,26 @@ function DocumentRow({ doc, isUploading, onUpload }: {
   return (
     <div className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
       doc.is_received
-        ? 'bg-emerald-50/50 border-emerald-200/50'
-        : 'bg-white border-zinc-200/80 hover:border-zinc-300'
+        ? 'bg-emerald-50/50 dark:bg-emerald-950/40 border-emerald-200/50 dark:border-emerald-800/60'
+        : 'bg-card border-border/80 hover:border-zinc-300 dark:hover:border-zinc-700'
     }`}>
       <div className="flex items-center gap-3 min-w-0">
         <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
-          doc.is_received ? 'bg-emerald-100' : 'bg-zinc-100'
+          doc.is_received ? 'bg-emerald-100 dark:bg-emerald-950/40' : 'bg-muted'
         }`}>
           {doc.is_received ? (
-            <CheckCircle2 className="size-4 text-emerald-600" strokeWidth={2.5} />
+            <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
           ) : (
-            <FileText className="size-4 text-zinc-500" strokeWidth={1.75} />
+            <FileText className="size-4 text-muted-foreground" strokeWidth={1.75} />
           )}
         </div>
         <div className="min-w-0">
           <p className={`text-[14px] font-medium truncate ${
-            doc.is_received ? 'text-emerald-800' : 'text-zinc-800'
+            doc.is_received ? 'text-emerald-800 dark:text-emerald-300' : 'text-foreground'
           }`}>
             {doc.doc_label}
             {doc.auto_fetched && (
-              <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+              <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full">
                 <Zap className="size-3" /> DigiLocker
               </span>
             )}
@@ -156,7 +156,7 @@ function DocumentRow({ doc, isUploading, onUpload }: {
         <button
           onClick={onUpload}
           disabled={isUploading}
-          className="shrink-0 ml-3 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 text-white text-[13px] font-medium hover:bg-zinc-800 transition disabled:opacity-50"
+          className="shrink-0 ml-3 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white text-[13px] font-medium hover:bg-zinc-800 transition disabled:opacity-50"
         >
           {isUploading ? (
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

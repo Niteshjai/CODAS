@@ -35,6 +35,7 @@ import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { ManualAssetCard } from '../components/manual/ManualAssetCard';
 import { AddAssetFlow } from '../components/manual/AddAssetFlow';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { ErrorCard } from '../components/errors/ErrorCard';
 
 /* ═══════════════════════════════════════════════════
    AssetMap Dashboard — Lovable-inspired Design
@@ -67,12 +68,12 @@ const FI_ICONS: Record<string, React.ReactNode> = {
 
 const FI_COLORS: Record<string, { iconBg: string; tag: string }> = {
   DEPOSIT: { iconBg: 'bg-zinc-900 text-lime-300', tag: 'Primary' },
-  EQUITY: { iconBg: 'bg-lime-100 text-lime-800', tag: 'Equity' },
-  MUTUAL_FUND: { iconBg: 'bg-lime-100 text-lime-800', tag: 'MF' },
-  INSURANCE_POLICIES: { iconBg: 'bg-zinc-100 text-zinc-700', tag: 'Insurance' },
-  NPS: { iconBg: 'bg-teal-100 text-teal-800', tag: 'NPS' },
-  GSTN: { iconBg: 'bg-red-100 text-red-800', tag: 'GSTN' },
-  ALTERNATIVE: { iconBg: 'bg-lime-400 text-lime-900', tag: 'Alts' },
+  EQUITY: { iconBg: 'bg-lime-100 dark:bg-lime-950/40 text-lime-800 dark:text-lime-300', tag: 'Equity' },
+  MUTUAL_FUND: { iconBg: 'bg-lime-100 dark:bg-lime-950/40 text-lime-800', tag: 'MF' },
+  INSURANCE_POLICIES: { iconBg: 'bg-muted text-zinc-700 dark:text-zinc-300', tag: 'Insurance' },
+  NPS: { iconBg: 'bg-teal-100 dark:bg-teal-950/40 text-teal-800', tag: 'NPS' },
+  GSTN: { iconBg: 'bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300', tag: 'GSTN' },
+  ALTERNATIVE: { iconBg: 'bg-lime-400 text-lime-900 dark:text-lime-300', tag: 'Alts' },
 };
 
 function fmt(n: number) {
@@ -114,11 +115,8 @@ export default function Dashboard() {
   const hasFetched = useRef(false);
   const { hasFeature, fetchPlanStatus } = usePlanStore();
   const { vault } = useFamilyStore();
+  // Core-data load failure: shown inline with a retry (not thrown to the app-wide ErrorBoundary)
   const [loadError, setLoadError] = useState<Error | null>(null);
-
-  if (loadError) {
-    throw loadError;
-  }
 
   useEffect(() => {
     fetchPlanStatus();
@@ -131,6 +129,7 @@ export default function Dashboard() {
     const needsUnclaimedData = !store.unclaimedAssets;
 
     if (needsCoreData) setLoadingAssets(true);
+    setLoadError(null);
     try {
       // Start fetching Engagement Data early in parallel if needed
       const backgroundPromise = needsEngagementData ? Promise.all([
@@ -177,7 +176,6 @@ export default function Dashboard() {
 
       try { const audit = await getAuditLog(); setAuditLogs(audit.logs); } catch { /* ok */ }
     } catch (err) {
-      console.error('Load failed', err);
       setLoadError(err instanceof Error ? err : new Error('Failed to load dashboard data'));
     }
     finally { setLoadingAssets(false); }
@@ -319,7 +317,7 @@ export default function Dashboard() {
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
-        <aside className={`fixed top-0 md:top-4 left-0 h-full md:h-[calc(100vh-32px)] flex flex-col items-center pt-12 md:pt-16 pb-3 transition-all duration-300 shrink-0 md:rounded-[28px] z-[70] ${isSidebarOpen ? 'translate-x-0 ml-0 md:ml-4 w-[260px] md:w-[216px] overflow-hidden bg-white/95 dark:bg-[#1A1D27]/95 md:bg-gradient-to-br md:from-zinc-200/90 md:via-zinc-100/90 md:to-zinc-300/90 md:dark:from-[#1A1D27]/95 md:dark:via-[#21253A]/95 md:dark:to-[#1A1D27]/95 backdrop-blur-xl shadow-2xl md:shadow-[8px_0_30px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] md:dark:shadow-[8px_0_30px_rgba(0,0,0,0.3)] border-r md:border border-zinc-200 md:border-zinc-300 dark:border-[#2E3148]' : '-translate-x-full md:translate-x-0 ml-0 md:ml-2 w-[260px] md:w-16 overflow-hidden md:overflow-visible bg-white/95 dark:bg-[#1A1D27]/95 md:bg-transparent border-r md:border-transparent border-zinc-200 dark:border-[#2E3148] md:shadow-none'}`}>
+        <aside className={`fixed top-0 md:top-4 left-0 h-full md:h-[calc(100vh-32px)] flex flex-col items-center pt-12 md:pt-16 pb-3 transition-all duration-300 shrink-0 md:rounded-[28px] z-[70] ${isSidebarOpen ? 'translate-x-0 ml-0 md:ml-4 w-[260px] md:w-[216px] overflow-hidden bg-white/95 dark:bg-[#1A1D27]/95 md:bg-gradient-to-br md:from-zinc-200/90 md:via-zinc-100/90 md:to-zinc-300/90 md:dark:from-[#1A1D27]/95 md:dark:via-[#21253A]/95 md:dark:to-[#1A1D27]/95 backdrop-blur-xl shadow-2xl md:shadow-[8px_0_30px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] md:dark:shadow-[8px_0_30px_rgba(0,0,0,0.3)] border-r md:border border-zinc-200 md:border-zinc-300 dark:md:border-zinc-700 dark:border-[#2E3148]' : '-translate-x-full md:translate-x-0 ml-0 md:ml-2 w-[260px] md:w-16 overflow-hidden md:overflow-visible bg-white/95 dark:bg-[#1A1D27]/95 md:bg-transparent border-r md:border-transparent border-zinc-200 dark:border-[#2E3148] md:shadow-none'}`}>
           {/* Stylish vertical line (only show when closed, as open state is a distinct card) */}
           {!isSidebarOpen && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-[75%] bg-gradient-to-b from-transparent via-zinc-400/60 dark:via-zinc-600/40 to-transparent pointer-events-none"></div>}
 
@@ -394,12 +392,12 @@ export default function Dashboard() {
                         {t.label.replace(/ \(\d+\)/, '')}
                       </span>
                       {isLocked && isSidebarOpen && (
-                        <div className="ml-auto flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-600 shrink-0">
+                        <div className="ml-auto flex items-center justify-center size-5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 shrink-0">
                           <Lock className="size-3" strokeWidth={2.5} />
                         </div>
                       )}
                       {isLocked && !isSidebarOpen && (
-                        <div className="absolute top-1 right-1 flex items-center justify-center size-3.5 rounded-full bg-amber-100 border border-white text-amber-600">
+                        <div className="absolute top-1 right-1 flex items-center justify-center size-3.5 rounded-full bg-amber-100 dark:bg-amber-950/40 border border-white text-amber-600 dark:text-amber-400">
                           <Lock className="size-2" strokeWidth={3} />
                         </div>
                       )}
@@ -417,8 +415,8 @@ export default function Dashboard() {
                       <InviteMember
                         vault={vault}
                         trigger={
-                          <div className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide whitespace-nowrap text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer flex items-center gap-1.5">
-                            <CornerDownRight className="size-[13px] text-zinc-500 mr-0.5" strokeWidth={2} />
+                          <div className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer flex items-center gap-1.5">
+                            <CornerDownRight className="size-[13px] text-muted-foreground mr-0.5" strokeWidth={2} />
                             <Plus className="size-3.5" strokeWidth={2.5} />
                             Add Member
                           </div>
@@ -436,7 +434,7 @@ export default function Dashboard() {
             <div className="relative group">
               <button
                 onClick={() => navigate('/pricing')}
-                className={`flex items-center justify-center bg-lime-300 hover:bg-lime-400 text-black rounded-xl text-[13px] font-bold shadow-[0_0_12px_rgba(190,242,100,0.3)] transition-all active:scale-95 ${isSidebarOpen ? 'w-full px-3 py-1.5 gap-2' : 'w-9 h-9 mx-auto p-0 gap-0'}`}
+                className={`flex items-center justify-center bg-lime-300 hover:bg-lime-400 text-foreground rounded-xl text-[13px] font-bold shadow-[0_0_12px_rgba(190,242,100,0.3)] transition-all active:scale-95 ${isSidebarOpen ? 'w-full px-3 py-1.5 gap-2' : 'w-9 h-9 mx-auto p-0 gap-0'}`}
               >
                 <Crown className="size-[18px] shrink-0" />
                 <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'max-w-[120px] opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'}`}>
@@ -444,7 +442,7 @@ export default function Dashboard() {
                 </span>
               </button>
               {!isSidebarOpen && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
+                <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 dark:bg-zinc-800 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
                   {user?.subscriptionTier === 'premium' ? 'Manage Plan' : 'Upgrade to Premium'}
                 </div>
               )}
@@ -461,7 +459,7 @@ export default function Dashboard() {
                 </span>
               </button>
               {!isSidebarOpen && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
+                <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 dark:bg-zinc-800 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
                   Log out
                 </div>
               )}
@@ -471,7 +469,7 @@ export default function Dashboard() {
             <div className="relative group">
               <ThemeToggle size="sm" className={`${isSidebarOpen ? 'w-full' : 'w-9 h-9 mx-auto'}`} />
               {!isSidebarOpen && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
+                <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+12px)] px-2.5 py-1.5 bg-zinc-900 dark:bg-zinc-800 text-white text-[13px] font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 shadow-md">
                   Toggle theme
                 </div>
               )}
@@ -515,7 +513,7 @@ export default function Dashboard() {
                   {/* RIGHT - Synced */}
                   <div className="flex flex-1 items-center justify-end pl-2 sm:pl-4">
                     {summary?.lastFetchedAt && (
-                      <span className={`flex items-center gap-1.5 sm:gap-2 bg-lime-300 text-black rounded-full transition-all duration-500 ease-out px-2.5 sm:px-4 py-0.5 sm:py-1.5 shadow-[0_0_12px_rgba(190,242,100,0.3)]`}>
+                      <span className={`flex items-center gap-1.5 sm:gap-2 bg-lime-300 text-foreground rounded-full transition-all duration-500 ease-out px-2.5 sm:px-4 py-0.5 sm:py-1.5 shadow-[0_0_12px_rgba(190,242,100,0.3)]`}>
                         <span className="text-[10px] sm:text-sm font-bold whitespace-nowrap tracking-tight">
                           <span className="hidden sm:inline">Synced </span>{new Date(summary.lastFetchedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -529,7 +527,7 @@ export default function Dashboard() {
               <div className="flex w-auto items-center gap-1.5 sm:gap-3 shrink-0 justify-end">
                 <div className="hidden md:flex items-center gap-2 sm:gap-4 mr-1 sm:mr-2">
                   <AnimatedNetWorthKpi summary={summary} isPrivacyMode={isPrivacyMode} delta={netWorthDelta} />
-                  <div className="hidden md:block h-10 w-px bg-zinc-300/70" />
+                  <div className="hidden md:block h-10 w-px bg-zinc-300/70 dark:bg-zinc-600/70" />
                   <div className="hidden md:block">
                     <Kpi label="Accounts" value={String(assets.length)} delta={`${landRecords.length} prop.`} />
                   </div>
@@ -585,7 +583,11 @@ export default function Dashboard() {
               <>
 
                 {/* Stats Cards Row */}
-                {!isLoadingAssets ? (
+                {loadError && assets.length === 0 ? (
+                  <div className="mb-10">
+                    <ErrorCard error={loadError} title="We couldn't load your dashboard" onRetry={() => { void loadData(); }} />
+                  </div>
+                ) : !isLoadingAssets ? (
                   <>
                     {(() => {
                       const bankInstCount = new Set(assets.filter(a => a.fiType === 'DEPOSIT').map(a => a.institutionName)).size;
@@ -758,9 +760,9 @@ export default function Dashboard() {
                 {isLoadingAssets && (
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 mb-10">
                     {[1, 2, 3].map(i => (
-                      <div key={i} className="bg-white rounded-2xl p-6 shadow-sm animate-pulse">
-                        <div className="flex items-start justify-between mb-4"><div className="size-10 rounded-xl bg-zinc-100" /><div className="h-4 w-16 bg-zinc-100 rounded-full" /></div>
-                        <div className="h-3 w-24 bg-zinc-100 rounded mb-2" /><div className="h-4 w-32 bg-zinc-100 rounded mb-4" /><div className="h-7 w-28 bg-zinc-100 rounded" />
+                      <div key={i} className="bg-card rounded-2xl p-6 shadow-sm animate-pulse">
+                        <div className="flex items-start justify-between mb-4"><div className="size-10 rounded-xl bg-muted" /><div className="h-4 w-16 bg-muted rounded-full" /></div>
+                        <div className="h-3 w-24 bg-muted rounded mb-2" /><div className="h-4 w-32 bg-muted rounded mb-4" /><div className="h-7 w-28 bg-muted rounded" />
                       </div>
                     ))}
                   </div>
@@ -779,7 +781,7 @@ export default function Dashboard() {
                       <Search className="size-3.5 text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />
                       <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search assets, institutions…"
                         className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-zinc-400 dark:text-zinc-200" />
-                      {query && <button onClick={() => setQuery('')} className="text-[10px] text-zinc-500 hover:text-zinc-900 px-2 py-1 rounded-full hover:bg-zinc-100 dark:hover:bg-white/10">Clear</button>}
+                      {query && <button onClick={() => setQuery('')} className="text-[10px] text-zinc-500 hover:text-foreground px-2 py-1 rounded-full hover:bg-zinc-100 dark:hover:bg-white/10">Clear</button>}
                     </div>
                     <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
                       <button aria-label="Filters" className="shrink-0 size-9 rounded-full bg-white dark:bg-[#1A1D27] grid place-items-center shadow-sm hover:bg-zinc-100 dark:hover:bg-white/5 transition border border-zinc-200/50 dark:border-[#2E3148] text-zinc-900 dark:text-zinc-300">
@@ -820,8 +822,8 @@ export default function Dashboard() {
                   </div>
 
                   <button onClick={() => setShowAddManualAsset(true)}
-                    className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-zinc-900 text-white pl-2 pr-5 py-2 text-sm font-medium hover:bg-zinc-800 active:scale-95 transition">
-                    <span className="size-7 rounded-full bg-lime-300 text-zinc-900 grid place-items-center"><Plus className="size-4" strokeWidth={2.5} /></span>
+                    className="shrink-0 flex justify-center items-center gap-2 rounded-full bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white pl-2 pr-5 py-2 text-sm font-medium hover:bg-zinc-800 active:scale-95 transition">
+                    <span className="size-7 rounded-full bg-lime-300 text-foreground grid place-items-center"><Plus className="size-4" strokeWidth={2.5} /></span>
                     Add Asset
                   </button>
                 </div>
@@ -865,8 +867,15 @@ export default function Dashboard() {
                   </div>
                 ))}
 
+                {/* Load failure (distinct from a genuinely empty account) */}
+                {!isLoadingAssets && loadError && assets.length === 0 && (
+                  <div className="mb-10">
+                    <ErrorCard error={loadError} title="We couldn't load your assets" onRetry={() => { void loadData(); }} />
+                  </div>
+                )}
+
                 {/* Empty state */}
-                {!isLoadingAssets && filteredAssets.length === 0 && (
+                {!isLoadingAssets && !(loadError && assets.length === 0) && filteredAssets.length === 0 && (
                   <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-10 text-center shadow-sm">
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">{query || filter !== 'all' ? 'No assets match your search.' : 'No financial assets found.'}</p>
                     {(query || filter !== 'all') ? (
@@ -891,7 +900,7 @@ export default function Dashboard() {
                       onClick={() => setSearchParams({ tab: 'ancestral' })}
                       className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1A1D27] hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200 dark:border-[#2E3148] text-zinc-800 dark:text-zinc-200 rounded-full text-sm font-medium transition active:scale-95 shadow-sm"
                     >
-                      <Search className="size-3.5 text-zinc-500" strokeWidth={2} />
+                      <Search className="size-3.5 text-muted-foreground" strokeWidth={2} />
                       Find Ancestral Property
                     </button>
                   </SectionHeader>
@@ -1188,7 +1197,7 @@ function AssetCard({ asset, fmt }: { asset: any; fmt: (n: number) => string }) {
                   <img
                     src={getBankLogo(asset.institutionName)!.local}
                     alt=""
-                    className="size-6 rounded-md bg-white p-1 object-contain shadow-sm shrink-0"
+                    className="size-6 rounded-md bg-card p-1 object-contain shadow-sm shrink-0"
                     onError={(e) => {
                       const target = e.currentTarget;
                       if (!target.dataset.fallback) {
@@ -1227,7 +1236,7 @@ function AssetCard({ asset, fmt }: { asset: any; fmt: (n: number) => string }) {
         {/* Balance section below the card */}
         <div className="px-3 pt-3 pb-2 flex justify-between items-end">
           <div>
-            <p className="text-[19px] font-sans font-normal text-zinc-900 tracking-tight">{fmt(asset.balance)}</p>
+            <p className="text-[19px] font-sans font-normal text-foreground tracking-tight">{fmt(asset.balance)}</p>
           </div>
           <div className="text-right">
             <div className="flex justify-end gap-0.5 mb-1">
@@ -1235,7 +1244,7 @@ function AssetCard({ asset, fmt }: { asset: any; fmt: (n: number) => string }) {
               <span className="size-[6px] rounded-full bg-emerald-400" />
               <span className="size-[6px] rounded-full bg-amber-400" />
             </div>
-            <p className="text-[11px] text-emerald-600 font-medium">+₹{monthlyChange} this mo.</p>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">+₹{monthlyChange} this mo.</p>
           </div>
         </div>
       </article>
@@ -1244,7 +1253,7 @@ function AssetCard({ asset, fmt }: { asset: any; fmt: (n: number) => string }) {
     return (
       <article className="bg-[#18181b] rounded-xl p-5 flex flex-col justify-between text-white shadow-lg cursor-pointer hover:-translate-y-1 transition-transform border border-white/5 h-[160px]">
         <div className="flex justify-between items-start mb-2">
-          <div className="size-10 rounded-lg bg-[#bef264] grid place-items-center text-lime-950">
+          <div className="size-10 rounded-lg bg-[#bef264] grid place-items-center text-lime-950 dark:text-lime-300">
             <Layers className="size-5" />
           </div>
           <span className="text-[10px] font-semibold bg-white/10 text-white/80 rounded-full px-2.5 py-1">
@@ -1279,7 +1288,7 @@ function AssetCard({ asset, fmt }: { asset: any; fmt: (n: number) => string }) {
             <img
               src={getBankLogo(asset.institutionName)!.local}
               alt=""
-              className="w-full h-full object-contain bg-white p-2"
+              className="w-full h-full object-contain bg-card p-2"
               onError={(e) => {
                 const target = e.currentTarget;
                 if (!target.dataset.fallback) {

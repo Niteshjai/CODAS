@@ -246,7 +246,7 @@ export function AssetForm({ category, onSubmit, isLoading, error }: Props) {
             (form.includeInNetworth ?? true) ? 'bg-zinc-900 dark:bg-lime-500' : 'bg-zinc-200 dark:bg-zinc-700'
           }`}
         >
-          <div className={`w-4.5 h-4.5 rounded-full bg-white absolute top-[3px] transition-all duration-200 shadow-sm ${
+          <div className={`w-4.5 h-4.5 rounded-full bg-card absolute top-[3px] transition-all duration-200 shadow-sm ${
             (form.includeInNetworth ?? true) ? 'left-[19px]' : 'left-[3px]'
           }`} />
         </button>

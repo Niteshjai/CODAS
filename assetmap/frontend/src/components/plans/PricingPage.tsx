@@ -4,6 +4,13 @@ import { PlanCard } from './PlanCard';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 
+// Consumer tiers in ascending order (mirrors PLAN_RANK in the backend planEnforcer).
+// b2b is sales-led and never treated as lower or higher.
+const PLAN_RANK: Record<string, number> = { free: 0, plus: 1, pro: 2 };
+
+const isLowerThan = (planId: string, currentPlanId: string) =>
+  planId in PLAN_RANK && PLAN_RANK[planId] < (PLAN_RANK[currentPlanId] ?? 0);
+
 export const PricingPage: React.FC = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -88,6 +95,8 @@ export const PricingPage: React.FC = () => {
       window.location.href = 'mailto:sales@codas.com';
       return;
     }
+    // Downgrades aren't offered; the backend rejects them too
+    if (planId === 'free' || isLowerThan(planId, currentPlan)) return;
 
     try {
       setSubscribingTo(planId);
@@ -154,23 +163,23 @@ export const PricingPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen text-zinc-900 font-sans flex items-center justify-center" style={{ contain: 'layout style', background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+      <div className="page-gradient-bg min-h-screen text-foreground font-sans flex items-center justify-center" style={{ contain: 'layout style' }}>
         <div className="flex flex-col items-center">
           <div className="relative flex h-12 w-12 mb-4">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-12 w-12 bg-lime-500"></span>
           </div>
-          <p className="text-xl font-semibold text-gray-800">Loading your plans...</p>
+          <p className="text-xl font-semibold text-foreground">Loading your plans...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen relative text-zinc-900 font-sans" style={{ contain: 'layout style', background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+    <div className="page-gradient-bg min-h-screen relative text-foreground font-sans" style={{ contain: 'layout style' }}>
       <button
         onClick={() => navigate(-1)}
-        className="absolute top-8 left-4 md:left-8 flex items-center gap-2 text-gray-700 bg-white/50 hover:bg-white backdrop-blur-sm px-4 py-2 rounded-full font-semibold transition-all shadow-sm z-10"
+        className="absolute top-8 left-4 md:left-8 flex items-center gap-2 text-gray-700 dark:text-zinc-300 bg-card/50 hover:bg-card backdrop-blur-sm px-4 py-2 rounded-full font-semibold transition-all shadow-sm z-10"
       >
         <ArrowLeft className="w-5 h-5" />
         Back
@@ -178,28 +187,28 @@ export const PricingPage: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h2 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
             Simple, transparent pricing
           </h2>
-          <p className="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">
+          <p className="mt-4 max-w-2xl text-xl text-muted-foreground mx-auto">
             Take control of your financial life with the right plan for you.
           </p>
 
           <div className="mt-8 flex justify-center">
-            <div className="relative flex items-center p-1 bg-gray-100 rounded-full border border-gray-200">
+            <div className="relative flex items-center p-1 bg-muted rounded-full border border-border">
               <button
                 onClick={() => setBillingCycle('monthly')}
-                className={`relative rounded-full py-2.5 px-8 text-sm font-semibold whitespace-nowrap transition-colors ${billingCycle === 'monthly' ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'
+                className={`relative rounded-full py-2.5 px-8 text-sm font-semibold whitespace-nowrap transition-colors ${billingCycle === 'monthly' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 Monthly billing
               </button>
               <button
                 onClick={() => setBillingCycle('yearly')}
-                className={`relative rounded-full py-2.5 px-8 text-sm font-semibold whitespace-nowrap transition-colors ${billingCycle === 'yearly' ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'
+                className={`relative rounded-full py-2.5 px-8 text-sm font-semibold whitespace-nowrap transition-colors ${billingCycle === 'yearly' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
-                Yearly billing <span className="ml-1.5 text-lime-600 font-bold">Save 25%</span>
+                Yearly billing <span className="ml-1.5 text-lime-600 dark:text-lime-400 font-bold">Save 25%</span>
               </button>
             </div>
           </div>
@@ -211,6 +220,7 @@ export const PricingPage: React.FC = () => {
               key={plan.id}
               plan={plan}
               isCurrentPlan={currentPlan === plan.id}
+              isLowerPlan={isLowerThan(plan.id, currentPlan)}
               isSubscribing={subscribingTo === plan.id}
               onSubscribe={handleSubscribe}
               billingCycle={billingCycle}

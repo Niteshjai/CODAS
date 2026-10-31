@@ -25,17 +25,17 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  pending_agreement:     'bg-amber-100 text-amber-800 border-amber-200',
-  documents_collecting:  'bg-orange-100 text-orange-800 border-orange-200',
-  documents_complete:    'bg-blue-100 text-blue-800 border-blue-200',
-  submitted:             'bg-indigo-100 text-indigo-800 border-indigo-200',
-  under_review:          'bg-purple-100 text-purple-800 border-purple-200',
-  additional_docs_needed:'bg-red-100 text-red-800 border-red-200',
-  approved:              'bg-emerald-100 text-emerald-800 border-emerald-200',
-  amount_credited:       'bg-green-100 text-green-800 border-green-200',
-  completed:             'bg-green-100 text-green-800 border-green-200',
-  rejected:              'bg-red-100 text-red-800 border-red-200',
-  withdrawn:             'bg-zinc-100 text-zinc-600 border-zinc-200',
+  pending_agreement:     'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
+  documents_collecting:  'bg-orange-100 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800/60',
+  documents_complete:    'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/60',
+  submitted:             'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60',
+  under_review:          'bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/60',
+  additional_docs_needed:'bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/60',
+  approved:              'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
+  amount_credited:       'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/60',
+  completed:             'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/60',
+  rejected:              'bg-red-100 dark:bg-red-950/40 text-red-800 border-red-200 dark:border-red-800/60',
+  withdrawn:             'bg-muted text-zinc-600 dark:text-zinc-400 border-border',
 }
 
 const TYPE_ICONS: Record<string, typeof Wallet> = {
@@ -84,28 +84,28 @@ export default function RecoveryCard({ caseData, onClick }: RecoveryCardProps) {
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left bg-white hover:bg-zinc-50 border rounded-[20px] p-5 transition-all hover:shadow-md group ${
-        needsAction ? 'border-amber-200/80' : 'border-zinc-200/80'
+      className={`w-full text-left bg-card hover:bg-muted/50 border rounded-[20px] p-5 transition-all hover:shadow-md group ${
+        needsAction ? 'border-amber-200/80 dark:border-amber-800/60' : 'border-border/80'
       }`}
     >
       <div className="flex items-start justify-between gap-4">
         {/* Left: Icon + Info */}
         <div className="flex items-start gap-4 min-w-0">
           <div className={`size-11 rounded-2xl flex items-center justify-center shrink-0 ${
-            caseData.status === 'completed' ? 'bg-emerald-100' : 'bg-zinc-100'
+            caseData.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-950/40' : 'bg-muted'
           }`}>
             {caseData.status === 'completed' ? (
-              <CheckCircle2 className="size-5 text-emerald-600" strokeWidth={2} />
+              <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
             ) : (
-              <Icon className="size-5 text-zinc-600" strokeWidth={1.75} />
+              <Icon className="size-5 text-zinc-600 dark:text-zinc-400" strokeWidth={1.75} />
             )}
           </div>
 
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold text-zinc-900 truncate">
+            <p className="text-[15px] font-semibold text-foreground truncate">
               {caseData.asset_description}
             </p>
-            <p className="text-[13px] text-zinc-500 mt-0.5 truncate">
+            <p className="text-[13px] text-muted-foreground mt-0.5 truncate">
               {caseData.institution_name || caseData.config.label}
             </p>
 
@@ -125,7 +125,7 @@ export default function RecoveryCard({ caseData, onClick }: RecoveryCardProps) {
 
         {/* Right: Value + Progress */}
         <div className="text-right shrink-0">
-          <p className="text-[12px] text-zinc-500 uppercase tracking-wider mb-0.5">
+          <p className="text-[12px] text-muted-foreground uppercase tracking-wider mb-0.5">
             {caseData.status === 'completed' ? 'Recovered' : 'Estimated'}
           </p>
           <p className="text-lg font-bold text-[#10b981] tracking-tight">
@@ -136,7 +136,7 @@ export default function RecoveryCard({ caseData, onClick }: RecoveryCardProps) {
           {isActive && caseData.estimate.daysRemaining != null && (
             <div className="flex items-center gap-1 mt-2 justify-end">
               <Calendar className="size-3 text-zinc-400" />
-              <span className="text-[12px] text-zinc-500">
+              <span className="text-[12px] text-muted-foreground">
                 ~{caseData.estimate.daysRemaining}d left
               </span>
             </div>
@@ -148,14 +148,14 @@ export default function RecoveryCard({ caseData, onClick }: RecoveryCardProps) {
       {isActive && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] text-zinc-500">
+            <span className="text-[11px] text-muted-foreground">
               Docs: {caseData.docs_received}/{caseData.docs_total}
             </span>
-            <span className="text-[11px] font-medium text-zinc-600">
+            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
               {caseData.progress}%
             </span>
           </div>
-          <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
               style={{ width: `${caseData.progress}%` }}
@@ -166,7 +166,7 @@ export default function RecoveryCard({ caseData, onClick }: RecoveryCardProps) {
 
       {/* Action hint */}
       {needsAction && (
-        <div className="mt-3 flex items-center gap-1.5 text-amber-700">
+        <div className="mt-3 flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
           <AlertCircle className="size-3.5" strokeWidth={2} />
           <span className="text-[12px] font-medium">Action required — tap to continue</span>
           <ArrowRight className="size-3 ml-auto opacity-0 group-hover:opacity-100 transition" />

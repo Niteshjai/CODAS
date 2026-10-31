@@ -137,12 +137,12 @@ export default function InsuranceGapFinder() {
                     <IndianRupee className="size-3.5 text-lime-600 dark:text-lime-400" />
                     Annual Income
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-medium lowercase">
+                  <span className="text-[10px] text-muted-foreground font-medium lowercase">
                     ({formatLakhs(annualIncome)}/yr)
                   </span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-semibold text-sm">₹</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-sm">₹</span>
                   <input
                     type="text"
                     value={annualIncome ? annualIncome.toLocaleString('en-IN') : ''}
@@ -222,12 +222,12 @@ export default function InsuranceGapFinder() {
                     <Landmark className="size-3.5 text-lime-600 dark:text-lime-400" />
                     Outstanding Loans
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-medium lowercase">
+                  <span className="text-[10px] text-muted-foreground font-medium lowercase">
                     ({formatLakhs(outstandingLoans)})
                   </span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-semibold text-sm">₹</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-sm">₹</span>
                   <input
                     type="text"
                     value={outstandingLoans ? outstandingLoans.toLocaleString('en-IN') : ''}
@@ -245,12 +245,12 @@ export default function InsuranceGapFinder() {
                     <IndianRupee className="size-3.5 text-lime-600 dark:text-lime-400" />
                     Monthly Expenses
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-medium lowercase">
+                  <span className="text-[10px] text-muted-foreground font-medium lowercase">
                     ({formatLakhs(monthlyExpenses)}/mo)
                   </span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-semibold text-sm">₹</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-sm">₹</span>
                   <input
                     type="text"
                     value={monthlyExpenses ? monthlyExpenses.toLocaleString('en-IN') : ''}
@@ -282,7 +282,7 @@ export default function InsuranceGapFinder() {
             <button
               onClick={handleAnalyze}
               disabled={loading}
-              className="w-full py-2.5 px-6 rounded-2xl bg-lime-300 hover:bg-lime-400 text-zinc-950 font-bold text-sm shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 px-6 rounded-2xl bg-lime-300 hover:bg-lime-400 text-foreground font-bold text-sm shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -371,7 +371,7 @@ export default function InsuranceGapFinder() {
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 leading-relaxed">{rec.description}</p>
                       </div>
                       <button
-                        className="shrink-0 inline-flex items-center gap-1 bg-lime-300 hover:bg-lime-400 text-zinc-950 text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
+                        className="shrink-0 inline-flex items-center gap-1 bg-lime-300 hover:bg-lime-400 text-foreground text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
                         onClick={() => window.open(rec.affiliateUrl || 'https://www.policybazaar.com/', '_blank', 'noopener,noreferrer')}
                       >
                         <span>Compare Plans</span>

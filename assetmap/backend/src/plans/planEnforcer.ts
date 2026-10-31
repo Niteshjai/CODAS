@@ -26,7 +26,19 @@ interface PlanCheck {
   upgradeUrl?:   string
 }
 
+// Consumer tiers in ascending order. Users may only move up; b2b is sales-led and not ranked.
+export const PLAN_RANK: Record<string, number> = { free: 0, plus: 1, pro: 2 }
+
 export const planEnforcer = {
+
+  async getCurrentPlanId(pool: Pool, userId: string): Promise<string> {
+    const result = await pool.query(
+      'SELECT plan_id FROM user_current_plan WHERE user_id = $1',
+      [userId]
+    )
+    return result.rows[0]?.plan_id ?? 'free'
+  },
+
 
   // Check if user can access a feature
   async canAccess(

@@ -4,13 +4,14 @@ export function DashboardSkeleton() {
   return (
     <div
       role="status"
+      aria-busy="true"
       aria-label="Loading dashboard"
       style={{ padding:'20px 16px', maxWidth:900, margin:'0 auto' }}
     >
       {/* Net worth hero */}
       <div style={{
-        background:'var(--surface-2, #fafafa)',
-        border:'0.5px solid var(--border, #e4e4e7)',
+        background:'var(--card)',
+        border:'1px solid var(--border)',
         borderRadius:16, padding:24, marginBottom:16
       }}>
         <Skeleton width={120} height={13} style={{ marginBottom:12 }} />
@@ -19,12 +20,12 @@ export function DashboardSkeleton() {
       </div>
 
       {/* Asset category cards row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)',
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',
                    gap:10, marginBottom:16 }}>
         {[1,2,3].map(i => (
           <div key={i} style={{
-            background:'var(--surface-2, #fafafa)',
-            border:'0.5px solid var(--border, #e4e4e7)',
+            background:'var(--card)',
+            border:'1px solid var(--border)',
             borderRadius:12, padding:16
           }}>
             <Skeleton width={80} height={12} style={{ marginBottom:10 }} />
@@ -36,8 +37,8 @@ export function DashboardSkeleton() {
 
       {/* Chart area */}
       <div style={{
-        background:'var(--surface-2, #fafafa)',
-        border:'0.5px solid var(--border, #e4e4e7)',
+        background:'var(--card)',
+        border:'1px solid var(--border)',
         borderRadius:12, padding:'20px', marginBottom:16
       }}>
         <Skeleton width={120} height={13} style={{ marginBottom:16 }} />
@@ -46,15 +47,15 @@ export function DashboardSkeleton() {
 
       {/* Asset list */}
       <div style={{
-        background:'var(--surface-2, #fafafa)',
-        border:'0.5px solid var(--border, #e4e4e7)',
+        background:'var(--card)',
+        border:'1px solid var(--border)',
         borderRadius:12, overflow:'hidden'
       }}>
         {[1,2,3,4,5].map((i, idx) => (
           <div key={i} style={{
             display:'flex', alignItems:'center', gap:12,
             padding:'14px 16px',
-            borderBottom:idx < 4 ? '0.5px solid var(--border, #e4e4e7)' : 'none'
+            borderBottom:idx < 4 ? '1px solid var(--border)' : 'none'
           }}>
             <Skeleton width={36} height={36} radius="50%" />
             <div style={{ flex:1 }}>

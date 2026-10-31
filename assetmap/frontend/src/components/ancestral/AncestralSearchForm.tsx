@@ -139,7 +139,7 @@ export function AncestralSearchForm({ onSubmit }: Props) {
 
         <button
           type="submit"
-          className="w-full py-2.5 px-6 rounded-2xl bg-lime-300 hover:bg-lime-400 text-zinc-950 font-bold text-base shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-2"
+          className="w-full py-2.5 px-6 rounded-2xl bg-lime-300 hover:bg-lime-400 text-foreground font-bold text-base shadow-[0_0_20px_rgba(190,242,100,0.35)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-2"
         >
           Search Land Records
         </button>

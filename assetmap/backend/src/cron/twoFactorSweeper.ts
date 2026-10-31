@@ -1,5 +1,4 @@
 import cron from 'node-cron'
-import { Pool } from 'pg'
 import { pool } from '../db/connection'
 import { logger } from '../utils/logger'
 
@@ -25,7 +24,7 @@ export function startTwoFactorSweeper() {
     } catch (err) {
       logger.error('Two-factor sweeper failed', { error: (err as Error).message })
     }
-  })
+  }, { timezone: 'Asia/Kolkata' })
   
   logger.info('Two-factor sweeper cron initialized.')
 }

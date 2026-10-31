@@ -205,6 +205,22 @@
 }
 
 .dark {
+  /* ── Material-style tokens from @theme (used by Login and onboarding screens) had no
+     dark values, leaving dark-grey text on the dark background. Map them onto the palette. */
+  --color-on-surface: var(--foreground);
+  --color-on-surface-variant: var(--muted-foreground);
+  --color-on-background: var(--foreground);
+  --color-outline: oklch(0.6 0.01 270);
+  --color-outline-variant: var(--border);
+  --color-surface: var(--background);
+  --color-surface-bright: var(--card);
+  --color-surface-dim: oklch(0.13 0.02 270);
+  --color-surface-container-low: var(--card);
+  --color-surface-container-high: var(--muted);
+  --color-surface-container-highest: var(--muted);
+  --color-surface-container-lowest: var(--background);
+  --color-surface-variant: var(--muted);
+
   /* ── Surfaces — deep navy/charcoal, not pure black */
   --background: oklch(0.16 0.02 270);
   /* #0F1117 */
@@ -379,6 +395,27 @@ html.theme-transition *::after {
   background: #1A1D27;
 }
 
+/* Popups/tooltips are Leaflet DOM (always white) but their content follows the theme */
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip,
+.dark .leaflet-tooltip {
+  background: var(--card);
+  color: var(--card-foreground);
+  border-color: var(--border);
+}
+
+.dark .leaflet-tooltip-top::before { border-top-color: var(--card); }
+.dark .leaflet-tooltip-bottom::before { border-bottom-color: var(--card); }
+.dark .leaflet-tooltip-left::before { border-left-color: var(--card); }
+.dark .leaflet-tooltip-right::before { border-right-color: var(--card); }
+
+.dark .leaflet-control-zoom a,
+.dark .leaflet-control-attribution {
+  background: var(--card);
+  color: var(--card-foreground);
+  border-color: var(--border);
+}
+
 /* ─────────────────────────────────────────
    RECHARTS / D3 DARK MODE
 ───────────────────────────────────────── */
@@ -388,7 +425,17 @@ html.theme-transition *::after {
 }
 
 .dark .recharts-text {
-  fill: #5F5E6A;
+  fill: #9A98A6; /* was #5F5E6A: ~2.8:1 on #0F1117, below readable contrast */
+}
+
+.dark .recharts-default-tooltip {
+  background-color: var(--popover) !important;
+  border-color: var(--border) !important;
+  color: var(--popover-foreground);
+}
+
+.dark .recharts-tooltip-label {
+  color: var(--popover-foreground);
 }
 
 /* ─────────────────────────────────────────
@@ -442,4 +489,59 @@ html.theme-transition *::after {
 
 .dark img.illustration {
   filter: brightness(0.85);
+}
+
+/* ─────────────────────────────────────────
+   App page background — shared by full-page screens
+   (was an inline light-only gradient, which stayed grey in dark mode)
+───────────────────────────────────────── */
+.page-gradient-bg {
+  background: linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%);
+}
+
+.dark .page-gradient-bg {
+  background: linear-gradient(to bottom right, #0F1117, #151825, #0F1117);
+}
+
+/* ─────────────────────────────────────────
+   Legacy inline-style tokens
+   Several components use var(--text-*) in inline styles; these were never defined,
+   so text silently inherited its parent colour. Alias them to the theme tokens.
+───────────────────────────────────────── */
+:root {
+  --text-primary: var(--foreground);
+  --text-secondary: var(--muted-foreground);
+  --text-muted: var(--muted-foreground);
+  --text-accent: #185FA5;
+
+  /* Status tones for inline-styled notices (light values = original design) */
+  --tone-warning-bg: #FAEEDA;
+  --tone-warning-border: #FAC775;
+  --tone-warning-fg: #854F0B;
+  --tone-info-bg: #E6F1FB;
+  --tone-info-fg: #185FA5;
+  --tone-info-border: #85B7EB;
+  --tone-success-bg: #EAF3DE;
+  --tone-success-border: #97C459;
+  --tone-success-fg: #3B6D11;
+  --tone-danger-bg: #FCEBEB;
+  --tone-danger-border: #F09595;
+  --tone-danger-fg: #A32D2D;
+}
+
+.dark {
+  --text-accent: #8DB8EC;
+
+  --tone-warning-bg: rgba(250, 199, 117, 0.12);
+  --tone-warning-border: rgba(250, 199, 117, 0.35);
+  --tone-warning-fg: #F5C77E;
+  --tone-info-bg: rgba(74, 144, 217, 0.15);
+  --tone-info-fg: #8DB8EC;
+  --tone-info-border: rgba(133, 183, 235, 0.4);
+  --tone-success-bg: rgba(151, 196, 89, 0.14);
+  --tone-success-border: rgba(151, 196, 89, 0.4);
+  --tone-success-fg: #A9D46F;
+  --tone-danger-bg: rgba(240, 92, 91, 0.12);
+  --tone-danger-border: rgba(240, 149, 149, 0.4);
+  --tone-danger-fg: #F49B9A;
 }

@@ -133,7 +133,7 @@ export default function NetWorthChart({
         .attr('cy', d => y(Number(d.total_paise)))
         .attr('r', 3.5)
         .attr('fill', '#84cc16')
-        .attr('stroke', '#ffffff')
+        .style('stroke', 'var(--card)')
         .attr('stroke-width', 2)
         .style('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))')
 
@@ -151,7 +151,7 @@ export default function NetWorthChart({
       xAxis.selectAll('text')
         .style('font-size', '11px')
         .style('font-weight', '500')
-        .style('fill', '#71717a')
+        .style('fill', 'var(--muted-foreground)')
         .attr('dy', '1.2em')
 
       // Y axis
@@ -167,7 +167,7 @@ export default function NetWorthChart({
       yAxis.selectAll('text')
         .style('font-size', '11px')
         .style('font-weight', '500')
-        .style('fill', '#71717a')
+        .style('fill', 'var(--muted-foreground)')
         .attr('dx', '-0.5em')
 
       // Floating interactive Tooltip
@@ -214,7 +214,7 @@ export default function NetWorthChart({
           dots
             .attr('r', 3.5)
             .attr('fill', '#84cc16')
-            .attr('stroke', '#ffffff')
+            .style('stroke', 'var(--card)')
             .attr('stroke-width', 2)
         })
     }

@@ -21,8 +21,8 @@ export default function WillPreview({ testator, allocations, onGenerate, loading
         </p>
       </div>
 
-      <Card className="bg-white text-black p-4 md:p-8 rounded-none max-w-3xl mx-auto shadow-2xl">
-        <div className="text-center mb-8 border-b-2 border-neutral-200 pb-4">
+      <Card className="bg-card text-foreground p-4 md:p-8 rounded-none max-w-3xl mx-auto shadow-2xl">
+        <div className="text-center mb-8 border-b-2 border-border pb-4">
           <h1 className="text-3xl font-serif font-bold uppercase tracking-wider">Last Will and Testament</h1>
           <p className="mt-2 font-serif text-lg">of {testator.testatorName || '[Your Name]'}</p>
         </div>
@@ -49,7 +49,7 @@ export default function WillPreview({ testator, allocations, onGenerate, loading
             <p className="mb-4">I direct that my assets be distributed as follows:</p>
             
             {allocations.length === 0 ? (
-              <p className="text-neutral-500 italic">[No allocations added yet]</p>
+              <p className="text-muted-foreground italic">[No allocations added yet]</p>
             ) : (
               <ul className="list-disc pl-6 space-y-2">
                 {allocations.map((a, i) => (
@@ -68,11 +68,11 @@ export default function WillPreview({ testator, allocations, onGenerate, loading
               IN WITNESS WHEREOF, I have hereunto set my hand to this Will on this date _____________________.
             </p>
             
-            <div className="flex justify-between mt-8 pt-8 border-t border-dashed border-neutral-300">
+            <div className="flex justify-between mt-8 pt-8 border-t border-dashed border-neutral-300 dark:border-zinc-700">
               <div className="text-center">
-                <div className="w-48 border-b border-black mb-2"></div>
+                <div className="w-48 border-b border-foreground mb-2"></div>
                 <p className="font-bold">{testator.testatorName || 'Testator Name'}</p>
-                <p className="text-sm text-neutral-600">Testator</p>
+                <p className="text-sm text-neutral-600 dark:text-zinc-400">Testator</p>
               </div>
             </div>
 
@@ -82,12 +82,12 @@ export default function WillPreview({ testator, allocations, onGenerate, loading
 
             <div className="flex justify-between gap-8 mt-8">
               <div className="flex-1 text-center">
-                <div className="w-full border-b border-black mb-2"></div>
-                <p className="text-sm text-neutral-600">Witness 1 Signature</p>
+                <div className="w-full border-b border-foreground mb-2"></div>
+                <p className="text-sm text-neutral-600 dark:text-zinc-400">Witness 1 Signature</p>
               </div>
               <div className="flex-1 text-center">
-                <div className="w-full border-b border-black mb-2"></div>
-                <p className="text-sm text-neutral-600">Witness 2 Signature</p>
+                <div className="w-full border-b border-foreground mb-2"></div>
+                <p className="text-sm text-neutral-600 dark:text-zinc-400">Witness 2 Signature</p>
               </div>
             </div>
           </section>

@@ -91,7 +91,7 @@ export function AncestralResultCard({ result, onConfirm, onReject }: Props) {
         {result.has_encumbrance && (
           <div style={{
             padding:'6px 10px', borderRadius:6, marginBottom:10,
-            background:'#FAEEDA', color:'#854F0B', fontSize:12.5
+            background:'var(--tone-warning-bg)', color:'var(--tone-warning-fg)', fontSize:12.5
           }}>
             ⚠️ Encumbrance recorded — this property may have a loan or dispute
           </div>

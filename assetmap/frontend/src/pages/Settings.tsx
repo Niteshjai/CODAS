@@ -33,10 +33,10 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen text-zinc-900 font-sans pb-20" style={{ background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+    <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20">
       {/* Save confirmation toast */}
       <div
-        className={`fixed top-6 right-6 z-50 flex items-center gap-2 bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300 ${
+        className={`fixed top-6 right-6 z-50 flex items-center gap-2 bg-zinc-900 dark:bg-zinc-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300 ${
           savedMessage ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
         }`}
       >
@@ -48,7 +48,7 @@ export default function Settings() {
         <div className="w-full px-6 md:px-10 py-2 flex items-center justify-between">
           <button 
             onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 bg-white/50 hover:bg-white/80 border border-zinc-300/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -58,24 +58,24 @@ export default function Settings() {
 
       <main className="max-w-3xl mx-auto px-6 mt-0">
         <div className="mb-10 text-center">
-          <h1 className="text-4xl font-display font-light tracking-tight text-zinc-900">Account Settings</h1>
-          <p className="text-zinc-600 mt-2">Manage your preferences, security, and application settings.</p>
+          <h1 className="text-4xl font-display font-light tracking-tight text-foreground">Account Settings</h1>
+          <p className="text-zinc-600 dark:text-zinc-400 mt-2">Manage your preferences, security, and application settings.</p>
         </div>
 
         <div className="flex flex-col gap-6">
           <SettingSection title="Security & Authentication" icon={<Lock className="size-5" />}>
-            <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/50 last:border-0 hover:bg-zinc-100/50 transition cursor-pointer" onClick={() => navigate('/settings/2fa')}>
+            <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 last:border-0 hover:bg-muted/50 transition cursor-pointer" onClick={() => navigate('/settings/2fa')}>
               <div>
                 <p className="text-sm font-medium">Two-Factor Authentication (2FA)</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Manage your 2FA authentication methods.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Manage your 2FA authentication methods.</p>
               </div>
               <div className="flex items-center gap-3 text-zinc-400">
                 {twoFactorEnabled === null ? (
-                  <div className="size-4 rounded-full border-2 border-zinc-200 border-t-zinc-600 animate-spin" />
+                  <div className="size-4 rounded-full border-2 border-border border-t-zinc-600 animate-spin" />
                 ) : twoFactorEnabled === 'error' ? (
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-100 text-red-600">Error</span>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400">Error</span>
                 ) : (
-                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${twoFactorEnabled ? 'bg-lime-100 text-lime-700' : 'bg-zinc-100 text-zinc-600'}`}>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${twoFactorEnabled ? 'bg-lime-100 dark:bg-lime-950/40 text-lime-700' : 'bg-muted text-zinc-600 dark:text-zinc-400'}`}>
                     {twoFactorEnabled ? 'On' : 'Off'}
                   </span>
                 )}
@@ -92,10 +92,10 @@ export default function Settings() {
 
           <SettingSection title="Privacy & Data" icon={<Shield className="size-5" />}>
             <ToggleRow label="Data Sync via AA" description="Automatically fetch new transactions via Account Aggregator." defaultChecked={true} onToggle={(v) => flashSaved(v ? 'Data sync enabled' : 'Data sync paused')} />
-            <div className="px-6 py-4 border-t border-zinc-100">
+            <div className="px-6 py-4 border-t border-border">
               <button
                 onClick={() => setShowConsentModal(true)}
-                className="text-sm font-medium text-red-600 hover:text-red-800 transition active:scale-95"
+                className="text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition active:scale-95"
               >
                 Manage Consent Approvals
               </button>
@@ -106,17 +106,17 @@ export default function Settings() {
             <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">App Theme</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Choose your preferred visual style.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Choose your preferred visual style.</p>
               </div>
-              <div className="flex bg-zinc-100 p-1 rounded-full">
+              <div className="flex bg-muted p-1 rounded-full">
                 {(['light', 'dark', 'system'] as Theme[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => { setTheme(t); flashSaved(`Theme set to ${t}`); }}
                     className={`px-4 py-1.5 text-xs font-medium rounded-full capitalize transition-all duration-200 ${
                       theme === t
-                        ? 'bg-white shadow-sm text-zinc-900 scale-105'
-                        : 'text-zinc-500 hover:text-zinc-900'
+                        ? 'bg-card shadow-sm text-foreground scale-105'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {t}
@@ -137,9 +137,9 @@ export default function Settings() {
 
 function SettingSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-white/80 backdrop-blur-lg rounded-[24px] shadow-sm border border-zinc-200/50 overflow-hidden hover:shadow-md transition-shadow duration-300">
-      <div className="p-6 flex items-center gap-3 border-b border-zinc-200/50">
-        <div className="p-2 bg-white/50 backdrop-blur-sm rounded-xl shadow-sm border border-zinc-200/50 text-zinc-700">
+    <div className="bg-card/80 backdrop-blur-lg rounded-[24px] shadow-sm border border-border/50 overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div className="p-6 flex items-center gap-3 border-b border-border/50">
+        <div className="p-2 bg-card/50 backdrop-blur-sm rounded-xl shadow-sm border border-border/50 text-zinc-700 dark:text-zinc-300">
           {icon}
         </div>
         <h3 className="text-lg font-display font-semibold">{title}</h3>
@@ -152,16 +152,16 @@ function SettingSection({ title, icon, children }: { title: string; icon: React.
 function ToggleRow({ label, description, defaultChecked, onToggle }: { label: string; description: string; defaultChecked: boolean; onToggle?: (value: boolean) => void }) {
   const [checked, setChecked] = useState(defaultChecked);
   return (
-    <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/50 last:border-0 hover:bg-zinc-100/50 transition">
+    <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 last:border-0 hover:bg-muted/50 transition">
       <div>
         <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-zinc-500 mt-0.5">{description}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>
       <button 
         onClick={() => { const next = !checked; setChecked(next); onToggle?.(next); }}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-lime-400' : 'bg-zinc-300'}`}
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-lime-400' : 'bg-zinc-300 dark:bg-zinc-600'}`}
       >
-        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-card shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
       </button>
     </div>
   );

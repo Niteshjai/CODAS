@@ -289,13 +289,13 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
     return (
       <div className="flex flex-col md:flex-row gap-6 w-full">
         <div className="w-full md:w-1/3 flex flex-col gap-4">
-          <div className="h-10 w-full bg-zinc-100 rounded-lg animate-pulse" />
-          <div className="h-32 w-full bg-zinc-100 rounded-2xl animate-pulse" />
-          <div className="h-32 w-full bg-zinc-100 rounded-2xl animate-pulse" />
-          <div className="h-32 w-full bg-zinc-100 rounded-2xl animate-pulse" />
+          <div className="h-10 w-full bg-muted rounded-lg animate-pulse" />
+          <div className="h-32 w-full bg-muted rounded-2xl animate-pulse" />
+          <div className="h-32 w-full bg-muted rounded-2xl animate-pulse" />
+          <div className="h-32 w-full bg-muted rounded-2xl animate-pulse" />
         </div>
         <div className="w-full md:w-2/3">
-          <div className="w-full h-[320px] md:h-[450px] bg-zinc-100 rounded-[24px] animate-pulse" />
+          <div className="w-full h-[320px] md:h-[450px] bg-muted rounded-[24px] animate-pulse" />
         </div>
       </div>
     );
@@ -303,14 +303,14 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
   if (parcels.length === 0) {
     return (
-      <div className="bg-white rounded-[24px] p-12 text-center shadow-sm border border-zinc-200">
-        <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center mx-auto mb-4 border border-zinc-100">
+      <div className="bg-card rounded-[24px] p-12 text-center shadow-sm border border-border">
+        <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4 border border-border">
           <MapPin className="size-8 text-zinc-300" />
         </div>
-        <h3 className="text-xl font-display font-medium text-zinc-900 mb-2">
+        <h3 className="text-xl font-display font-medium text-foreground mb-2">
           {!hasLandConsent ? "Provide consent" : "No property found"}
         </h3>
-        <p className="text-zinc-500 text-sm mb-6">
+        <p className="text-muted-foreground text-sm mb-6">
           {!hasLandConsent 
             ? "Please provide consent to view your land registries."
             : "We searched linked registries for your Aadhaar, but no properties were found."}
@@ -329,7 +329,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
             <div className="flex items-center gap-2 overflow-x-auto pb-1 shrink-0 scrollbar-hide">
               <button
                 onClick={() => setActiveStateFilter('all')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${activeStateFilter === 'all' ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50'}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${activeStateFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-800 text-white' : 'bg-card text-zinc-600 dark:text-zinc-400 border border-border hover:bg-muted/50'}`}
               >
                 All States
               </button>
@@ -337,7 +337,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                 <button
                   key={stateCode}
                   onClick={() => setActiveStateFilter(stateCode)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${activeStateFilter === stateCode ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50'}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${activeStateFilter === stateCode ? 'bg-zinc-900 dark:bg-zinc-800 text-white' : 'bg-card text-zinc-600 dark:text-zinc-400 border border-border hover:bg-muted/50'}`}
                 >
                   {stateCode}
                 </button>
@@ -347,33 +347,33 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
             <div className="flex items-center gap-2 shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-2 flex items-center justify-center cursor-pointer hover:bg-zinc-50 transition active:scale-95" title="Sort properties">
-                    <ArrowUpDown className="size-4 text-zinc-600" />
+                  <div className="bg-card rounded-xl shadow-sm border border-border p-2 flex items-center justify-center cursor-pointer hover:bg-muted/50 transition active:scale-95" title="Sort properties">
+                    <ArrowUpDown className="size-4 text-zinc-600 dark:text-zinc-400" />
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px] rounded-xl border border-zinc-200 shadow-lg p-1 bg-white">
-                  <DropdownMenuItem onClick={() => setSortBy('default')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'default' ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50'}`}>Default order</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('price-desc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'price-desc' ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50'}`}>Price: High to Low</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('price-asc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'price-asc' ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50'}`}>Price: Low to High</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('size-desc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'size-desc' ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50'}`}>Size: Largest first</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('size-asc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'size-asc' ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700 hover:bg-zinc-50'}`}>Size: Smallest first</DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-[180px] rounded-xl border border-border shadow-lg p-1 bg-card">
+                  <DropdownMenuItem onClick={() => setSortBy('default')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'default' ? 'bg-muted text-foreground' : 'text-zinc-700 dark:text-zinc-300 hover:bg-muted/50'}`}>Default order</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy('price-desc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'price-desc' ? 'bg-muted text-foreground' : 'text-zinc-700 dark:text-zinc-300 hover:bg-muted/50'}`}>Price: High to Low</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy('price-asc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'price-asc' ? 'bg-muted text-foreground' : 'text-zinc-700 dark:text-zinc-300 hover:bg-muted/50'}`}>Price: Low to High</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy('size-desc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'size-desc' ? 'bg-muted text-foreground' : 'text-zinc-700 dark:text-zinc-300 hover:bg-muted/50'}`}>Size: Largest first</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy('size-asc')} className={`text-sm font-medium rounded-lg cursor-pointer px-3 py-2 outline-none transition ${sortBy === 'size-asc' ? 'bg-muted text-foreground' : 'text-zinc-700 dark:text-zinc-300 hover:bg-muted/50'}`}>Size: Smallest first</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <div className="bg-white rounded-xl shadow-sm border border-zinc-200 px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-zinc-50 transition active:scale-95">
-                    <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Unit:</span>
-                    <span className="text-sm font-semibold text-zinc-900">{UNIT_LABELS[displayUnit]}</span>
+                  <div className="bg-card rounded-xl shadow-sm border border-border px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-muted/50 transition active:scale-95">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Unit:</span>
+                    <span className="text-sm font-semibold text-foreground">{UNIT_LABELS[displayUnit]}</span>
                     <ChevronDown className="size-4 text-zinc-400" />
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[140px] rounded-xl border border-zinc-200 shadow-lg p-1 bg-white">
+                <DropdownMenuContent align="end" className="w-[140px] rounded-xl border border-border shadow-lg p-1 bg-card">
                   {Object.entries(UNIT_LABELS).map(([key, label]) => (
                     <DropdownMenuItem
                       key={key}
                       onClick={() => setDisplayUnit(key as LandUnit)}
-                      className="text-sm font-medium text-zinc-800 rounded-lg cursor-pointer focus:bg-zinc-100 hover:bg-zinc-100 px-3 py-2 outline-none transition"
+                      className="text-sm font-medium text-foreground rounded-lg cursor-pointer focus:bg-muted hover:bg-muted px-3 py-2 outline-none transition"
                     >
                       {label}
                     </DropdownMenuItem>
@@ -395,14 +395,14 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                   <div
                     key={parcel.id}
                     onClick={() => handleSelectParcel(parcel)}
-                    className={`bg-white rounded-xl p-3 shadow-sm transition cursor-pointer border ${isSelected ? 'border-blue-500 bg-blue-50/50' : 'border-zinc-200 hover:border-zinc-300'}`}
+                    className={`bg-card rounded-xl p-3 shadow-sm transition cursor-pointer border ${isSelected ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40' : 'border-border hover:border-zinc-300 dark:hover:border-zinc-700'}`}
                   >
                     <div className="flex items-start justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="shrink-0 flex items-center justify-center size-4 rounded-full bg-zinc-900 text-white text-[9px] font-bold">
+                        <span className="shrink-0 flex items-center justify-center size-4 rounded-full bg-zinc-900 dark:bg-zinc-800 text-white text-[9px] font-bold">
                           {index + 1}
                         </span>
-                        <h4 className="text-[13px] font-semibold text-zinc-900 truncate">
+                        <h4 className="text-[13px] font-semibold text-foreground truncate">
                           {parcel.district}, {parcel.stateCode}
                         </h4>
                       </div>
@@ -418,28 +418,28 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
                     <div className="mt-0.5 flex items-center gap-1.5 mb-2 flex-wrap">
                       <div className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: titleStatus.color }} />
-                      <p className="text-[10px] font-medium text-zinc-600">{titleStatus.label}</p>
+                      <p className="text-[10px] font-medium text-zinc-600 dark:text-zinc-400">{titleStatus.label}</p>
                       {parcel.source === 'manual' && (
                         <>
                           <span className="text-zinc-300 text-[9px] hidden sm:inline">|</span>
-                          <span className="text-[9px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Manually verified</span>
+                          <span className="text-[9px] font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">Manually verified</span>
                         </>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 border-t border-zinc-100 pt-2">
+                    <div className="grid grid-cols-2 gap-2 border-t border-border pt-2">
                       <div>
                         <p className="text-[9px] uppercase text-zinc-400 font-medium tracking-wider">Area</p>
-                        <p className="text-[11px] font-semibold text-zinc-800 mt-0.5">{formatArea(parcel.areaAcres, displayUnit)}</p>
+                        <p className="text-[11px] font-semibold text-foreground mt-0.5">{formatArea(parcel.areaAcres, displayUnit)}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[9px] uppercase text-zinc-400 font-medium tracking-wider">Est. Value</p>
-                        <p className="text-[11px] font-bold text-emerald-600 mt-0.5">{formatINR(parcel.estimatedValue)}</p>
+                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatINR(parcel.estimatedValue)}</p>
                       </div>
                     </div>
 
                     {(!parcel.latitude || !parcel.longitude) && (
-                      <div className="mt-2 bg-amber-50 text-amber-700 text-[10px] font-medium py-1 px-2 rounded-md flex items-center gap-1.5">
+                      <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[10px] font-medium py-1 px-2 rounded-md flex items-center gap-1.5">
                         <MapIcon className="size-3 shrink-0" /> No coordinates — location approximate
                       </div>
                     )}
@@ -454,7 +454,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 transition-opacity duration-300">
               <button
                 onClick={() => document.getElementById('land-list-container')?.scrollBy({ top: 250, behavior: 'smooth' })}
-                className="flex items-center gap-1.5 bg-zinc-900 text-white shadow-xl px-4 py-2 rounded-full text-xs font-bold hover:bg-zinc-800 transition active:scale-95"
+                className="flex items-center gap-1.5 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white shadow-xl px-4 py-2 rounded-full text-xs font-bold hover:bg-zinc-800 transition active:scale-95"
               >
                 Scroll for more <ChevronDown className="size-4 animate-bounce" />
               </button>
@@ -469,14 +469,14 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
               <button
                 onClick={onRefresh}
                 disabled={isLoading}
-                className="flex items-center gap-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-50 shadow-sm active:scale-95"
+                className="flex items-center gap-2 bg-card border border-border hover:bg-muted/50 text-zinc-700 dark:text-zinc-300 rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-50 shadow-sm active:scale-95"
               >
-                <RefreshCw className={`size-4 ${isLoading ? 'animate-spin text-zinc-400' : 'text-zinc-500'}`} />
+                <RefreshCw className={`size-4 ${isLoading ? 'animate-spin text-zinc-400' : 'text-muted-foreground'}`} />
                 <span>Refresh</span>
               </button>
             )}
           </div>
-          <div className="w-full h-[320px] md:h-[450px] rounded-[24px] overflow-hidden border border-zinc-200 shadow-sm relative z-0">
+          <div className="w-full h-[320px] md:h-[450px] rounded-[24px] overflow-hidden border border-border shadow-sm relative z-0">
             <MapContainer center={mapCenter} zoom={mapZoom} className="w-full h-full" zoomControl={false}>
             <TileLayer
               attribution={mapAttribution}
@@ -494,8 +494,8 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                 >
                   <Popup className="custom-map-popup border-0 shadow-lg">
                     <div className="flex flex-col gap-0.5 min-w-[80px]">
-                      <div className="font-semibold text-zinc-900 text-xs">{parcel.district}, {parcel.stateCode}</div>
-                      <div className="text-[10px] text-zinc-500">{formatArea(parcel.areaAcres, displayUnit)}</div>
+                      <div className="font-semibold text-foreground text-xs">{parcel.district}, {parcel.stateCode}</div>
+                      <div className="text-[10px] text-muted-foreground">{formatArea(parcel.areaAcres, displayUnit)}</div>
                     </div>
                   </Popup>
                 </Marker>
@@ -508,14 +508,14 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
       {/* Slide-in Detail Panel */}
       <div
-        className={`absolute -bottom-16 right-0 left-0 md:left-auto md:right-6 md:w-[72%] lg:w-[62%] max-w-5xl bg-white rounded-t-[24px] md:rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.16)] border border-zinc-200 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] z-10
+        className={`absolute -bottom-16 right-0 left-0 md:left-auto md:right-6 md:w-[72%] lg:w-[62%] max-w-5xl bg-card rounded-t-[24px] md:rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.16)] border border-border transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] z-10
           ${selectedParcel ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}
       >
         {selectedParcel && (
           <div className="p-4 md:p-5 relative">
             <button
               onClick={() => setSelectedParcelId(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-zinc-100 text-zinc-500 transition"
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-muted text-muted-foreground transition"
             >
               <X className="size-4" />
             </button>
@@ -523,56 +523,56 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
             <div className="flex flex-col md:flex-row gap-5 md:gap-6">
               {/* Left Column */}
               <div className="w-full md:w-3/5">
-                <h3 className="text-lg md:text-xl font-semibold text-zinc-900 pr-10 mb-4 leading-tight">
+                <h3 className="text-lg md:text-xl font-semibold text-foreground pr-10 mb-4 leading-tight">
                   {selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'Property'} at {selectedParcel.village}, {selectedParcel.taluka}, {selectedParcel.district}
                 </h3>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Survey/Khasra</p>
-                    <p className="text-sm font-medium text-zinc-900 truncate" title={selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'N/A'}>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Survey/Khasra</p>
+                    <p className="text-sm font-medium text-foreground truncate" title={selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'N/A'}>
                       {selectedParcel.surveyNumber || selectedParcel.khasraNumber || 'N/A'}
                     </p>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Area</p>
-                    <p className="text-sm font-medium text-zinc-900">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Area</p>
+                    <p className="text-sm font-medium text-foreground">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Land Type</p>
-                        <p className="font-medium text-zinc-900 truncate">{(selectedParcel as any).ownerName || 'Joint Property'}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Land Type</p>
+                        <p className="font-medium text-foreground truncate">{(selectedParcel as any).ownerName || 'Joint Property'}</p>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Reg. Date</p>
-                    <p className="text-sm font-medium text-zinc-900 truncate">{formatDate(selectedParcel.registrationDate)}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Reg. Date</p>
+                    <p className="text-sm font-medium text-foreground truncate">{formatDate(selectedParcel.registrationDate)}</p>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Ownership</p>
-                    <p className="text-sm font-medium text-zinc-900 capitalize truncate">{selectedParcel.ownershipType.replace('_', ' ')}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Ownership</p>
+                    <p className="text-sm font-medium text-foreground capitalize truncate">{selectedParcel.ownershipType.replace('_', ' ')}</p>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Mutation Status</p>
-                    <p className="text-sm font-medium text-zinc-900 capitalize truncate">{selectedParcel.mutationStatus.replace('_', ' ')}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Mutation Status</p>
+                    <p className="text-sm font-medium text-foreground capitalize truncate">{selectedParcel.mutationStatus.replace('_', ' ')}</p>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Title Status</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Title Status</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div className="size-1.5 rounded-full" style={{ backgroundColor: titleStatusColors[selectedParcel.titleStatus].color }} />
-                      <p className="text-sm font-medium text-zinc-900 truncate">{titleStatusColors[selectedParcel.titleStatus].label}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{titleStatusColors[selectedParcel.titleStatus].label}</p>
                     </div>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-medium">Source</p>
-                    <p className="text-sm font-medium text-zinc-900 uppercase tracking-wide truncate">{selectedParcel.source}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wider font-medium">Source</p>
+                    <p className="text-sm font-medium text-foreground uppercase tracking-wide truncate">{selectedParcel.source}</p>
                   </div>
                 </div>
               </div>
 
               {/* Right Column */}
-              <div className="w-full md:w-2/5 flex flex-col pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-zinc-100 md:pl-6">
+              <div className="w-full md:w-2/5 flex flex-col pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-border md:pl-6">
                 <div className="mb-4">
-                  <p className="text-[11px] text-zinc-500 mb-0.5 font-medium">Estimated Value</p>
-                  <p className="text-2xl md:text-3xl font-sans font-semibold tracking-tight text-emerald-600 mb-1">
+                  <p className="text-[11px] text-muted-foreground mb-0.5 font-medium">Estimated Value</p>
+                  <p className="text-2xl md:text-3xl font-sans font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 mb-1">
                     {formatINR(selectedParcel.estimatedValue)}
                   </p>
                   <p className="text-[10px] text-zinc-400 leading-tight">
@@ -583,22 +583,22 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                 <div className="flex flex-col gap-2.5 mt-auto">
                   <button
                     onClick={() => setShowFullRecord(true)}
-                    className="flex items-center justify-center gap-1.5 w-full py-2 px-3 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-zinc-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-95 active:translate-y-0 group"
+                    className="flex items-center justify-center gap-1.5 w-full py-2 px-3 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white rounded-lg text-xs font-semibold hover:bg-zinc-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-95 active:translate-y-0 group"
                   >
                     <FileText className="size-3.5 group-hover:-translate-y-0.5 transition-transform duration-300" /> View full record
                   </button>
                   <button
                     onClick={() => setShowValuationModal(true)}
-                    className="flex items-center justify-center gap-1.5 w-full py-2 px-3 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 active:scale-95 active:translate-y-0 group"
+                    className="flex items-center justify-center gap-1.5 w-full py-2 px-3 bg-card border border-border text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-muted/50 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 active:scale-95 active:translate-y-0 group"
                   >
-                    <LineChartIcon className="size-3.5 group-hover:scale-110 transition-transform duration-300 text-zinc-500 group-hover:text-zinc-700" /> Get valuation report
+                    <LineChartIcon className="size-3.5 group-hover:scale-110 transition-transform duration-300 text-muted-foreground group-hover:text-zinc-700 dark:group-hover:text-zinc-300" /> Get valuation report
                   </button>
                   <button
                     disabled={!selectedParcel.digilockerDocAvailable || isFetchingDigilocker}
                     onClick={handleFetchDigilocker}
                     className={`flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 group ${selectedParcel.digilockerDocAvailable
-                      ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:shadow-sm hover:-translate-y-0.5 active:scale-95 active:translate-y-0'
-                      : 'bg-zinc-50 text-zinc-400 cursor-not-allowed border border-zinc-100'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 hover:shadow-sm hover:-translate-y-0.5 active:scale-95 active:translate-y-0'
+                      : 'bg-muted/50 text-zinc-400 cursor-not-allowed border border-border'
                       }`}
                   >
                     {isFetchingDigilocker ? (
@@ -618,7 +618,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
       {/* Full Record Modal */}
       {selectedParcel && (
         <Dialog open={showFullRecord} onOpenChange={setShowFullRecord}>
-          <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[calc(100dvh-2rem)] p-0 gap-0 overflow-hidden rounded-2xl border-zinc-200 bg-zinc-50 shadow-2xl sm:rounded-3xl">
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[calc(100dvh-2rem)] p-0 gap-0 overflow-hidden rounded-2xl border-border bg-muted/50 shadow-2xl sm:rounded-3xl">
             <div className="relative overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 p-5 pr-14 text-white sm:p-6 sm:pr-16 md:p-7 md:pr-20">
               <div className="pointer-events-none absolute -right-3 -top-3 opacity-10">
                 <MapIcon className="size-24 sm:size-28 md:size-32" />
@@ -640,7 +640,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
             <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto p-4 sm:p-6 md:p-7">
               <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="mb-5 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl bg-zinc-200/60 p-1 sm:mb-6 sm:w-fit">
+                <TabsList className="mb-5 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl bg-zinc-200/60 dark:bg-zinc-700/60 p-1 sm:mb-6 sm:w-fit">
                   <TabsTrigger value="overview" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Overview</TabsTrigger>
                   <TabsTrigger value="ownership" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Ownership & Title</TabsTrigger>
                   <TabsTrigger value="documents" className="shrink-0 rounded-lg px-3 py-2 text-xs sm:px-4 sm:text-sm">Documents</TabsTrigger>
@@ -648,41 +648,41 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
                 <TabsContent value="overview" className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
-                    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-                      <h4 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                      <h4 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         <Layers className="size-4" /> Property Details
                       </h4>
                       <div className="grid grid-cols-1 gap-x-4 gap-y-5 min-[480px]:grid-cols-2">
                         <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Land Type</p>
-                          <p className="text-base font-semibold text-zinc-900">{selectedParcel.landType}</p>
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Land Type</p>
+                          <p className="text-base font-semibold text-foreground">{selectedParcel.landType}</p>
                         </div>
                         <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Total Area</p>
-                          <p className="text-base font-semibold text-zinc-900">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total Area</p>
+                          <p className="text-base font-semibold text-foreground">{formatArea(selectedParcel.areaAcres, displayUnit)}</p>
                         </div>
                         <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Coordinates</p>
-                          <p className="break-words font-mono text-sm font-medium text-zinc-900">
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Coordinates</p>
+                          <p className="break-words font-mono text-sm font-medium text-foreground">
                             {Number(selectedParcel.latitude)?.toFixed(4) || 'N/A'}, {Number(selectedParcel.longitude)?.toFixed(4) || 'N/A'}
                           </p>
                         </div>
                         <div>
-                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Registration Date</p>
-                          <p className="text-base font-semibold text-zinc-900">{formatDate(selectedParcel.registrationDate)}</p>
+                          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Registration Date</p>
+                          <p className="text-base font-semibold text-foreground">{formatDate(selectedParcel.registrationDate)}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/70 p-5 shadow-sm sm:p-6">
-                      <h4 className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    <div className="flex flex-col rounded-2xl border border-emerald-100 dark:border-emerald-800/60 bg-gradient-to-br from-white dark:from-zinc-900 to-emerald-50/70 dark:to-emerald-950/40 p-5 shadow-sm sm:p-6">
+                      <h4 className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         <LineChartIcon className="size-4" /> Valuation Analytics
                       </h4>
-                      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Estimated Current Value</p>
-                      <p className="text-4xl font-sans font-bold tracking-tight text-emerald-600 sm:text-5xl">
+                      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Estimated Current Value</p>
+                      <p className="text-4xl font-sans font-bold tracking-tight text-emerald-600 dark:text-emerald-400 sm:text-5xl">
                         {formatINR(selectedParcel.estimatedValue)}
                       </p>
-                      <div className="mt-5 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/90 p-3 text-xs font-medium leading-relaxed text-emerald-700">
+                      <div className="mt-5 flex items-start gap-2 rounded-xl border border-emerald-100 dark:border-emerald-800/60 bg-emerald-50/90 dark:bg-emerald-950/40 p-3 text-xs font-medium leading-relaxed text-emerald-700 dark:text-emerald-300">
                         <TrendingUp className="mt-0.5 size-4 shrink-0" /> Value is estimated to be +12.5% above circle rate
                       </div>
                     </div>
@@ -690,35 +690,35 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                 </TabsContent>
 
                 <TabsContent value="ownership" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
-                    <div className="flex items-center justify-between border-b border-zinc-100 pb-4 mb-4">
+                  <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+                    <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
                       <div>
-                        <p className="text-[11px] text-zinc-500 mb-1 uppercase tracking-wider font-semibold">Title Status</p>
+                        <p className="text-[11px] text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Title Status</p>
                         <div className="flex items-center gap-2">
                           <div className="size-3 rounded-full" style={{ backgroundColor: titleStatusColors[selectedParcel.titleStatus].color }} />
-                          <p className="text-lg font-medium text-zinc-900">{titleStatusColors[selectedParcel.titleStatus].label}</p>
+                          <p className="text-lg font-medium text-foreground">{titleStatusColors[selectedParcel.titleStatus].label}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[11px] text-zinc-500 mb-1 uppercase tracking-wider font-semibold">Ownership Type</p>
-                        <p className="text-lg font-medium text-zinc-900 capitalize">{selectedParcel.ownershipType.replace('_', ' ')}</p>
+                        <p className="text-[11px] text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Ownership Type</p>
+                        <p className="text-lg font-medium text-foreground capitalize">{selectedParcel.ownershipType.replace('_', ' ')}</p>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <div className="flex items-start gap-3 p-4 bg-zinc-50 rounded-xl">
-                        <CheckCircle2 className="size-5 text-emerald-600 mt-0.5" />
+                      <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
+                        <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900 mb-1">Mutation Status: <span className="capitalize">{selectedParcel.mutationStatus.replace('_', ' ')}</span></p>
-                          <p className="text-xs text-zinc-500">The property has been successfully mutated in the local land revenue records. Ownership transfers are fully recorded.</p>
+                          <p className="text-sm font-semibold text-foreground mb-1">Mutation Status: <span className="capitalize">{selectedParcel.mutationStatus.replace('_', ' ')}</span></p>
+                          <p className="text-xs text-muted-foreground">The property has been successfully mutated in the local land revenue records. Ownership transfers are fully recorded.</p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl">
-                        <AlertTriangle className="size-5 text-amber-600 mt-0.5" />
+                      <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-xl">
+                        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 mt-0.5" />
                         <div>
-                          <p className="text-sm font-semibold text-amber-900 mb-1">Encumbrance Warning</p>
-                          <p className="text-xs text-amber-700">Please fetch the latest Encumbrance Certificate (EC) to verify if there are any active loans or liabilities against this parcel.</p>
+                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">Encumbrance Warning</p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300">Please fetch the latest Encumbrance Certificate (EC) to verify if there are any active loans or liabilities against this parcel.</p>
                         </div>
                       </div>
                     </div>
@@ -727,30 +727,30 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
                 <TabsContent value="documents" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className={`p-5 rounded-2xl border flex flex-col items-center justify-center text-center gap-3 transition-all ${selectedParcel.digilockerDocAvailable ? 'bg-white border-zinc-200 hover:border-indigo-300 hover:shadow-md cursor-pointer' : 'bg-zinc-50 border-zinc-200 opacity-60 grayscale'}`}>
-                      <div className={`p-4 rounded-full ${selectedParcel.digilockerDocAvailable ? 'bg-indigo-50 text-indigo-600' : 'bg-zinc-200 text-zinc-400'}`}>
+                    <div className={`p-5 rounded-2xl border flex flex-col items-center justify-center text-center gap-3 transition-all ${selectedParcel.digilockerDocAvailable ? 'bg-card border-border hover:border-indigo-300 dark:hover:border-indigo-800/60 hover:shadow-md cursor-pointer' : 'bg-muted/50 border-border opacity-60 grayscale'}`}>
+                      <div className={`p-4 rounded-full ${selectedParcel.digilockerDocAvailable ? 'bg-indigo-50 text-indigo-600 dark:text-indigo-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400'}`}>
                         <ShieldCheck className="size-8" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-zinc-900">DigiLocker Records</p>
-                        <p className="text-xs text-zinc-500 mt-1 max-w-[200px] mx-auto">
+                        <p className="text-sm font-semibold text-foreground">DigiLocker Records</p>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-[200px] mx-auto">
                           {selectedParcel.digilockerDocAvailable ? 'Official digitized land records are available to fetch.' : 'Not available for this region yet.'}
                         </p>
                       </div>
                       {selectedParcel.digilockerDocAvailable && (
-                        <button className="mt-2 text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition">Fetch Now</button>
+                        <button className="mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-950/40 transition">Fetch Now</button>
                       )}
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-zinc-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-3">
-                      <div className="p-4 rounded-full bg-emerald-50 text-emerald-600">
+                    <div className="bg-card p-5 rounded-2xl border border-border hover:border-emerald-300 dark:hover:border-emerald-800/60 hover:shadow-md transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-3">
+                      <div className="p-4 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
                         <FileCheck className="size-8" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-zinc-900">7/12 Extract / RTC</p>
-                        <p className="text-xs text-zinc-500 mt-1 max-w-[200px] mx-auto">Latest extract pulled from state registry portal.</p>
+                        <p className="text-sm font-semibold text-foreground">7/12 Extract / RTC</p>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-[200px] mx-auto">Latest extract pulled from state registry portal.</p>
                       </div>
-                      <button className="mt-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition">View Document</button>
+                      <button className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-950/40 transition">View Document</button>
                     </div>
                   </div>
                 </TabsContent>
@@ -763,8 +763,8 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
       {/* Valuation Report Modal */}
       {selectedParcel && (
         <Dialog open={showValuationModal} onOpenChange={setShowValuationModal}>
-          <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden bg-zinc-50 border-zinc-200 shadow-2xl rounded-2xl">
-            <div className="bg-zinc-950 p-5 md:p-6 text-white relative">
+          <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden bg-muted/50 border-border shadow-2xl rounded-2xl">
+            <div className="bg-zinc-950 dark:bg-zinc-800 p-5 md:p-6 text-white relative">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <LineChartIcon className="size-32" />
               </div>
@@ -783,37 +783,37 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
             </div>
 
             <div className="p-5 md:p-6 space-y-4">
-              <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm text-center">
-                <p className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">Estimated Current Market Value</p>
-                <p className="text-5xl font-sans font-bold text-emerald-600 mb-2">
+              <div className="bg-card p-4 rounded-2xl border border-border shadow-sm text-center">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Estimated Current Market Value</p>
+                <p className="text-5xl font-sans font-bold text-emerald-600 dark:text-emerald-400 mb-2">
                   {formatINR(selectedParcel.estimatedValue)}
                 </p>
-                <p className="text-sm text-zinc-500">
-                  Value per {displayUnit === 'acres' ? 'Acre' : displayUnit === 'hectares' ? 'Hectare' : 'Sq.Ft'}: <span className="font-semibold text-zinc-700">{formatINR(selectedParcel.estimatedValue / (displayUnit === 'acres' ? selectedParcel.areaAcres : displayUnit === 'hectares' ? selectedParcel.areaAcres * 0.404686 : selectedParcel.areaAcres * 43560))}</span>
+                <p className="text-sm text-muted-foreground">
+                  Value per {displayUnit === 'acres' ? 'Acre' : displayUnit === 'hectares' ? 'Hectare' : 'Sq.Ft'}: <span className="font-semibold text-zinc-700 dark:text-zinc-300">{formatINR(selectedParcel.estimatedValue / (displayUnit === 'acres' ? selectedParcel.areaAcres : displayUnit === 'hectares' ? selectedParcel.areaAcres * 0.404686 : selectedParcel.areaAcres * 43560))}</span>
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
+                <div className="bg-card p-4 rounded-2xl border border-border shadow-sm">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="size-2 rounded-full bg-blue-500" />
-                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Govt. Circle Rate</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Govt. Circle Rate</p>
                   </div>
-                  <p className="text-xl font-bold text-zinc-900">{formatINR(selectedParcel.estimatedValue * 0.75)}</p>
-                  <p className="text-xs text-zinc-500 mt-1">Base rate set by {selectedParcel.state} government.</p>
+                  <p className="text-xl font-bold text-foreground">{formatINR(selectedParcel.estimatedValue * 0.75)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Base rate set by {selectedParcel.state} government.</p>
                 </div>
-                <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
+                <div className="bg-card p-4 rounded-2xl border border-border shadow-sm">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="size-2 rounded-full bg-emerald-500" />
-                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Market Premium</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Market Premium</p>
                   </div>
-                  <p className="text-xl font-bold text-zinc-900">+{formatINR(selectedParcel.estimatedValue * 0.25)}</p>
-                  <p className="text-xs text-zinc-500 mt-1">Based on recent registered transactions nearby.</p>
+                  <p className="text-xl font-bold text-foreground">+{formatINR(selectedParcel.estimatedValue * 0.25)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Based on recent registered transactions nearby.</p>
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm mt-3">
-                <p className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-2">5-Year Valuation Trend</p>
+              <div className="bg-card p-4 rounded-2xl border border-border shadow-sm mt-3">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">5-Year Valuation Trend</p>
                 <div className="h-[120px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
@@ -846,10 +846,10 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-zinc-100">
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
                 <button
                   onClick={() => setShowValuationModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-zinc-600 hover:text-zinc-900 transition"
+                  className="px-4 py-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:text-foreground transition"
                 >
                   Close
                 </button>
@@ -871,7 +871,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
       {/* DigiLocker Document Modal */}
       {selectedParcel && (
         <Dialog open={showDigilockerModal} onOpenChange={setShowDigilockerModal}>
-          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-zinc-50 border-zinc-200 shadow-2xl rounded-2xl">
+          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-muted/50 border-border shadow-2xl rounded-2xl">
             <div className="bg-indigo-600 p-4 md:p-6 text-white flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-2 mb-1 text-indigo-200 uppercase tracking-widest text-xs font-bold">
@@ -885,18 +885,18 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
             </div>
 
             <div className="p-6 md:p-8 space-y-6">
-              <div className="bg-white border-2 border-zinc-200 shadow-sm p-8 rounded-lg relative overflow-hidden">
+              <div className="bg-card border-2 border-border shadow-sm p-8 rounded-lg relative overflow-hidden">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none">
                   <ShieldCheck className="w-96 h-96" />
                 </div>
 
-                <div className="flex justify-between items-start border-b border-zinc-200 pb-6 mb-6">
+                <div className="flex justify-between items-start border-b border-border pb-6 mb-6">
                   <div>
-                    <h2 className="text-2xl font-serif text-zinc-900 font-bold mb-2">Government of {selectedParcel.state}</h2>
-                    <p className="text-zinc-600 text-sm">Revenue Department</p>
+                    <h2 className="text-2xl font-serif text-foreground font-bold mb-2">Government of {selectedParcel.state}</h2>
+                    <p className="text-zinc-600 dark:text-zinc-400 text-sm">Revenue Department</p>
                   </div>
                   <div className="text-right">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800/60">
                       <CheckCircle2 className="size-3.5" /> Digitally Signed
                     </div>
                     <p className="text-xs text-zinc-400 mt-2 font-mono">ID: DL-{Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
@@ -905,29 +905,29 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
 
                 <div className="grid grid-cols-2 gap-y-6 gap-x-12 relative z-10">
                   <div>
-                    <p className="text-xs text-zinc-500 uppercase font-semibold mb-1">Owner Name</p>
-                    <p className="text-base font-bold text-zinc-900">{(selectedParcel as any).ownerName}</p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Owner Name</p>
+                    <p className="text-base font-bold text-foreground">{(selectedParcel as any).ownerName}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-zinc-500 uppercase font-semibold mb-1">Survey / Khasra No.</p>
-                    <p className="text-base font-bold text-zinc-900">{selectedParcel.surveyNumber || selectedParcel.khasraNumber}</p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Survey / Khasra No.</p>
+                    <p className="text-base font-bold text-foreground">{selectedParcel.surveyNumber || selectedParcel.khasraNumber}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-zinc-500 uppercase font-semibold mb-1">Area</p>
-                    <p className="text-base font-bold text-zinc-900">{selectedParcel.areaAcres} Acres</p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Area</p>
+                    <p className="text-base font-bold text-foreground">{selectedParcel.areaAcres} Acres</p>
                   </div>
                   <div>
-                    <p className="text-xs text-zinc-500 uppercase font-semibold mb-1">Village & District</p>
-                    <p className="text-base font-bold text-zinc-900">{selectedParcel.village}, {selectedParcel.district}</p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Village & District</p>
+                    <p className="text-base font-bold text-foreground">{selectedParcel.village}, {selectedParcel.district}</p>
                   </div>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-zinc-100 flex items-center gap-3 relative z-10">
-                  <div className="size-16 border-2 border-indigo-100 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-400">
+                <div className="mt-8 pt-6 border-t border-border flex items-center gap-3 relative z-10">
+                  <div className="size-16 border-2 border-indigo-100 dark:border-indigo-800/60 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-400">
                     <span className="text-[10px] uppercase font-bold transform -rotate-45 tracking-widest">Valid</span>
                   </div>
                   <div>
-                    <p className="text-xs text-zinc-500 font-medium">This document is digitally signed by the authorized revenue officer.</p>
+                    <p className="text-xs text-muted-foreground font-medium">This document is digitally signed by the authorized revenue officer.</p>
                     <p className="text-xs text-zinc-400 mt-1 font-mono">Timestamp: {new Date().toLocaleString()}</p>
                   </div>
                 </div>
@@ -936,7 +936,7 @@ export default function LandPropertyMap({ parcels = [], isLoading = false, hasLa
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setShowDigilockerModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-zinc-600 hover:text-zinc-900 transition"
+                  className="px-4 py-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:text-foreground transition"
                 >
                   Close
                 </button>

@@ -3,20 +3,31 @@
   100% { background-position: 200% 0; }
 }
 
+/* Built from the theme tokens (index.css :root / .dark), so it follows light and dark mode */
 .skeleton {
+  --skeleton-base: color-mix(in oklab, var(--muted) 100%, var(--foreground) 6%);
+  --skeleton-highlight: var(--muted);
   background: linear-gradient(
     90deg,
-    var(--skeleton-base, #e4e4e7) 25%,
-    var(--skeleton-highlight, #f4f4f5) 50%,
-    var(--skeleton-base, #e4e4e7) 75%
+    var(--skeleton-base) 25%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 6px;
 }
 
-:root.dark .skeleton,
-.dark .skeleton {
-  --skeleton-base: #27272a;
-  --skeleton-highlight: #3f3f46;
+/* Surface that wraps skeleton blocks (cards, lists, charts) */
+.skeleton-surface {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--skeleton-base);
+  }
 }

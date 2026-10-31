@@ -92,7 +92,7 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
       return (
         <div className="pb-12 font-sans">
           <div className="max-w-2xl px-2 mt-4">
-            <button onClick={handleBackAction} className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition mb-6 text-sm">
+            <button onClick={handleBackAction} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition mb-6 text-sm">
               <ArrowLeft className="size-4" /> Back to recoveries
             </button>
             <RecoverySuccess
@@ -107,11 +107,11 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
     }
 
     return (
-      <div className="pb-12 font-sans text-zinc-900 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+      <div className="pb-12 font-sans text-foreground animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6">
           {/* Back button */}
-          <button onClick={handleBackAction} className="flex items-center gap-3 text-zinc-500 hover:text-zinc-800 transition mb-6 text-sm font-medium -ml-4 sm:-ml-8 lg:-ml-16 xl:-ml-24 2xl:-ml-32 group">
-            <div className="size-9 rounded-full border border-zinc-200/80 bg-white flex items-center justify-center shadow-sm group-hover:border-zinc-300 group-hover:shadow transition-all">
+          <button onClick={handleBackAction} className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition mb-6 text-sm font-medium -ml-4 sm:-ml-8 lg:-ml-16 xl:-ml-24 2xl:-ml-32 group">
+            <div className="size-9 rounded-full border border-border/80 bg-card flex items-center justify-center shadow-sm group-hover:border-zinc-300 dark:group-hover:border-zinc-700 group-hover:shadow transition-all">
               <ArrowLeft className="size-4" />
             </div>
             Back
@@ -119,11 +119,11 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
 
           {/* Case header - Full Width */}
           <div className="mb-8">
-            <h1 className="text-[28px] sm:text-[32px] font-bold text-zinc-900 tracking-tight">
+            <h1 className="text-[28px] sm:text-[32px] font-bold text-foreground tracking-tight">
               {selectedCase.asset_description}
             </h1>
-            <p className="text-zinc-500 text-[16px] mt-1.5 flex items-center gap-2">
-              <span className="font-medium text-zinc-700">{selectedCase.institution_name}</span> 
+            <p className="text-muted-foreground text-[16px] mt-1.5 flex items-center gap-2">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{selectedCase.institution_name}</span> 
               <span className="text-zinc-300">•</span> 
               <span>{selectedCase.config.label}</span>
             </p>
@@ -134,29 +134,29 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
             <div className="flex-1 min-w-0 flex flex-col gap-5">
 
               {/* Value card */}
-              <div className="bg-white border border-zinc-200/80 rounded-[24px] p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="bg-card border border-border/80 rounded-[24px] p-6 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <p className="text-[13px] font-medium text-zinc-500 uppercase tracking-wider mb-1">Estimated Value</p>
+                    <p className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Estimated Value</p>
                     <p className="text-3xl font-bold text-[#10b981] tracking-tight">
                       {formatPaise(selectedCase.estimated_value_paise)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[13px] font-medium text-zinc-500 uppercase tracking-wider mb-1">Success Fee</p>
-                    <p className="text-xl font-bold text-amber-700">
+                    <p className="text-[13px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Success Fee</p>
+                    <p className="text-xl font-bold text-amber-700 dark:text-amber-300">
                       {selectedCase.fee_pct}% = {formatPaise(selectedCase.feeDetails.feeAmountPaise)}
                     </p>
                   </div>
                 </div>
 
                 {/* Progress bar */}
-                <div className="pt-5 border-t border-zinc-100">
+                <div className="pt-5 border-t border-border">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-medium text-zinc-600">Overall Progress</span>
+                    <span className="text-[13px] font-medium text-zinc-600 dark:text-zinc-400">Overall Progress</span>
                     <span className="text-[13px] font-bold text-emerald-600">{selectedCase.progress}%</span>
                   </div>
-                  <div className="w-full h-2.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
                       style={{ width: `${selectedCase.progress}%` }}
@@ -165,7 +165,7 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
                 </div>
 
                 {selectedCase.estimate.daysRemaining != null && (
-                  <p className="text-[13px] font-medium text-zinc-500 mt-4 flex items-center gap-1.5 bg-zinc-50 inline-flex px-3 py-1.5 rounded-lg border border-zinc-200/60">
+                  <p className="text-[13px] font-medium text-muted-foreground mt-4 flex items-center gap-1.5 bg-muted/50 inline-flex px-3 py-1.5 rounded-lg border border-border/60">
                     <Clock className="size-3.5 text-zinc-400" />
                     Estimated {selectedCase.estimate.daysRemaining} days remaining
                   </p>
@@ -174,7 +174,7 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
 
               {/* Documents section */}
               {['documents_collecting', 'additional_docs_needed'].includes(selectedCase.status) && (
-                <div className="bg-white border border-zinc-200/80 rounded-[24px] p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="bg-card border border-border/80 rounded-[24px] p-6 shadow-sm hover:shadow-md transition-shadow">
                   <DocumentUploader
                     caseId={selectedCase.id}
                     documents={selectedCase.documents}
@@ -188,8 +188,8 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
             <div className="w-full lg:w-[360px] shrink-0 flex flex-col gap-6">
 
               {/* Timeline */}
-              <div className="bg-white border border-zinc-200/80 rounded-[24px] p-6 shadow-sm">
-                <h3 className="text-[16px] font-bold text-zinc-900 mb-5 tracking-tight">Recovery Timeline</h3>
+              <div className="bg-card border border-border/80 rounded-[24px] p-6 shadow-sm">
+                <h3 className="text-[16px] font-bold text-foreground mb-5 tracking-tight">Recovery Timeline</h3>
                 <TimelineTracker
                   entries={selectedCase.timeline}
                   progress={selectedCase.progress}
@@ -197,24 +197,24 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
               </div>
 
               {/* Process steps */}
-              <div className="bg-white border border-zinc-200/80 rounded-[24px] p-6 shadow-sm">
-                <h3 className="text-[16px] font-bold text-zinc-900 mb-4 tracking-tight">Recovery Process</h3>
+              <div className="bg-card border border-border/80 rounded-[24px] p-6 shadow-sm">
+                <h3 className="text-[16px] font-bold text-foreground mb-4 tracking-tight">Recovery Process</h3>
                 <div className="space-y-2">
                   {selectedCase.config.steps.map((step, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <div className="size-5 rounded-full bg-zinc-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-[10px] font-bold text-zinc-500">{i + 1}</span>
+                      <div className="size-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground">{i + 1}</span>
                       </div>
-                      <p className="text-[13px] text-zinc-600 leading-relaxed">{step}</p>
+                      <p className="text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed">{step}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Legal disclaimer */}
-              <div className="bg-zinc-50 border border-zinc-200/60 rounded-xl p-4 flex items-start gap-3">
+              <div className="bg-muted/50 border border-border/60 rounded-xl p-4 flex items-start gap-3">
                 <Scale className="size-4 text-zinc-400 mt-0.5 shrink-0" strokeWidth={1.75} />
-                <p className="text-[11px] text-zinc-500 leading-relaxed">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {LEGAL_DISCLAIMER}
                 </p>
               </div>
@@ -231,15 +231,15 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
   const totalEstimated = cases.reduce((sum, c) => sum + c.estimated_value_paise, 0)
 
   return (
-    <div className="pb-12 text-zinc-900 font-sans">
+    <div className="pb-12 text-foreground font-sans">
       <div className="max-w-4xl px-2 mt-4">
         {/* Header */}
         <div className="flex flex-col mb-8 gap-1">
-          <h1 className="text-[26px] font-semibold text-zinc-900 tracking-tight flex items-center gap-2">
-            <Briefcase className="size-6 text-zinc-800" strokeWidth={1.5} />
+          <h1 className="text-[26px] font-semibold text-foreground tracking-tight flex items-center gap-2">
+            <Briefcase className="size-6 text-foreground" strokeWidth={1.5} />
             Recovery Dashboard
           </h1>
-          <p className="text-zinc-600 text-[15px]">
+          <p className="text-zinc-600 dark:text-zinc-400 text-[15px]">
             Track all your active asset recovery cases.
           </p>
         </div>
@@ -247,24 +247,24 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
         {/* Stats */}
         {cases.length > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-8">
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-4">
+            <div className="bg-card border border-border/80 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="size-4 text-amber-600" strokeWidth={2} />
-                <span className="text-[12px] font-medium text-zinc-500 uppercase tracking-wider">Active</span>
+                <Clock className="size-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                <span className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">Active</span>
               </div>
-              <p className="text-2xl font-bold text-zinc-900">{activeCases.length}</p>
+              <p className="text-2xl font-bold text-foreground">{activeCases.length}</p>
             </div>
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-4">
+            <div className="bg-card border border-border/80 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="size-4 text-emerald-600" strokeWidth={2} />
-                <span className="text-[12px] font-medium text-zinc-500 uppercase tracking-wider">Done</span>
+                <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                <span className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">Done</span>
               </div>
-              <p className="text-2xl font-bold text-zinc-900">{completedCases.length}</p>
+              <p className="text-2xl font-bold text-foreground">{completedCases.length}</p>
             </div>
-            <div className="bg-white border border-zinc-200/80 rounded-2xl p-4">
+            <div className="bg-card border border-border/80 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="size-4 text-[#10b981]" strokeWidth={2} />
-                <span className="text-[12px] font-medium text-zinc-500 uppercase tracking-wider">Value</span>
+                <span className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">Value</span>
               </div>
               <p className="text-2xl font-bold text-[#10b981]">{formatPaise(totalEstimated)}</p>
             </div>
@@ -272,7 +272,7 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
         )}
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm">
+          <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 text-sm">
             {error}
           </div>
         )}
@@ -282,11 +282,11 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
             <Loader2 className="size-8 text-zinc-400 animate-spin" />
           </div>
         ) : cases.length === 0 ? (
-          <div className="bg-white border border-zinc-200/80 rounded-[24px] p-10 text-center">
+          <div className="bg-card border border-border/80 rounded-[24px] p-10 text-center">
             <Briefcase className="size-12 text-zinc-300 mx-auto mb-4" strokeWidth={1.25} />
-            <h3 className="text-lg font-semibold text-zinc-800 mb-2">No recovery cases yet</h3>
-            <p className="text-zinc-500 text-[15px] max-w-sm mx-auto">
-              Go to <span className="font-medium text-zinc-700">Unclaimed Wealth</span> to discover and start recovering your unclaimed assets.
+            <h3 className="text-lg font-semibold text-foreground mb-2">No recovery cases yet</h3>
+            <p className="text-muted-foreground text-[15px] max-w-sm mx-auto">
+              Go to <span className="font-medium text-zinc-700 dark:text-zinc-300">Unclaimed Wealth</span> to discover and start recovering your unclaimed assets.
             </p>
           </div>
         ) : (
@@ -302,9 +302,9 @@ export default function RecoveryDashboard({ initialCaseId, onBack }: RecoveryDas
         )}
 
         {/* Legal disclaimer */}
-        <div className="mt-8 bg-zinc-50 border border-zinc-200/60 rounded-xl p-4 flex items-start gap-3">
+        <div className="mt-8 bg-muted/50 border border-border/60 rounded-xl p-4 flex items-start gap-3">
           <Scale className="size-4 text-zinc-400 mt-0.5 shrink-0" strokeWidth={1.75} />
-          <p className="text-[11px] text-zinc-500 leading-relaxed">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
             {LEGAL_DISCLAIMER}
           </p>
         </div>

@@ -52,35 +52,35 @@ export default function RecoverySuccess({
       )}
 
       {/* Success icon */}
-      <div className="size-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6 relative">
-        <CheckCircle2 className="size-10 text-emerald-600" strokeWidth={1.75} />
-        <div className="absolute -top-1 -right-1 size-8 rounded-full bg-amber-100 flex items-center justify-center">
-          <PartyPopper className="size-4 text-amber-600" strokeWidth={2} />
+      <div className="size-20 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center mx-auto mb-6 relative">
+        <CheckCircle2 className="size-10 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+        <div className="absolute -top-1 -right-1 size-8 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
+          <PartyPopper className="size-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
         </div>
       </div>
 
       {/* Headline */}
-      <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
+      <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">
         Recovery Complete! 🎉
       </h2>
-      <p className="text-zinc-500 text-[15px] mb-8">
+      <p className="text-muted-foreground text-[15px] mb-8">
         {assetDescription} has been successfully recovered.
       </p>
 
       {/* Amount breakdown */}
-      <div className="bg-zinc-50 rounded-2xl p-5 mb-6 border border-zinc-200/60 max-w-xs mx-auto">
+      <div className="bg-muted/50 rounded-2xl p-5 mb-6 border border-border/60 max-w-xs mx-auto">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-zinc-600">Recovered</span>
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">Recovered</span>
             <span className="font-bold text-emerald-600 text-lg">{formatPaise(recoveredAmount)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-zinc-500">Service Fee</span>
-            <span className="font-medium text-zinc-600">-{formatPaise(feeAmount)}</span>
+            <span className="text-sm text-muted-foreground">Service Fee</span>
+            <span className="font-medium text-zinc-600 dark:text-zinc-400">-{formatPaise(feeAmount)}</span>
           </div>
-          <div className="border-t border-zinc-200 pt-3 flex justify-between items-center">
-            <span className="text-sm font-semibold text-zinc-800">Net Credited</span>
-            <span className="font-bold text-zinc-900 text-lg">{formatPaise(netAmount)}</span>
+          <div className="border-t border-border pt-3 flex justify-between items-center">
+            <span className="text-sm font-semibold text-foreground">Net Credited</span>
+            <span className="font-bold text-foreground text-lg">{formatPaise(netAmount)}</span>
           </div>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function RecoverySuccess({
       {/* CTA */}
       <button
         onClick={onDismiss}
-        className="inline-flex items-center gap-2 bg-zinc-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-zinc-800 transition shadow-md"
+        className="inline-flex items-center gap-2 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white px-6 py-3 rounded-xl font-medium hover:bg-zinc-800 transition shadow-md"
       >
         Back to Dashboard
         <ArrowRight className="size-4" />

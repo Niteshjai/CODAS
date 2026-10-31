@@ -113,7 +113,7 @@ export default function SpendDashboard() {
                   </div>
                 </div>
               )) : (
-                <div className="text-center py-8 text-zinc-500">No expenses recorded yet.</div>
+                <div className="text-center py-8 text-muted-foreground">No expenses recorded yet.</div>
               )}
             </div>
           </div>
@@ -185,7 +185,7 @@ function TransactionList() {
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm font-medium text-zinc-200">{tx.merchant_name}</div>
-                <div className="text-xs text-zinc-500 max-w-[300px] truncate">{tx.narration}</div>
+                <div className="text-xs text-muted-foreground max-w-[300px] truncate">{tx.narration}</div>
               </td>
               <td className="px-6 py-4">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#2E3148] text-zinc-300">
@@ -202,7 +202,7 @@ function TransactionList() {
           ))}
           {txs.length === 0 && (
             <tr>
-              <td colSpan={4} className="px-6 py-12 text-center text-zinc-500">
+              <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
                 No transactions found.
               </td>
             </tr>

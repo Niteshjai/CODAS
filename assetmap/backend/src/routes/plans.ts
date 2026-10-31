@@ -1,7 +1,7 @@
 import { FastifyInstance }         from 'fastify'
 import { verifyAccessToken,
          requireRole }              from '../middleware/auth'
-import { planEnforcer }            from '../plans/planEnforcer'
+import { planEnforcer, PLAN_RANK } from '../plans/planEnforcer'
 import { razorpaySubscriptionService } from '../billing/razorpaySubscription'
 import { PLANS }                   from '../plans/planConfig'
 import crypto                      from 'crypto'
@@ -98,6 +98,13 @@ export async function plansRoutes(app: FastifyInstance) {
     handler: async (req, reply) => {
       const { planId, billingCycle, promoCode } = req.body as any
 
+      // No downgrades: Pro can't move to Plus/Free, Plus can't move to Free
+      const currentPlanId = await planEnforcer.getCurrentPlanId(pool, req.user!.id)
+      if ((PLAN_RANK[planId] ?? 0) <= (PLAN_RANK[currentPlanId] ?? 0)) {
+        return reply.status(409).send(errorResponse('DOWNGRADE_NOT_ALLOWED',
+          `You are on the ${currentPlanId} plan. You can only upgrade to a higher plan.`))
+      }
+
       // Check for existing active subscription
       const existing = await pool.query(
         `SELECT id, plan_id FROM user_subscriptions
@@ -138,6 +145,13 @@ export async function plansRoutes(app: FastifyInstance) {
     },
     handler: async (req, reply) => {
       const { newPlanId, billingCycle } = req.body as any
+
+      // No downgrades: Pro can't move to Plus/Free, Plus can't move to Free
+      const currentPlanId = await planEnforcer.getCurrentPlanId(pool, req.user!.id)
+      if ((PLAN_RANK[newPlanId] ?? 0) <= (PLAN_RANK[currentPlanId] ?? 0)) {
+        return reply.status(409).send(errorResponse('DOWNGRADE_NOT_ALLOWED',
+          `You are on the ${currentPlanId} plan. You can only upgrade to a higher plan.`))
+      }
 
       // Create new pending subscription without prematurely cancelling the active one
       const result = await razorpaySubscriptionService.createSubscription(
@@ -193,6 +207,13 @@ export async function plansRoutes(app: FastifyInstance) {
       }
 
       const sub = subRes.rows[0]
+
+      // A stale pending checkout for a lower plan must not replace a higher active plan
+      const activePlanId = await planEnforcer.getCurrentPlanId(pool, userId)
+      if ((PLAN_RANK[sub.plan_id] ?? 0) < (PLAN_RANK[activePlanId] ?? 0)) {
+        return reply.status(409).send(errorResponse('DOWNGRADE_NOT_ALLOWED',
+          `You are on the ${activePlanId} plan. You can only upgrade to a higher plan.`))
+      }
 
       // Cancel any older active subscriptions for this user
       await pool.query(

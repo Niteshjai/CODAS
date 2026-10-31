@@ -61,11 +61,11 @@ export default function Help() {
   );
 
   return (
-    <div className="min-h-screen text-zinc-900 font-sans pb-20 relative" style={{ contain: 'layout style', background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+    <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20 relative" style={{ contain: 'layout style' }}>
       
       {/* Toast Notification */}
       <div
-        className={`fixed top-6 right-6 z-[60] flex items-center gap-2 bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300 ${
+        className={`fixed top-6 right-6 z-[60] flex items-center gap-2 bg-zinc-900 dark:bg-zinc-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300 ${
           toastMsg ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
         }`}
       >
@@ -83,7 +83,7 @@ export default function Help() {
                 navigate('/dashboard');
               }
             }}
-            className="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 bg-white/50 hover:bg-white/80 border border-zinc-300/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -93,8 +93,8 @@ export default function Help() {
 
       <main className="max-w-3xl mx-auto px-6 mt-12 relative z-10">
         <div className="mb-10 text-center">
-          <h1 className="text-4xl font-display font-light tracking-tight text-zinc-900">How can we help?</h1>
-          <p className="text-zinc-600 mt-3 text-lg">Search for answers or reach out to our support team.</p>
+          <h1 className="text-4xl font-display font-light tracking-tight text-foreground">How can we help?</h1>
+          <p className="text-zinc-600 dark:text-zinc-400 mt-3 text-lg">Search for answers or reach out to our support team.</p>
         </div>
 
         <div className="relative max-w-3xl w-full mx-auto mb-12">
@@ -103,7 +103,7 @@ export default function Help() {
             placeholder="Search knowledge base..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/80 backdrop-blur-lg rounded-full px-6 py-4 shadow-sm border border-zinc-200/50 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 transition"
+            className="w-full bg-card/80 backdrop-blur-lg rounded-full px-6 py-4 shadow-sm border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-foreground transition"
           />
         </div>
 
@@ -119,19 +119,19 @@ export default function Help() {
               />
             ))
           ) : (
-            <div className="col-span-1 md:col-span-2 text-center py-12 bg-white/40 rounded-[24px] border border-zinc-200/50 backdrop-blur-sm">
-              <p className="text-zinc-500 font-medium">No results found for "{searchQuery}"</p>
+            <div className="col-span-1 md:col-span-2 text-center py-12 bg-card/40 rounded-[24px] border border-border/50 backdrop-blur-sm">
+              <p className="text-muted-foreground font-medium">No results found for "{searchQuery}"</p>
             </div>
           )}
         </div>
 
-        <div className="bg-zinc-900 text-white rounded-[24px] p-8 sm:p-10 text-center relative overflow-hidden shadow-xl border border-zinc-800">
+        <div className="bg-zinc-900 dark:bg-zinc-800 text-white rounded-[24px] p-8 sm:p-10 text-center relative overflow-hidden shadow-xl border border-zinc-800">
           <div className="relative z-10">
             <h2 className="text-2xl font-display font-semibold mb-2">Still need help?</h2>
             <p className="text-white/70 mb-6 text-sm">Our experts are available 24/7 to assist you with any issues.</p>
             <button 
               onClick={() => setActiveModal('contact')}
-              className="bg-lime-400 text-zinc-900 px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-lime-300 transition active:scale-95 inline-flex items-center gap-2"
+              className="bg-lime-400 text-foreground px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-lime-300 transition active:scale-95 inline-flex items-center gap-2"
             >
               Contact Support <ExternalLink className="size-4" />
             </button>
@@ -147,38 +147,38 @@ export default function Help() {
           
           {/* Contact / Email Form Modal */}
           {(activeModal === 'contact' || activeModal === 'email') && (
-            <div className="bg-white/90 backdrop-blur-xl w-[90vw] md:w-[400px] rounded-[24px] shadow-2xl border border-zinc-200/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[400px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-border flex items-center justify-between">
                 <h2 className="text-xl font-display font-semibold flex items-center gap-2"><Mail className="size-5 text-rose-500"/> Send us a message</h2>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-zinc-100 rounded-full transition"><X className="size-4"/></button>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-muted rounded-full transition"><X className="size-4"/></button>
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div>
-                  <label className="text-xs font-medium text-zinc-500 mb-1 block">Subject</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Subject</label>
                   <input 
                     type="text" 
                     value={contactSubject}
                     onChange={(e) => setContactSubject(e.target.value)}
                     disabled={isSending}
                     placeholder="What is this regarding?" 
-                    className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 bg-white/50 disabled:opacity-50" 
+                    className="w-full border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground bg-card/50 disabled:opacity-50" 
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-zinc-500 mb-1 block">Message</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Message</label>
                   <textarea 
                     rows={4} 
                     value={contactMessage}
                     onChange={(e) => setContactMessage(e.target.value)}
                     disabled={isSending}
                     placeholder="Describe your issue in detail..." 
-                    className="w-full border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 bg-white/50 resize-none disabled:opacity-50"
+                    className="w-full border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground bg-card/50 resize-none disabled:opacity-50"
                   ></textarea>
                 </div>
                 <button 
                   onClick={handleSendEmail} 
                   disabled={isSending || !contactSubject.trim() || !contactMessage.trim()}
-                  className="w-full bg-zinc-900 flex items-center justify-center gap-2 text-white rounded-xl py-3 text-sm font-medium hover:bg-zinc-800 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+                  className="w-full bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 flex items-center justify-center gap-2 text-white rounded-xl py-3 text-sm font-medium hover:bg-zinc-800 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                 >
                   {isSending ? <><Loader2 className="size-4 animate-spin"/> Sending...</> : 'Send Message'}
                 </button>
@@ -188,20 +188,20 @@ export default function Help() {
 
           {/* FAQs Modal */}
           {activeModal === 'faqs' && (
-            <div className="bg-white/90 backdrop-blur-xl w-[90vw] md:w-[500px] rounded-[24px] shadow-2xl border border-zinc-200/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[500px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-border flex items-center justify-between">
                 <h2 className="text-xl font-display font-semibold flex items-center gap-2"><FileText className="size-5 text-emerald-500"/> Frequently Asked Questions</h2>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-zinc-100 rounded-full transition"><X className="size-4"/></button>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-muted rounded-full transition"><X className="size-4"/></button>
               </div>
               <div className="p-2 max-h-[60vh] overflow-y-auto">
                 {FAQS_DATA.map((faq, i) => (
-                  <div key={i} className="border-b border-zinc-100 last:border-0">
-                    <button onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)} className="w-full text-left p-4 flex items-center justify-between hover:bg-zinc-50/50 transition">
-                      <span className="font-medium text-sm text-zinc-800">{faq.q}</span>
+                  <div key={i} className="border-b border-border last:border-0">
+                    <button onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)} className="w-full text-left p-4 flex items-center justify-between hover:bg-muted/25 transition">
+                      <span className="font-medium text-sm text-foreground">{faq.q}</span>
                       {openFaqIndex === i ? <ChevronUp className="size-4 text-zinc-400 shrink-0" /> : <ChevronDown className="size-4 text-zinc-400 shrink-0" />}
                     </button>
                     {openFaqIndex === i && (
-                      <div className="px-4 pb-4 text-sm text-zinc-600 animate-in slide-in-from-top-1 fade-in">
+                      <div className="px-4 pb-4 text-sm text-zinc-600 dark:text-zinc-400 animate-in slide-in-from-top-1 fade-in">
                         {faq.a}
                       </div>
                     )}
@@ -213,16 +213,16 @@ export default function Help() {
 
           {/* User Guides Modal */}
           {activeModal === 'guides' && (
-            <div className="bg-white/90 backdrop-blur-xl w-[90vw] md:w-[500px] rounded-[24px] shadow-2xl border border-zinc-200/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[500px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-border flex items-center justify-between">
                 <h2 className="text-xl font-display font-semibold flex items-center gap-2"><BookOpen className="size-5 text-sky-500"/> User Guides</h2>
-                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-zinc-100 rounded-full transition"><X className="size-4"/></button>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-muted rounded-full transition"><X className="size-4"/></button>
               </div>
               <div className="p-6 flex flex-col gap-3">
                 {['Getting Started with Codas', 'How to Link your Bank Accounts safely', 'Understanding your Net Worth Chart', 'Exporting your data for Tax Filing'].map((guide, i) => (
-                  <button key={i} onClick={() => showToast(`Opening guide: ${guide}`)} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 bg-white transition text-left group">
-                    <span className="text-sm font-medium text-zinc-700 group-hover:text-zinc-900 transition">{guide}</span>
-                    <ExternalLink className="size-4 text-zinc-400 group-hover:text-zinc-600 shrink-0" />
+                  <button key={i} onClick={() => showToast(`Opening guide: ${guide}`)} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-border hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-muted/50 bg-card transition text-left group">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-foreground transition">{guide}</span>
+                    <ExternalLink className="size-4 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0" />
                   </button>
                 ))}
               </div>
@@ -231,12 +231,12 @@ export default function Help() {
 
           {/* Live Chat Modal */}
           {activeModal === 'chat' && (
-            <div className="bg-white/90 backdrop-blur-xl w-[90vw] md:w-[400px] rounded-[24px] shadow-2xl border border-zinc-200/50 overflow-hidden flex flex-col h-[500px] animate-in zoom-in-95 duration-200 mb-20 md:mb-32">
-              <div className="p-4 bg-zinc-900 text-white flex items-center justify-between">
+            <div className="bg-card/90 backdrop-blur-xl w-[90vw] md:w-[400px] rounded-[24px] shadow-2xl border border-border/50 overflow-hidden flex flex-col h-[500px] animate-in zoom-in-95 duration-200 mb-20 md:mb-32">
+              <div className="p-4 bg-zinc-900 dark:bg-zinc-800 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="relative">
-                    <div className="size-8 rounded-full bg-lime-400 flex items-center justify-center text-zinc-900"><MessageCircle className="size-4"/></div>
-                    <div className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 border-2 border-zinc-900"></div>
+                    <div className="size-8 rounded-full bg-lime-400 flex items-center justify-center text-foreground"><MessageCircle className="size-4"/></div>
+                    <div className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 border-2 border-foreground"></div>
                   </div>
                   <div>
                     <h3 className="font-medium text-sm">Codas Support</h3>
@@ -245,16 +245,16 @@ export default function Help() {
                 </div>
                 <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-zinc-800 rounded-full transition"><X className="size-4"/></button>
               </div>
-              <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-zinc-50/50">
+              <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-muted/25">
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm ${msg.sender === 'user' ? 'bg-zinc-900 text-white rounded-br-sm' : 'bg-white border border-zinc-200 text-zinc-800 rounded-bl-sm shadow-sm'}`}>
+                    <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm ${msg.sender === 'user' ? 'bg-zinc-900 dark:bg-zinc-800 text-white rounded-br-sm' : 'bg-card border border-border text-foreground rounded-bl-sm shadow-sm'}`}>
                       {msg.text}
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="p-3 border-t border-zinc-200 bg-white flex items-center gap-2">
+              <div className="p-3 border-t border-border bg-card flex items-center gap-2">
                 <input 
                   type="text" 
                   value={chatMsg}
@@ -269,7 +269,7 @@ export default function Help() {
                     }
                   }}
                   placeholder="Type your message..." 
-                  className="flex-1 bg-zinc-100 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                  className="flex-1 bg-muted rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
                 />
                 <button 
                   onClick={() => {
@@ -279,7 +279,7 @@ export default function Help() {
                       setTimeout(() => setChatHistory(prev => [...prev, {sender: 'agent', text: 'An agent will be with you shortly.'}]), 1000);
                     }
                   }}
-                  className="p-2.5 bg-lime-400 text-zinc-900 rounded-full hover:bg-lime-300 transition active:scale-95"
+                  className="p-2.5 bg-lime-400 text-foreground rounded-full hover:bg-lime-300 transition active:scale-95"
                 >
                   <Send className="size-4" />
                 </button>
@@ -297,13 +297,13 @@ function SupportCard({ icon, title, desc, onClick }: { icon: React.ReactNode; ti
   return (
     <button 
       onClick={onClick}
-      className="bg-white/80 backdrop-blur-lg p-6 rounded-[24px] shadow-sm border border-zinc-200/50 hover:shadow-md hover:border-zinc-300/50 transition text-left group"
+      className="bg-card/80 backdrop-blur-lg p-6 rounded-[24px] shadow-sm border border-border/50 hover:shadow-md hover:border-zinc-300/50 dark:hover:border-zinc-700/50 transition text-left group"
     >
-      <div className="p-3 bg-white/50 backdrop-blur-sm rounded-xl inline-block mb-4 border border-zinc-200/50 shadow-sm group-hover:scale-110 transition-transform">
+      <div className="p-3 bg-card/50 backdrop-blur-sm rounded-xl inline-block mb-4 border border-border/50 shadow-sm group-hover:scale-110 transition-transform">
         {icon}
       </div>
-      <h3 className="text-lg font-display font-semibold text-zinc-900 mb-1">{title}</h3>
-      <p className="text-sm text-zinc-600">{desc}</p>
+      <h3 className="text-lg font-display font-semibold text-foreground mb-1">{title}</h3>
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">{desc}</p>
     </button>
   );
 }

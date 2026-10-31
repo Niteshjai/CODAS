@@ -61,34 +61,34 @@ export default function NomineeChecker({ data }: { data: { accounts: NomineeStat
       </div>
 
       {data.summary.withoutNominee > 0 && (
-        <div className="mt-2 pt-2 border-t border-zinc-100 flex-shrink-0">
+        <div className="mt-2 pt-2 border-t border-border flex-shrink-0">
           <Dialog open={showDetails} onOpenChange={setShowDetails}>
             <DialogTrigger asChild>
               <button
-                className="text-xs font-medium text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 w-full text-center transition-colors bg-white py-2 rounded-xl border border-zinc-200/60 shadow-sm"
+                className="text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-foreground hover:bg-muted/50 w-full text-center transition-colors bg-card py-2 rounded-xl border border-border/60 shadow-sm"
               >
                 Show Missing Nominees
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-white rounded-[28px] p-6 sm:p-8 border-0 shadow-2xl" style={{ minWidth: '350px', width: '90vw', maxWidth: '500px' }}>
+            <DialogContent className="sm:max-w-md bg-card rounded-[28px] p-6 sm:p-8 border-0 shadow-2xl" style={{ minWidth: '350px', width: '90vw', maxWidth: '500px' }}>
               <DialogHeader className="mb-4">
-                <DialogTitle className="text-xl font-display font-semibold text-zinc-900">Missing Nominees</DialogTitle>
+                <DialogTitle className="text-xl font-display font-semibold text-foreground">Missing Nominees</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-3.5 overflow-y-auto max-h-[60vh] pr-2 pb-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-zinc-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
                 {data.accounts.filter(a => !a.has_nominee).map(acc => (
-                  <div key={acc.id} className={`flex justify-between items-center p-4 rounded-2xl border-l-[4px] shadow-sm ${acc.task_status ? 'bg-zinc-50/50 border-zinc-400' : 'bg-amber-50/50 border-amber-400'}`}>
+                  <div key={acc.id} className={`flex justify-between items-center p-4 rounded-2xl border-l-[4px] shadow-sm ${acc.task_status ? 'bg-muted/25 border-zinc-400' : 'bg-amber-50/50 dark:bg-amber-950/40 border-amber-400'}`}>
                     <div>
-                      <div className="font-semibold text-[15px] text-zinc-900">{acc.institution_name || 'Unknown'}</div>
-                      <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-widest mt-1.5">{acc.fi_type.replace('_', ' ')}</div>
+                      <div className="font-semibold text-[15px] text-foreground">{acc.institution_name || 'Unknown'}</div>
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mt-1.5">{acc.fi_type.replace('_', ' ')}</div>
                     </div>
                     {acc.task_status ? (
-                      <span className="text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm border text-zinc-600 bg-zinc-100/80 border-zinc-200/50">
+                      <span className="text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm border text-zinc-600 dark:text-zinc-400 bg-muted/80 border-border/50">
                         {acc.task_status.replace('_', ' ').toUpperCase()}
                       </span>
                     ) : (
                       <button 
                         onClick={() => navigate('/nominee/update', { state: { assetIds: [acc.id], institutionName: acc.institution_name } })}
-                        className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm border text-amber-700 bg-amber-100/80 hover:bg-amber-200 active:scale-95 cursor-pointer border-amber-200/50"
+                        className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm border text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-950/40 hover:bg-amber-200 dark:hover:bg-amber-900/50 active:scale-95 cursor-pointer border-amber-200/50 dark:border-amber-800/60"
                       >
                         ACTION REQUIRED
                       </button>
@@ -98,10 +98,10 @@ export default function NomineeChecker({ data }: { data: { accounts: NomineeStat
               </div>
               
               {data.accounts.filter(a => !a.has_nominee).length > 1 && (
-                <div className="mt-4 pt-4 border-t border-zinc-100 flex justify-end">
+                <div className="mt-4 pt-4 border-t border-border flex justify-end">
                   <button
                     onClick={() => navigate('/nominee/update')}
-                    className="text-sm font-medium text-white bg-zinc-900 hover:bg-zinc-800 transition-colors px-4 py-2 rounded-xl shadow-sm"
+                    className="text-sm font-medium text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 hover:bg-zinc-800 transition-colors px-4 py-2 rounded-xl shadow-sm"
                   >
                     Apply Same Nominee for All
                   </button>

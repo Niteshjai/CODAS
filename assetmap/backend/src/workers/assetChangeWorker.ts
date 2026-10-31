@@ -1,3 +1,4 @@
+import cron from 'node-cron'
 import { Pool } from 'pg'
 import { alertService } from '../services/alertService'
 import { decryptPII as decrypt } from '../utils/encryption'
@@ -5,8 +6,8 @@ import { logger } from '../utils/logger'
 
 export function startAssetChangeWorker(pool: Pool) {
 
-  // Runs every day at 8AM IST
-  setInterval(async () => {
+  // Runs every day at 8AM IST, after the 6AM net worth snapshot it compares against
+  cron.schedule('0 8 * * *', async () => {
     logger.info('[AssetChange] Starting daily asset comparison job')
 
     let users
@@ -35,10 +36,11 @@ export function startAssetChangeWorker(pool: Pool) {
         await compareAndAlert(pool, user)
         await new Promise(r => setTimeout(r, 200))
       } catch (err) {
-        logger.error(`[AssetChange] Failed for ${user.id}:`, { error: (err as Error).message })
+        logger.error('[AssetChange] Comparison failed', { userId: user.id, error: (err as Error).message })
       }
     }
-  }, 24 * 60 * 60 * 1000)
+    logger.info('[AssetChange] Done', { users: users.rows.length })
+  }, { timezone: 'Asia/Kolkata' })
 
   logger.info('[AssetChange] Worker registered — runs daily at 8AM IST')
 }
@@ -166,8 +168,9 @@ async function compareAndAlert(pool: Pool, user: any) {
     const landChanges = await pool.query(`
       SELECT COUNT(*) FROM land_records
       WHERE user_id = $1
-      AND updated_at >= CURRENT_DATE - 1
-      AND updated_at < CURRENT_DATE
+      AND updated_at >= NOW() - INTERVAL '24 hours'
+      -- registry sync sets both in one statement (same NOW()); manual edits only touch updated_at
+      AND updated_at = last_synced_at
       AND source != 'manual'
     `, [user.id])
 

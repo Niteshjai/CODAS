@@ -257,7 +257,7 @@ export default function FinancialShield({
                     e.stopPropagation();
                     handleAction(item);
                   }}
-                  className="inline-flex items-center gap-1 bg-lime-300 hover:bg-lime-400 text-zinc-950 text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-sm transition active:scale-95"
+                  className="inline-flex items-center gap-1 bg-lime-300 hover:bg-lime-400 text-foreground text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-sm transition active:scale-95"
                 >
                   <span>+{item.points}</span>
                   <ArrowUpRight className="size-3 stroke-[2.5]" />

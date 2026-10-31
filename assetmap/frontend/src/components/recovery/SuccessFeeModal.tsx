@@ -126,29 +126,29 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white border border-zinc-200 rounded-[28px] w-full max-w-xl sm:min-w-[500px] md:min-w-[560px] shadow-2xl relative overflow-hidden">
+      <div className="bg-card border border-border rounded-[28px] w-full max-w-xl sm:min-w-[500px] md:min-w-[560px] shadow-2xl relative overflow-hidden">
 
         {/* Header */}
         <div className="p-6 pb-0 flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-bold text-zinc-900 tracking-tight">Recover Your Asset</h2>
-            <p className="text-sm text-zinc-500 mt-1">Zero upfront cost — pay only on success</p>
+            <h2 className="text-xl font-bold text-foreground tracking-tight">Recover Your Asset</h2>
+            <p className="text-sm text-muted-foreground mt-1">Zero upfront cost — pay only on success</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-xl transition">
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-xl transition">
             <X className="size-5 text-zinc-400" />
           </button>
         </div>
 
         <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
           {/* Asset card */}
-          <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-200/60">
+          <div className="bg-muted/50 rounded-2xl p-5 border border-border/60">
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-semibold text-zinc-900 text-[15px]">{asset.type}</p>
-                <p className="text-sm text-zinc-500 mt-0.5">{asset.sourceInstitution}</p>
+                <p className="font-semibold text-foreground text-[15px]">{asset.type}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{asset.sourceInstitution}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider">Estimated Value</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Estimated Value</p>
                 <p className="text-xl font-bold text-[#10b981] tracking-tight">
                   {formatRupees(asset.estimatedValue)}
                 </p>
@@ -157,77 +157,77 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
           </div>
 
           {/* Fee breakdown */}
-          <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/40 border border-amber-200/60 rounded-2xl p-5">
-            <h3 className="font-semibold text-amber-900 mb-3 flex items-center gap-2 text-[15px]">
+          <div className="bg-gradient-to-br from-amber-50/80 dark:from-amber-950/40 to-orange-50/40 dark:to-orange-950/40 border border-amber-200/60 dark:border-amber-800/60 rounded-2xl p-5">
+            <h3 className="font-semibold text-amber-900 dark:text-amber-300 mb-3 flex items-center gap-2 text-[15px]">
               <DollarSign className="size-[18px]" strokeWidth={2.5} />
               Success-Fee Breakdown
             </h3>
 
             <div className="space-y-2.5">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-amber-800/80">Our Success Fee</span>
-                <span className="font-semibold text-amber-900">{fee.feePct}% = {formatRupees(fee.feeAmount)}</span>
+                <span className="text-sm text-amber-800/80 dark:text-amber-300">Our Success Fee</span>
+                <span className="font-semibold text-amber-900 dark:text-amber-300">{fee.feePct}% = {formatRupees(fee.feeAmount)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-amber-800/80">GST (18%)</span>
-                <span className="font-medium text-amber-800">{formatRupees(fee.gst)}</span>
+                <span className="text-sm text-amber-800/80 dark:text-amber-300">GST (18%)</span>
+                <span className="font-medium text-amber-800 dark:text-amber-300">{formatRupees(fee.gst)}</span>
               </div>
-              <div className="border-t border-amber-200/60 pt-2.5 flex justify-between items-center">
-                <span className="text-sm font-semibold text-amber-900">Total Fee</span>
-                <span className="font-bold text-amber-900">{formatRupees(fee.total)}</span>
+              <div className="border-t border-amber-200/60 dark:border-amber-800/60 pt-2.5 flex justify-between items-center">
+                <span className="text-sm font-semibold text-amber-900 dark:text-amber-300">Total Fee</span>
+                <span className="font-bold text-amber-900 dark:text-amber-300">{formatRupees(fee.total)}</span>
               </div>
-              <div className="flex justify-between items-center bg-emerald-50 p-3 rounded-xl border border-emerald-200/50">
-                <span className="text-sm font-semibold text-emerald-800">You Receive</span>
-                <span className="font-bold text-emerald-700 text-lg">{formatRupees(fee.netToUser)}</span>
+              <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200/50 dark:border-emerald-800/60">
+                <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">You Receive</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-300 text-lg">{formatRupees(fee.netToUser)}</span>
               </div>
             </div>
 
-            <p className="text-xs text-amber-700/60 mt-3 text-center italic">
+            <p className="text-xs text-amber-700/60 dark:text-amber-300 mt-3 text-center italic">
               Deducted only after money reaches your account.
             </p>
           </div>
 
           {/* Trust signals */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="text-center p-3 bg-zinc-50 rounded-xl border border-zinc-200/60">
-              <Shield className="size-5 text-emerald-600 mx-auto mb-1.5" strokeWidth={1.75} />
-              <p className="text-[12px] font-semibold text-zinc-800">Zero Upfront</p>
-              <p className="text-[11px] text-zinc-500">No payment needed</p>
+            <div className="text-center p-3 bg-muted/50 rounded-xl border border-border/60">
+              <Shield className="size-5 text-emerald-600 dark:text-emerald-400 mx-auto mb-1.5" strokeWidth={1.75} />
+              <p className="text-[12px] font-semibold text-foreground">Zero Upfront</p>
+              <p className="text-[11px] text-muted-foreground">No payment needed</p>
             </div>
-            <div className="text-center p-3 bg-zinc-50 rounded-xl border border-zinc-200/60">
-              <Clock className="size-5 text-blue-600 mx-auto mb-1.5" strokeWidth={1.75} />
-              <p className="text-[12px] font-semibold text-zinc-800">We Handle It</p>
-              <p className="text-[11px] text-zinc-500">Forms & tracking</p>
+            <div className="text-center p-3 bg-muted/50 rounded-xl border border-border/60">
+              <Clock className="size-5 text-blue-600 dark:text-blue-400 mx-auto mb-1.5" strokeWidth={1.75} />
+              <p className="text-[12px] font-semibold text-foreground">We Handle It</p>
+              <p className="text-[11px] text-muted-foreground">Forms & tracking</p>
             </div>
-            <div className="text-center p-3 bg-zinc-50 rounded-xl border border-zinc-200/60">
-              <TrendingUp className="size-5 text-amber-600 mx-auto mb-1.5" strokeWidth={1.75} />
-              <p className="text-[12px] font-semibold text-zinc-800">Pay on Success</p>
-              <p className="text-[11px] text-zinc-500">Only if recovered</p>
+            <div className="text-center p-3 bg-muted/50 rounded-xl border border-border/60">
+              <TrendingUp className="size-5 text-amber-600 dark:text-amber-400 mx-auto mb-1.5" strokeWidth={1.75} />
+              <p className="text-[12px] font-semibold text-foreground">Pay on Success</p>
+              <p className="text-[11px] text-muted-foreground">Only if recovered</p>
             </div>
           </div>
 
           {/* Legal disclaimer */}
-          <div className="bg-zinc-50 border border-zinc-200/60 rounded-xl p-4 flex items-start gap-3">
+          <div className="bg-muted/50 border border-border/60 rounded-xl p-4 flex items-start gap-3">
             <Scale className="size-4 text-zinc-400 mt-0.5 shrink-0" strokeWidth={1.75} />
-            <p className="text-[11px] text-zinc-500 leading-relaxed">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
               {LEGAL_DISCLAIMER}
             </p>
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm">
+            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 text-sm">
               {error}
             </div>
           )}
 
           {/* Identifier Input */}
           <div className="space-y-1.5 pt-2 mt-4">
-            <label className="text-sm font-semibold text-zinc-900 block">
+            <label className="text-sm font-semibold text-foreground block">
               {getIdentifierInfo().label} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-[#10b981] focus:border-transparent outline-none transition text-[15px]"
+              className="w-full px-4 py-2.5 rounded-xl border border-border focus:ring-2 focus:ring-[#10b981] focus:border-transparent outline-none transition text-[15px]"
               placeholder={`Enter your ${getIdentifierInfo().label.toLowerCase()}`}
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
@@ -239,13 +239,13 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
           <label className="flex items-start gap-3 cursor-pointer group mt-4">
             <input
               type="checkbox"
-              className="mt-0.5 w-4 h-4 rounded border-zinc-300 text-[#10b981] focus:ring-[#10b981] cursor-pointer"
+              className="mt-0.5 w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 text-[#10b981] focus:ring-[#10b981] cursor-pointer"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
             />
-            <span className="text-[13px] text-zinc-600 leading-snug group-hover:text-zinc-900 transition">
+            <span className="text-[13px] text-zinc-600 dark:text-zinc-400 leading-snug group-hover:text-foreground transition">
               I agree to the success fee terms. I understand that{' '}
-              <span className="font-semibold text-zinc-900">{formatRupees(fee.total)}</span>{' '}
+              <span className="font-semibold text-foreground">{formatRupees(fee.total)}</span>{' '}
               (incl. GST) will be charged only if the asset is successfully recovered.
             </span>
           </label>
@@ -256,14 +256,14 @@ export default function SuccessFeeModal({ asset, onClose, onSuccess }: SuccessFe
           <button
             onClick={onClose}
             disabled={step === 'loading'}
-            className="flex-1 py-3 px-4 rounded-xl font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition"
+            className="flex-1 py-3 px-4 rounded-xl font-medium text-zinc-600 dark:text-zinc-400 hover:text-foreground hover:bg-muted transition"
           >
             Cancel
           </button>
           <button
             onClick={handleStartRecovery}
             disabled={step === 'loading' || !agreed}
-            className="flex-1 py-3 px-4 rounded-xl font-medium text-white bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex justify-center items-center gap-2 shadow-md"
+            className="flex-1 py-3 px-4 rounded-xl font-medium text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex justify-center items-center gap-2 shadow-md"
           >
             {step === 'loading' ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -29,13 +29,13 @@ export default function LenderCard({ lender }: { lender: any }) {
 
         <div className="grid grid-cols-2 gap-4 py-2 border-y border-neutral-800">
           <div>
-            <p className="text-xs text-neutral-500 flex items-center gap-1 mb-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
               <BadgePercent className="h-3 w-3" /> Interest Rate
             </p>
             <p className="font-semibold text-white">Starts at {lender.min_rate_pct}%</p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500 flex items-center gap-1 mb-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
               <Clock className="h-3 w-3" /> Max Tenure
             </p>
             <p className="font-semibold text-white">{lender.max_tenure_months / 12} Years</p>

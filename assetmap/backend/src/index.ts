@@ -151,6 +151,24 @@ app.setErrorHandler((err, request, reply) => {
   reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'An unexpected error occurred'));
 });
 
+// Many route catch blocks return `(error as Error).message` with a 500, which leaks driver,
+// SQL and upstream-API text to clients. Replace any 5xx message with a generic one (the
+// original is logged); 4xx messages are authored for users and pass through unchanged.
+app.addHook('onSend', async (request, reply, payload) => {
+  if (reply.statusCode < 500 || typeof payload !== 'string') return payload;
+  try {
+    const body = JSON.parse(payload);
+    if (body?.error && typeof body.error === 'object' && body.error.message) {
+      logger.error('5xx response', { url: request.url.split('?')[0], status: reply.statusCode, error: body.error.message });
+      body.error.message = 'Something went wrong. Please try again.';
+      return JSON.stringify(body);
+    }
+  } catch {
+    // non-JSON payload: leave as is
+  }
+  return payload;
+});
+
 // Health check
 app.get('/api/health', async (request, reply) => {
   const [dbHealthy, redisHealthy] = await Promise.all([

@@ -46,10 +46,10 @@ export default function TimelineTracker({ entries, progress }: TimelineTrackerPr
       {/* Progress bar */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Progress</span>
-          <span className="text-sm font-bold text-zinc-800">{progress}%</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Progress</span>
+          <span className="text-sm font-bold text-foreground">{progress}%</span>
         </div>
-        <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-700 ease-out"
             style={{ width: `${progress}%` }}
@@ -80,22 +80,22 @@ export default function TimelineTracker({ entries, progress }: TimelineTrackerPr
               {/* Icon + connecting line */}
               <div className="flex flex-col items-center">
                 <div className={`size-8 rounded-full flex items-center justify-center ${
-                  isLast ? 'bg-white border-2 border-zinc-300 shadow-sm' : 'bg-zinc-50'
+                  isLast ? 'bg-card border-2 border-zinc-300 dark:border-zinc-700 shadow-sm' : 'bg-muted/50'
                 }`}>
                   <Icon className={`size-4 ${statusInfo.color}`} strokeWidth={2.5} />
                 </div>
                 {!isLast && (
-                  <div className="w-px flex-1 min-h-[32px] bg-zinc-200" />
+                  <div className="w-px flex-1 min-h-[32px] bg-zinc-200 dark:bg-zinc-700" />
                 )}
               </div>
 
               {/* Content */}
               <div className={`pb-6 ${isLast ? '' : ''}`}>
-                <h4 className="text-[14px] font-semibold text-zinc-800 leading-tight">
+                <h4 className="text-[14px] font-semibold text-foreground leading-tight">
                   {entry.title}
                 </h4>
                 {entry.description && (
-                  <p className="text-[13px] text-zinc-500 mt-1 leading-relaxed">
+                  <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
                     {entry.description}
                   </p>
                 )}

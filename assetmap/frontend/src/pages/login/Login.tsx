@@ -35,7 +35,7 @@ const OTP_TIMER_SECONDS = 60;
 const MAX_RESENDS = 3;
 
 const ErrorBanner = ({ message, className = "" }: { message: string, className?: string }) => (
-  <div className={`flex items-start gap-2 p-3 mt-2 rounded-xl bg-red-50/80 border border-red-100 text-red-600 text-sm font-medium animate-in slide-in-from-top-1 fade-in duration-300 ${className}`}>
+  <div className={`flex items-start gap-2 p-3 mt-2 rounded-xl bg-red-50/80 dark:bg-red-950/40 border border-red-100 dark:border-red-800/60 text-red-600 dark:text-red-400 text-sm font-medium animate-in slide-in-from-top-1 fade-in duration-300 ${className}`}>
     <span className="material-symbols-outlined text-base mt-0.5">error</span>
     <span>{message}</span>
   </div>
@@ -539,10 +539,10 @@ export default function Onboarding() {
         <div className="w-full max-w-[380px] space-y-lg">
           {/* Brand Header */}
           <div className="flex items-center justify-center gap-3 -mt-8 mb-16">
-            <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-black/10 shadow-md grid place-items-center shrink-0">
+            <div className="size-10 rounded-full overflow-hidden bg-zinc-900 ring-1 ring-foreground/10 shadow-md grid place-items-center shrink-0">
               <img src="/logo.png" alt="CODAS" className="size-full object-cover" />
             </div>
-            <h1 className="text-3xl font-bold font-display text-zinc-900 tracking-tight pb-1">CODAS</h1>
+            <h1 className="text-3xl font-bold font-display text-foreground tracking-tight pb-1">CODAS</h1>
           </div>
 
           {step === 'phone' && (
@@ -563,14 +563,14 @@ export default function Onboarding() {
                       onClick={() => setDropdownOpen(!dropdownOpen)}
                       className="flex items-center gap-2 px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/10 rounded-lg font-body-md custom-focus transition-all hover:bg-white/80 dark:hover:bg-white/20 shrink-0 shadow-sm"
                     >
-                      <img src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} alt={selectedCountry.name} className="w-6 h-[16px] shadow-sm rounded-[2px] object-cover border border-black/5" />
+                      <img src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} alt={selectedCountry.name} className="w-6 h-[16px] shadow-sm rounded-[2px] object-cover border border-foreground/5" />
                       <span className="font-body-md text-zinc-900 dark:text-zinc-100">{selectedCountry.code}</span>
                       <span className="material-symbols-outlined text-xl text-zinc-500">expand_more</span>
                     </button>
 
                     {/* Country Dropdown Menu */}
                     {dropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] max-w-[340px] bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-50 py-4 border border-gray-100">
+                      <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] max-w-[340px] bg-card rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-50 py-4 border border-border">
                         <div className="px-4 pb-3">
                           <div className="flex items-center gap-2 bg-[#f0f2f5] rounded-full px-4 py-3">
                             <span className="material-symbols-outlined text-[#191c1e] text-[20px]">search</span>
@@ -592,7 +592,7 @@ export default function Onboarding() {
                               onClick={() => { setSelectedCountry(c); setDropdownOpen(false); setCountrySearch(''); setPhoneNumber(''); setPhoneError(''); }}
                               className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-left hover:bg-[#f7f9fb] transition-colors ${selectedCountry.code === c.code ? 'bg-[#f7f9fb]' : ''}`}
                             >
-                              <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt={c.name} className="w-7 h-[20px] shadow-sm rounded-[2px] object-cover border border-black/5 flex-shrink-0" />
+                              <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt={c.name} className="w-7 h-[20px] shadow-sm rounded-[2px] object-cover border border-foreground/5 flex-shrink-0" />
                               <div className="flex flex-col flex-1 min-w-0 justify-center">
                                 <span className={`text-[16px] leading-[1.2] font-medium text-[#191c1e] truncate ${c.localName !== c.name ? 'mb-1' : ''}`}>{c.name}</span>
                                 {c.localName !== c.name && <span className="text-[13px] leading-[1] text-[#76777d] truncate">{c.localName}</span>}
@@ -605,7 +605,7 @@ export default function Onboarding() {
                     )}
 
                     <input
-                      className={`flex-1 min-w-0 w-full px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border ${phoneError ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500' : 'border-black/10 dark:border-white/10 focus:border-brand-secondary focus:ring-brand-secondary'} rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 custom-focus transition-all outline-none focus:ring-1 shadow-sm`}
+                      className={`flex-1 min-w-0 w-full px-md py-[14px] bg-white dark:bg-white/10 backdrop-blur-md border ${phoneError ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500' : 'border-black/10 dark:border-white/10 focus:border-brand-secondary focus:ring-brand-secondary'} rounded-lg font-body-md text-zinc-900 dark:text-zinc-100 placeholder:text-muted-foreground custom-focus transition-all outline-none focus:ring-1 shadow-sm`}
                       id="phone"
                       placeholder="Mobile number"
                       type="tel"
@@ -798,7 +798,7 @@ export default function Onboarding() {
                       setError('');
                     }}
                     placeholder="Arjun Sharma"
-                    className="w-full h-[38px] px-3.5 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium uppercase"
+                    className="w-full h-[38px] px-3.5 rounded-xl border border-outline-variant bg-card text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium uppercase"
                     autoComplete="off"
                     required
                   />
@@ -813,7 +813,7 @@ export default function Onboarding() {
                     onChange={(e) => setPanNumber(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
                     placeholder="ABCDE1234F"
                     maxLength={10}
-                    className="w-full h-[38px] px-3.5 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.15em] font-medium uppercase"
+                    className="w-full h-[38px] px-3.5 rounded-xl border border-outline-variant bg-card text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.15em] font-medium uppercase"
                     autoComplete="off"
                     required
                   />
@@ -827,7 +827,7 @@ export default function Onboarding() {
                     <select
                       value={panDobYear}
                       onChange={(e) => setPanDobYear(e.target.value)}
-                      className="flex-[1.3] h-[38px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-[1.3] h-[38px] px-3 rounded-xl border border-outline-variant bg-card text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Year</option>
@@ -838,7 +838,7 @@ export default function Onboarding() {
                     <select
                       value={panDobMonth}
                       onChange={(e) => setPanDobMonth(e.target.value)}
-                      className="flex-1 h-[38px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-1 h-[38px] px-3 rounded-xl border border-outline-variant bg-card text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Month</option>
@@ -849,7 +849,7 @@ export default function Onboarding() {
                     <select
                       value={panDobDay}
                       onChange={(e) => setPanDobDay(e.target.value)}
-                      className="flex-[0.8] h-[38px] px-3 rounded-xl border border-outline-variant bg-white text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
+                      className="flex-[0.8] h-[38px] px-3 rounded-xl border border-outline-variant bg-card text-on-surface text-sm focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium appearance-none cursor-pointer"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2rem' }}
                     >
                       <option value="" disabled>Day</option>
@@ -918,7 +918,7 @@ export default function Onboarding() {
                       setAadhaarNumber(formatted);
                     }}
                     placeholder="0000 0000 0000"
-                    className="w-full h-[56px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.2em] font-medium"
+                    className="w-full h-[56px] px-4 rounded-xl border border-outline-variant bg-card text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all tracking-[0.2em] font-medium"
                     required
                   />
                   <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50">fingerprint</span>
@@ -985,7 +985,7 @@ export default function Onboarding() {
                         }
                       }}
                       id={`aadhaar-otp-${i}`}
-                      className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-outline-variant bg-white focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all"
+                      className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-outline-variant bg-card focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all"
                     />
                   ))}
                 </div>
@@ -1090,7 +1090,7 @@ export default function Onboarding() {
                       value={emailAddress}
                       onChange={(e) => setEmailAddress(e.target.value)}
                       placeholder="name@example.com"
-                      className="w-full h-[56px] px-4 rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium"
+                      className="w-full h-[56px] px-4 rounded-xl border border-outline-variant bg-card text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all font-medium"
                     />
                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50">mail</span>
                   </div>
@@ -1143,7 +1143,7 @@ export default function Onboarding() {
                           }
                         }}
                         id={`email-otp-${i}`}
-                        className="w-12 h-[56px] text-center text-xl font-bold rounded-xl border border-outline-variant bg-white text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all"
+                        className="w-12 h-[56px] text-center text-xl font-bold rounded-xl border border-outline-variant bg-card text-on-surface focus:border-brand-secondary focus:ring-2 focus:ring-brand-secondary/20 outline-none transition-all"
                       />
                     ))}
                   </div>

@@ -1,15 +1,15 @@
 import { Skeleton } from './Skeleton'
 
-export function ChartSkeleton() {
+const BAR_HEIGHTS = [70, 45, 90, 60, 80, 50, 75, 65, 85, 55, 70, 80]
+
+export function ChartSkeleton({ className = '' }: { className?: string }) {
   return (
     <div
       role="status"
+      aria-busy="true"
       aria-label="Loading chart"
-      style={{
-        background:'var(--surface-2, #fafafa)',
-        border:'0.5px solid var(--border, #e4e4e7)',
-        borderRadius:12, padding:20
-      }}
+      className={`skeleton-surface ${className}`}
+      style={{ padding:20 }}
     >
       <div style={{ display:'flex', justifyContent:'space-between',
                    marginBottom:16 }}>
@@ -18,11 +18,11 @@ export function ChartSkeleton() {
       </div>
       <div style={{ display:'flex', alignItems:'flex-end',
                    gap:6, height:140 }}>
-        {[70,45,90,60,80,50,75,65,85,55,70,80].map((_, i) => (
+        {BAR_HEIGHTS.map((h, i) => (
           <Skeleton
             key={i}
             width="100%"
-            height={`%`}
+            height={`${h}%`}
             radius={4}
             style={{ flexShrink:1 }}
           />

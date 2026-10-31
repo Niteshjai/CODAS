@@ -54,9 +54,14 @@ export async function insertLandRecord(
       estimated_value_paise = EXCLUDED.estimated_value_paise,
       raw_response_enc    = EXCLUDED.raw_response_enc,
       last_synced_at      = NOW(),
-      next_sync_at        = NOW() + (EXCLUDED.sync_frequency_days || 30 || ' days')::INTERVAL,
+      next_sync_at        = NOW() + make_interval(days => COALESCE(EXCLUDED.sync_frequency_days, 30)),
       is_stale            = false,
-      updated_at          = NOW()
+      -- updated_at marks a registry change (the asset-change worker alerts on it), so a
+      -- routine re-sync with identical title/mutation data must not bump it
+      updated_at          = CASE
+        WHEN land_records.title_status    IS DISTINCT FROM EXCLUDED.title_status
+          OR land_records.mutation_status IS DISTINCT FROM EXCLUDED.mutation_status
+        THEN NOW() ELSE land_records.updated_at END
     RETURNING id
   `, [
     userId,

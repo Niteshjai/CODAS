@@ -1,23 +1,21 @@
 import { Skeleton } from './Skeleton'
 
-interface Props { rows?: number }
+interface Props { rows?: number; className?: string }
 
-export function ListSkeleton({ rows = 5 }: Props) {
+export function ListSkeleton({ rows = 5, className = '' }: Props) {
   return (
     <div
       role="status"
+      aria-busy="true"
       aria-label="Loading list"
-      style={{
-        background:'var(--surface-2, #fafafa)',
-        border:'0.5px solid var(--border, #e4e4e7)',
-        borderRadius:12, overflow:'hidden'
-      }}
+      className={`skeleton-surface ${className}`}
+      style={{ overflow:'hidden' }}
     >
       {Array.from({ length:rows }).map((_, i) => (
         <div key={i} style={{
           display:'flex', alignItems:'center', gap:12,
           padding:'12px 16px',
-          borderBottom:i < rows-1 ? '0.5px solid var(--border, #e4e4e7)' : 'none'
+          borderBottom:i < rows-1 ? '1px solid var(--border)' : 'none'
         }}>
           <Skeleton width={40} height={40} radius={8} />
           <div style={{ flex:1 }}>

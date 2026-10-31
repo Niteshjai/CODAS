@@ -12,6 +12,7 @@ export function PageLoader({
   return (
     <div
       role="status"
+      aria-busy="true"
       aria-label={message}
       style={{
         display:        'flex',
@@ -21,11 +22,11 @@ export function PageLoader({
         gap:            12,
         padding:        '60px 20px',
         minHeight:      fullPage ? '100vh' : 200,
-        color:          'var(--text-muted, #71717a)',
+        color:          'var(--muted-foreground)',
       }}
     >
       <Spinner size={28} />
-      <span style={{ fontSize:13, color:'var(--text-muted, #71717a)' }}>
+      <span style={{ fontSize:13, color:'var(--muted-foreground)' }}>
         {message}
       </span>
     </div>

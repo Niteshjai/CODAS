@@ -1,3 +1,4 @@
+import cron from 'node-cron'
 import { Pool } from 'pg'
 import { netWorthTracker } from '../services/netWorthTracker'
 import { decryptPII as decrypt } from '../utils/encryption'
@@ -65,19 +66,20 @@ export function startNetWorthSnapshotWorker(pool: Pool) {
 
         await new Promise(r => setTimeout(r, 100))
       } catch (err) {
-        logger.error(`[NetWorthSnapshot] Failed for ${user.user_id}:`, { error: (err as Error).message })
+        logger.error('[NetWorthSnapshot] Snapshot failed', { userId: user.user_id, error: (err as Error).message })
       }
     }
 
-    logger.info('[NetWorthSnapshot] Done')
+    logger.info('[NetWorthSnapshot] Done', { users: users.rows.length })
   };
 
   // A DB blip must not become an unhandled rejection that kills the API process
   const safeRun = () => runJob().catch(err =>
     logger.error('[NetWorthSnapshot] Job failed', { error: (err as Error).message }))
 
+  // Startup run catches up after downtime; snapshots upsert per (user, date) so reruns are safe
   safeRun();
-  setInterval(safeRun, 24 * 60 * 60 * 1000);
+  cron.schedule('0 6 * * *', safeRun, { timezone: 'Asia/Kolkata' });
 
-  logger.info('[NetWorthSnapshot] Worker registered — runs daily and on startup')
+  logger.info('[NetWorthSnapshot] Worker registered — runs daily at 6AM IST and on startup')
 }

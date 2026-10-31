@@ -73,7 +73,7 @@ export function OfflineGuide({ guide, onBack }: Props) {
                   {step.description}
                 </p>
                 {step.tip && (
-                  <div style={{ fontSize: '12px', color: '#185FA5', background: '#E6F1FB', padding: '6px 10px', borderRadius: '6px', display: 'inline-block' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--tone-info-fg)', background: 'var(--tone-info-bg)', padding: '6px 10px', borderRadius: '6px', display: 'inline-block' }}>
                     💡 Tip: {step.tip}
                   </div>
                 )}

@@ -4,46 +4,48 @@ import { Check, X } from 'lucide-react';
 interface PlanCardProps {
   plan: any; // We'll type this properly later, but it matches PlanDefinition
   isCurrentPlan: boolean;
+  isLowerPlan?: boolean; // below the user's current plan: already included, can't switch down
   isSubscribing?: boolean;
   onSubscribe: (planId: string, billingCycle: 'monthly'|'yearly') => void;
   billingCycle: 'monthly' | 'yearly';
 }
 
-export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrentPlan, isSubscribing, onSubscribe, billingCycle }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrentPlan, isLowerPlan, isSubscribing, onSubscribe, billingCycle }) => {
   const isB2b = plan.id === 'b2b';
   const price = billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly;
   const displayPrice = isB2b ? 'Custom' : `₹${price / 100}`;
-  
+  const isSelectable = !isCurrentPlan && !isLowerPlan;
+
   return (
-    <div 
-      onClick={() => !isCurrentPlan && onSubscribe(plan.id, billingCycle)}
-      className={`relative flex flex-col p-6 bg-white rounded-2xl shadow-xl border-2 ${plan.isPopular ? 'border-lime-500' : 'border-gray-100'} transition-transform hover:-translate-y-1 ${!isCurrentPlan ? 'cursor-pointer' : ''}`}
+    <div
+      onClick={() => isSelectable && onSubscribe(plan.id, billingCycle)}
+      className={`relative flex flex-col p-6 bg-card rounded-2xl shadow-xl border-2 ${plan.isPopular ? 'border-lime-500' : 'border-border'} transition-transform hover:-translate-y-1 ${isSelectable ? 'cursor-pointer' : ''} ${isLowerPlan ? 'opacity-60' : ''}`}
     >
       {plan.isPopular && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-lime-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-lime-500 text-foreground px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
           Most Popular
         </div>
       )}
       
       <div className="mb-4">
         <h3 className="text-xl font-bold" style={{ color: plan.color }}>{plan.name}</h3>
-        <p className="text-gray-500 text-sm mt-1">{plan.tagline}</p>
+        <p className="text-muted-foreground text-sm mt-1">{plan.tagline}</p>
       </div>
 
       <div className="mb-6">
         <span className="text-4xl font-extrabold">{displayPrice}</span>
-        {!isB2b && <span className="text-gray-500">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>}
+        {!isB2b && <span className="text-muted-foreground">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>}
       </div>
 
       <button
-        onClick={() => !isCurrentPlan && !isSubscribing && onSubscribe(plan.id, billingCycle)}
-        disabled={isCurrentPlan || isSubscribing}
+        onClick={() => isSelectable && !isSubscribing && onSubscribe(plan.id, billingCycle)}
+        disabled={!isSelectable || isSubscribing}
         className={`w-full py-3 px-4 rounded-xl font-bold mb-8 transition-colors ${
-          isCurrentPlan || isSubscribing
-            ? 'bg-gray-100 text-gray-800 border border-gray-200 cursor-default'
+          !isSelectable || isSubscribing
+            ? 'bg-muted text-foreground border border-border cursor-default'
             : plan.isPopular
-            ? 'bg-lime-500 text-black hover:bg-lime-600'
-            : 'bg-black text-white hover:bg-gray-800'
+            ? 'bg-lime-500 text-foreground hover:bg-lime-600'
+            : 'bg-black dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white hover:bg-gray-800'
         }`}
       >
         {isCurrentPlan ? (
@@ -54,6 +56,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrentPlan, isSubsc
             </span>
             Current Plan
           </span>
+        ) : isLowerPlan ? (
+          'Included in your plan'
         ) : isSubscribing ? (
           <span className="flex items-center justify-center gap-2">
             <span className="w-5 h-5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin"></span>
@@ -67,7 +71,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrentPlan, isSubsc
         <ul className="space-y-3 mb-6">
           {plan.highlights.map((highlight: string, idx: number) => (
             <li key={idx} className="flex items-start gap-3 text-sm">
-              <Check className="w-5 h-5 text-lime-600 shrink-0" />
+              <Check className="w-5 h-5 text-lime-600 dark:text-lime-400 shrink-0" />
               <span>{highlight}</span>
             </li>
           ))}

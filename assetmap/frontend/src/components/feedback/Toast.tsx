@@ -1,11 +1,19 @@
 import { useToastStore, type Toast as ToastType } from '../../store/toastStore'
 
 
+// Theme-aware status tones (index.css). Dark tones are translucent, so they're layered
+// over the opaque popover colour to keep floating toasts readable over page content.
+const tone = (name: string) => ({
+  bg:     `linear-gradient(var(--tone-${name}-bg), var(--tone-${name}-bg)), var(--popover)`,
+  border: `var(--tone-${name}-border)`,
+  text:   `var(--tone-${name}-fg)`,
+})
+
 const TOAST_CONFIG = {
-  success: { bg:'#EAF3DE', border:'#97C459', text:'#3B6D11', icon:'✓' },
-  error:   { bg:'#FCEBEB', border:'#F09595', text:'#A32D2D', icon:'✗' },
-  warning: { bg:'#FAEEDA', border:'#FAC775', text:'#854F0B', icon:'⚠' },
-  info:    { bg:'#E6F1FB', border:'#85B7EB', text:'#185FA5', icon:'ℹ' },
+  success: { ...tone('success'), icon:'✓' },
+  error:   { ...tone('danger'),  icon:'✗' },
+  warning: { ...tone('warning'), icon:'⚠' },
+  info:    { ...tone('info'),    icon:'ℹ' },
 }
 
 export function ToastContainer() {

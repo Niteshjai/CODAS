@@ -109,13 +109,13 @@ export default function TwoFactorSettings() {
   }
 
   return (
-    <div className="min-h-screen text-zinc-900 font-sans pb-20" style={{ background: 'linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 30%, #a1a1aa 60%, #d4d4d8 80%, #71717a 100%)' }}>
+    <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20">
       <header className="sticky top-0 z-20 pt-4">
         <div className="w-full px-6 md:px-10 py-2 flex items-center justify-between">
           <button 
             type="button"
             onClick={() => navigate('/settings')}
-            className="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 bg-white/50 hover:bg-white/80 border border-zinc-300/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
           >
             <ArrowLeft className="size-4" />
             Back to Settings
@@ -130,27 +130,27 @@ export default function TwoFactorSettings() {
       ) : (
         <main className="max-w-[560px] mx-auto px-6 mt-2 sm:mt-4">
         <div className="mb-10 sm:mb-12 text-center">
-          <h1 className="text-3xl sm:text-4xl font-display font-light tracking-tight text-zinc-900">Two-Factor Authentication</h1>
-          <p className="text-zinc-600 mt-2.5 text-sm sm:text-base">Add an extra layer of security to your account.</p>
+          <h1 className="text-3xl sm:text-4xl font-display font-light tracking-tight text-foreground">Two-Factor Authentication</h1>
+          <p className="text-zinc-600 dark:text-zinc-400 mt-2.5 text-sm sm:text-base">Add an extra layer of security to your account.</p>
         </div>
 
         <div className="space-y-6 sm:space-y-8">
           {/* Status Banner Card */}
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-sm border border-zinc-200/60 p-4 sm:p-5 flex items-center justify-between gap-3">
+          <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-sm border border-border/60 p-4 sm:p-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl shrink-0 ${status?.active ? 'bg-lime-100 text-lime-700' : 'bg-zinc-100 text-zinc-500'}`}>
+              <div className={`p-2 rounded-xl shrink-0 ${status?.active ? 'bg-lime-100 dark:bg-lime-950/40 text-lime-700 dark:text-lime-300' : 'bg-muted text-muted-foreground'}`}>
                 <ShieldCheck className="size-5" />
               </div>
               <div className="text-left">
-                <h2 className="text-sm sm:text-base font-semibold text-zinc-900">{status?.active ? '2FA is Enabled' : '2FA is Disabled'}</h2>
-                <p className="text-xs text-zinc-500">{status?.active ? `Using ${status.method?.toUpperCase()} as primary method.` : 'Secure your account by enabling 2FA.'}</p>
+                <h2 className="text-sm sm:text-base font-semibold text-foreground">{status?.active ? '2FA is Enabled' : '2FA is Disabled'}</h2>
+                <p className="text-xs text-muted-foreground">{status?.active ? `Using ${status.method?.toUpperCase()} as primary method.` : 'Secure your account by enabling 2FA.'}</p>
               </div>
             </div>
             {status?.active && (
               <button 
                 type="button"
                 onClick={openDisableModal}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-red-200/80 bg-white text-red-600 hover:bg-red-50 hover:border-red-300 font-medium text-xs shadow-xs transition-all active:scale-[0.98] shrink-0"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-red-200/80 dark:border-red-800/60 bg-card text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-800/60 font-medium text-xs shadow-xs transition-all active:scale-[0.98] shrink-0"
               >
                 <Power className="size-3.5 text-red-500" />
                 <span>Turn Off</span>
@@ -160,8 +160,8 @@ export default function TwoFactorSettings() {
 
           {/* Authentication Methods */}
           <div>
-            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-1 mb-3">Authentication Methods</h3>
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-sm border border-zinc-200/60 overflow-hidden">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-3">Authentication Methods</h3>
+            <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-sm border border-border/60 overflow-hidden">
               <MethodRow 
                 icon={<Smartphone className="size-4" />}
                 title="Authenticator App"
@@ -171,7 +171,7 @@ export default function TwoFactorSettings() {
                 onSetup={() => navigate('/settings/2fa/totp')}
               />
               
-              <div className="h-px bg-zinc-100 w-full" />
+              <div className="h-px bg-muted w-full" />
               
               <MethodRow 
                 icon={<Mail className="size-4" />}
@@ -191,11 +191,11 @@ export default function TwoFactorSettings() {
       {/* Disable 2FA Modal */}
       {showDisableModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-[480px] bg-white rounded-[28px] p-7 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.22)] border border-zinc-100 overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-[480px] bg-card rounded-[28px] p-7 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.22)] border border-border overflow-hidden animate-in zoom-in-95 duration-200">
             <button
               onClick={closeDisableModal}
               disabled={disableLoading}
-              className="absolute top-5 right-5 p-2 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-full transition-colors"
+              className="absolute top-5 right-5 p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-muted rounded-full transition-colors"
             >
               <X className="size-5" />
             </button>
@@ -203,14 +203,14 @@ export default function TwoFactorSettings() {
             <div className="flex flex-col items-center text-center">
               {/* Icon badge with subtle layered glow */}
               <div className="relative mb-4 flex items-center justify-center">
-                <div className="size-16 rounded-2xl bg-gradient-to-b from-rose-50 to-rose-100/80 border border-rose-200/80 flex items-center justify-center text-rose-600 shadow-sm">
+                <div className="size-16 rounded-2xl bg-gradient-to-b from-rose-50 dark:from-rose-950/40 to-rose-100/80 dark:to-rose-950/40 border border-rose-200/80 dark:border-rose-800/60 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-sm">
                   <ShieldAlert className="size-8" />
                 </div>
               </div>
 
-              <h3 className="text-2xl font-bold text-zinc-900 tracking-tight">Disable 2FA</h3>
-              <p className="text-sm text-zinc-500 mt-2 leading-relaxed max-w-[360px]">
-                Enter the 6-digit code from your <span className="font-semibold text-zinc-700">{status?.method === 'totp' ? 'authenticator app' : 'registered email'}</span> to confirm.
+              <h3 className="text-2xl font-bold text-foreground tracking-tight">Disable 2FA</h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-[360px]">
+                Enter the 6-digit code from your <span className="font-semibold text-zinc-700 dark:text-zinc-300">{status?.method === 'totp' ? 'authenticator app' : 'registered email'}</span> to confirm.
               </p>
 
               {/* 6 Digit Inputs */}
@@ -227,15 +227,15 @@ export default function TwoFactorSettings() {
                     onKeyDown={(e) => handleDisableOtpKeyDown(i, e)}
                     className={`w-12 h-14 sm:w-[54px] sm:h-[62px] text-center text-xl sm:text-2xl font-bold rounded-2xl border outline-none transition-all duration-150 ${
                       digit 
-                        ? 'border-zinc-900 bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/10' 
-                        : 'border-zinc-200 bg-zinc-50/70 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50'
-                    } focus:border-zinc-900 focus:bg-white focus:ring-2 focus:ring-zinc-900/20`}
+                        ? 'border-foreground bg-card text-foreground shadow-sm ring-1 ring-foreground/10' 
+                        : 'border-border bg-muted/35 text-foreground hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-muted/50'
+                    } focus:border-foreground focus:bg-card focus:ring-2 focus:ring-foreground/20`}
                   />
                 ))}
               </div>
 
               {disableError && (
-                <div className="mb-6 text-xs sm:text-sm font-medium text-rose-600 bg-rose-50 border border-rose-100 py-3 px-4 rounded-xl w-full text-center">
+                <div className="mb-6 text-xs sm:text-sm font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-800/60 py-3 px-4 rounded-xl w-full text-center">
                   {disableError}
                 </div>
               )}
@@ -245,7 +245,7 @@ export default function TwoFactorSettings() {
                   type="button"
                   onClick={closeDisableModal}
                   disabled={disableLoading}
-                  className="flex-1 py-3 px-5 rounded-2xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100/80 font-semibold text-sm transition-all active:scale-[0.98]"
+                  className="flex-1 py-3 px-5 rounded-2xl border border-border text-zinc-700 dark:text-zinc-300 hover:bg-muted/80 font-semibold text-sm transition-all active:scale-[0.98]"
                 >
                   Cancel
                 </button>
@@ -255,7 +255,7 @@ export default function TwoFactorSettings() {
                   disabled={disableLoading || disableOtpDigits.some(d => !d)}
                   className={`flex-1 py-3 px-5 rounded-2xl font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] ${
                     disableOtpDigits.some(d => !d) || disableLoading
-                      ? 'bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed shadow-none'
+                      ? 'bg-muted text-zinc-400 border border-border cursor-not-allowed shadow-none'
                       : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-600/20 hover:shadow-md'
                   }`}
                 >
@@ -279,24 +279,24 @@ export default function TwoFactorSettings() {
 
 function MethodRow({ icon, title, description, active, onSetup, disabled, actionLabel = 'Setup' }: any) {
   return (
-    <div className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 transition-colors ${disabled ? 'opacity-50' : 'hover:bg-zinc-50/80'}`}>
+    <div className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 transition-colors ${disabled ? 'opacity-50' : 'hover:bg-muted/40'}`}>
       <div className="flex items-center gap-3 min-w-0">
-        <div className="p-2 bg-zinc-100 rounded-lg text-zinc-600 shrink-0">
+        <div className="p-2 bg-muted rounded-lg text-zinc-600 dark:text-zinc-400 shrink-0">
           {icon}
         </div>
         <div className="text-left min-w-0">
-          <h4 className="font-semibold text-sm text-zinc-900 truncate">{title}</h4>
-          <p className="text-xs text-zinc-500 line-clamp-1 sm:line-clamp-none">{description}</p>
+          <h4 className="font-semibold text-sm text-foreground truncate">{title}</h4>
+          <p className="text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">{description}</p>
         </div>
       </div>
       <div className="shrink-0">
         {active ? (
-          <span className="px-2.5 py-0.5 bg-lime-100 text-lime-700 text-xs font-medium rounded-full">Active</span>
+          <span className="px-2.5 py-0.5 bg-lime-100 dark:bg-lime-950/40 text-lime-700 dark:text-lime-300 text-xs font-medium rounded-full">Active</span>
         ) : (
           <button 
             onClick={onSetup}
             disabled={disabled}
-            className="px-3.5 py-1.5 bg-zinc-900 text-white font-medium text-xs rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-3.5 py-1.5 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-medium text-xs rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {actionLabel}
           </button>
