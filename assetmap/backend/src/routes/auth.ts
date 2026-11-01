@@ -2,15 +2,15 @@ import { FastifyPluginAsync } from 'fastify';
 import { randomUUID, randomInt, timingSafeEqual } from 'crypto';
 import { initiateOKYC, verifyOKYC } from '../services/aadhaar';
 import { AadhaarInitiateSchema, AadhaarVerifySchema, UserDeleteSchema, PhoneInitiateSchema, PhoneVerifySchema, RegisterPanSchema, RegisterAadhaarInitiateSchema, RegisterAadhaarVerifySchema, EmailInitiateSchema, EmailVerifySchema, RegisterConfirmSchema, FcmTokenSchema } from '../utils/validators';
-import { encryptPII } from '../utils/encryption';
+import { encryptPII, hashAadhaar, hashMobile } from '../utils/encryption';
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants';
 import { auditLogger } from '../services/auditLogger';
 import { logger } from '../utils/logger';
-import { issueTokenPair } from '../services/tokenService';
+import { issueTokenPair, rotateTokenPair, resendRotatedPair } from '../services/tokenService';
 import { sessionStore } from '../services/sessionStore';
 import { otpGuard } from '../services/otpGuard';
 import { verifyAccessToken } from '../middleware/auth';
-import { pool } from '../db/connection';
+import { pool, kvStore } from '../db/connection';
 import { UserModel } from '../models/user';
 import { createHash } from 'crypto';
 import twilio from 'twilio';
@@ -19,6 +19,18 @@ import { otpStore } from '../services/otpStore';
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
+
+// Wrong-OTP guesses allowed per OKYC transaction, counted before the provider is called so
+// parallel guesses can't slip past. Once spent, the transaction is dropped: a new guess needs a new
+// OTP, and sending those is capped per Aadhaar ('aadhaar_send').
+const OKYC_MAX_ATTEMPTS = 3;
+const OKYC_TXN_TTL_SEC = 300;   // OTP validity, as stored by initiateOKYC
+
+async function allowOkycAttempt(transactionId: string): Promise<boolean> {
+  if (await otpGuard.allow('okyc_verify', transactionId, OKYC_MAX_ATTEMPTS, OKYC_TXN_TTL_SEC)) return true;
+  await kvStore.del(`okyc:txn:${transactionId}`);
+  return false;
+}
 
 const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
 
@@ -99,11 +111,20 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/aadhaar/initiate', {
     schema: { body: AadhaarInitiateSchema },
-    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
+    // Per-IP cap is loose (shared office/college networks); the real limits are per phone/Aadhaar
+    config: { rateLimit: { max: 30, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
-      const { aadhaarNumber } = request.body as Record<string, any>;
+      const { aadhaarNumber: rawAadhaar } = request.body as Record<string, any>;
       const ipAddress = request.ip || request.socket.remoteAddress || '';
+      // One canonical form, so '1234 5678 9012' and '1234-5678-9012' share one OTP budget
+      const aadhaarNumber = String(rawAadhaar).replace(/[\s-]/g, '');
+      if (!/^\d{12}$/.test(aadhaarNumber)) {
+        return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Enter a valid 12-digit Aadhaar number.'));
+      }
+      if (!(await otpGuard.allow('aadhaar_send', hashAadhaar(aadhaarNumber), 5, 15 * 60))) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.RATE_LIMITED, 'Too many OTP requests for this Aadhaar. Please try again in 15 minutes.'));
+      }
 
       const result = await initiateOKYC(aadhaarNumber, ipAddress);
 
@@ -121,126 +142,113 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/aadhaar/verify', {
     schema: { body: AadhaarVerifySchema },
-    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
+    // Per-IP cap is loose (shared office/college networks); guesses are capped per transaction
+    config: { rateLimit: { max: 30, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
-      const { transactionId, otp, mobile } = request.body as Record<string, any>;
+      const { transactionId, otp } = request.body as Record<string, any>;
       const ipAddress = request.ip || request.socket.remoteAddress || '';
       const userAgent = request.headers['user-agent'] || '';
 
-      if (mobile) {
-        const isLocked = await otpGuard.isLocked(mobile);
-        if (isLocked) {
-          return reply.status(429).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'Too many failed attempts. Try again later.'));
-        }
+      if (!(await allowOkycAttempt(transactionId))) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'Too many incorrect attempts. Please request a new OTP.'));
       }
 
-      try {
-        const { aadhaarHash, ekycData } = await verifyOKYC(transactionId, otp, ipAddress, userAgent);
+      const { aadhaarHash, ekycData } = await verifyOKYC(transactionId, otp, ipAddress, userAgent);
 
-        const { encryptPII } = await import('../utils/encryption');
+      const { encryptPII } = await import('../utils/encryption');
 
-        // Check if user already exists
-        const existingUser = await pool.query(
-          'SELECT id FROM users WHERE aadhaar_hash = $1',
-          [aadhaarHash]
-        );
+      // Check if user already exists
+      const existingUser = await pool.query(
+        'SELECT id FROM users WHERE aadhaar_hash = $1',
+        [aadhaarHash]
+      );
 
-        let userId: string;
-        let isNewUser = false;
+      let userId: string;
+      let isNewUser = false;
 
-        if (existingUser.rows.length > 0) {
-          userId = existingUser.rows[0].id;
-          await pool.query(
-            'UPDATE users SET last_login_at = NOW() WHERE id = $1',
-            [userId]
-          );
-        } else {
-          isNewUser = true;
-          const result = await pool.query(
-            `INSERT INTO users (aadhaar_hash, name_encrypted, dob_encrypted, mobile_encrypted)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id`,
-            [
-              aadhaarHash,
-              encryptPII(ekycData.name),
-              encryptPII(ekycData.dob),
-              encryptPII(''),
-            ]
-          );
-          userId = result.rows[0].id;
-        }
-
-        if (mobile) {
-          await otpGuard.clearOnSuccess(mobile);
-        }
-
-        const role = 'user';
-
-        const { twoFactorAuth } = await import('../auth/twoFactorAuth')
-        const { trustedDeviceService } = await import('../auth/trustedDeviceService')
-
-        // Check if user has 2FA enabled
-        const twoFactorRecord = await pool.query(
-          'SELECT is_enabled, method FROM user_two_factor WHERE user_id=$1',
+      if (existingUser.rows.length > 0) {
+        userId = existingUser.rows[0].id;
+        await pool.query(
+          'UPDATE users SET last_login_at = NOW() WHERE id = $1',
           [userId]
+        );
+      } else {
+        isNewUser = true;
+        const result = await pool.query(
+          `INSERT INTO users (aadhaar_hash, name_encrypted, dob_encrypted, mobile_encrypted)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
+          [
+            aadhaarHash,
+            encryptPII(ekycData.name),
+            encryptPII(ekycData.dob),
+            encryptPII(''),
+          ]
+        );
+        userId = result.rows[0].id;
+      }
+
+      const role = 'user';
+
+      const { twoFactorAuth } = await import('../auth/twoFactorAuth')
+      const { trustedDeviceService } = await import('../auth/trustedDeviceService')
+
+      // Check if user has 2FA enabled
+      const twoFactorRecord = await pool.query(
+        'SELECT is_enabled, method FROM user_two_factor WHERE user_id=$1',
+        [userId]
+      )
+
+      const has2FA = twoFactorRecord.rows[0]?.is_enabled
+
+      if (has2FA) {
+        // Check trusted device cookie
+        const deviceToken = request.cookies?.['device_token']
+        if (deviceToken) {
+          const isTrusted = await trustedDeviceService.isTrusted(
+            pool, userId, deviceToken
+          )
+          if (isTrusted) {
+            await issueTokenPair(fastify, userId, role, reply, true);
+            await auditLogger.log(userId, 'AADHAAR_VERIFIED', 'auth', undefined, ipAddress, userAgent);
+
+            return reply.send(successResponse({
+              twoFactorRequired: false,
+              user: {
+                id: userId,
+                name: ekycData.name,
+                isNewUser
+              }
+            }));
+          }
+        }
+
+        // 2FA required — create pending session
+        const pendingToken = await twoFactorAuth.createPendingSession(
+          pool, userId, ipAddress, request.headers['user-agent'] || ''
         )
 
-        const has2FA = twoFactorRecord.rows[0]?.is_enabled
-
-        if (has2FA) {
-          // Check trusted device cookie
-          const deviceToken = request.cookies?.['device_token']
-          if (deviceToken) {
-            const isTrusted = await trustedDeviceService.isTrusted(
-              pool, userId, deviceToken
-            )
-            if (isTrusted) {
-              await issueTokenPair(fastify, userId, role, reply, true);
-              await auditLogger.log(userId, 'AADHAAR_VERIFIED', 'auth', undefined, ipAddress, userAgent);
-
-              return reply.send(successResponse({
-                twoFactorRequired: false,
-                user: {
-                  id: userId,
-                  name: ekycData.name,
-                  isNewUser
-                }
-              }));
-            }
-          }
-
-          // 2FA required — create pending session
-          const pendingToken = await twoFactorAuth.createPendingSession(
-            pool, userId, ipAddress, request.headers['user-agent'] || ''
-          )
-
-          return reply.send(successResponse({
-            twoFactorRequired: true,
-            pendingSessionToken: pendingToken,
-            method: twoFactorRecord.rows[0].method,
-            message: '2FA verification required.'
-          }));
-        }
-
-        await issueTokenPair(fastify, userId, role, reply, false);
-
-        await auditLogger.log(userId, 'AADHAAR_VERIFIED', 'auth', undefined, ipAddress, userAgent);
-
         return reply.send(successResponse({
-          twoFactorRequired: false,
-          user: {
-            id: userId,
-            name: ekycData.name,
-            isNewUser
-          }
+          twoFactorRequired: true,
+          pendingSessionToken: pendingToken,
+          method: twoFactorRecord.rows[0].method,
+          message: '2FA verification required.'
         }));
-      } catch (err: any) {
-        if (mobile) {
-          await otpGuard.recordFailure(mobile);
-        }
-        throw err;
       }
+
+      await issueTokenPair(fastify, userId, role, reply, false);
+
+      await auditLogger.log(userId, 'AADHAAR_VERIFIED', 'auth', undefined, ipAddress, userAgent);
+
+      return reply.send(successResponse({
+        twoFactorRequired: false,
+        user: {
+          id: userId,
+          name: ekycData.name,
+          isNewUser
+        }
+      }));
     } catch (error) {
       logger.error('Aadhaar verify failed', { error: (error as Error).message });
       const message = (error as Error).message;
@@ -262,7 +270,8 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/phone/initiate', {
     schema: { body: PhoneInitiateSchema },
-    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
+    // Per-IP cap is loose (shared office/college networks); the real limits are per phone/Aadhaar
+    config: { rateLimit: { max: 30, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { countryCode, phoneNumber, channel = 'sms' } = request.body as Record<string, any>;
@@ -272,6 +281,9 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const isLocked = await otpGuard.isLocked(fullPhone);
       if (isLocked) {
         return reply.status(429).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'Too many attempts. Please try again in 5 minutes.'));
+      }
+      if (!(await otpGuard.allow('phone_send', hashMobile(fullPhone), 5, 15 * 60))) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.RATE_LIMITED, 'Too many codes requested for this number. Please try again in 15 minutes.'));
       }
 
       const transactionId = randomUUID();
@@ -334,7 +346,8 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/phone/verify', {
     schema: { body: PhoneVerifySchema },
-    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } }
+    // Per-IP cap is loose (shared office/college networks); the real limits are per phone/Aadhaar
+    config: { rateLimit: { max: 30, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { transactionId, otp } = request.body as Record<string, any>;
@@ -533,7 +546,8 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // ─────────────────────────────────────────────
   fastify.post('/register/aadhaar/initiate', {
     schema: { body: RegisterAadhaarInitiateSchema },
-    config: { rateLimit: { max: 10, timeWindow: '3 seconds' } }
+    // Sends a real (billed) UIDAI OTP SMS: same per-IP cap as the other OTP-sending routes
+    config: { rateLimit: { max: 30, timeWindow: '15 minutes' } }
   }, async (request, reply) => {
     try {
       const { registrationToken, aadhaarNumber } = request.body as Record<string, any>;
@@ -551,6 +565,14 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const cleanAadhaar = aadhaarNumber.replace(/\s/g, '');
       if (!/^\d{12}$/.test(cleanAadhaar)) {
         return reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Invalid Aadhaar number. Must be 12 digits.'));
+      }
+      // Shares the per-Aadhaar budget with /aadhaar/initiate, so a registration token can't be
+      // reused to flood someone else's Aadhaar-linked phone with OTPs
+      if (!(await otpGuard.allow('aadhaar_send', hashAadhaar(cleanAadhaar), 5, 15 * 60))) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.RATE_LIMITED, 'Too many OTP requests for this Aadhaar. Please try again in 15 minutes.'));
+      }
+      if (!(await otpGuard.allow('reg_aadhaar_send', registrationToken, 5, 15 * 60))) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.RATE_LIMITED, 'Too many OTP requests. Please try again in 15 minutes.'));
       }
 
       try {
@@ -592,6 +614,10 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const regData = await otpStore.getPendingRegistration(registrationToken);
       if (!regData || Date.now() > regData.expiresAt || !(regData as Record<string, any>).aadhaarTemp) {
         return reply.status(400).send(errorResponse(ERROR_CODES.TOKEN_INVALID, 'Registration session expired or invalid.'));
+      }
+
+      if (!(await allowOkycAttempt(referenceId))) {
+        return reply.status(429).send(errorResponse(ERROR_CODES.OTP_EXPIRED, 'Too many incorrect attempts. Please request a new OTP.'));
       }
 
       try {
@@ -798,36 +824,53 @@ const authRoutes: FastifyPluginAsync = async (fastify, opts) => {
       return reply.status(401).send(errorResponse(ERROR_CODES.TOKEN_INVALID, 'Refresh token required'));
     }
 
+    const rejectRefresh = (message = 'Refresh failed') => reply
+      .clearCookie('access_token')
+      .clearCookie('refresh_token', { path: '/api/auth/refresh' })
+      .status(401)
+      .send(errorResponse(ERROR_CODES.TOKEN_INVALID, message));
+
+    let payload: { sub: string; sessionId: string; type: string };
     try {
-      const payload = fastify.jwt.verify<{ sub: string; sessionId: string; type: string }>(refreshToken);
+      payload = fastify.jwt.verify<{ sub: string; sessionId: string; type: string }>(refreshToken);
+      if (payload.type !== 'refresh') return rejectRefresh();
+    } catch {
+      return rejectRefresh();
+    }
 
-      if (payload.type !== 'refresh') {
-        throw new Error('Wrong type');
-      }
-
+    try {
       const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
-      const valid = await sessionStore.validateRefreshToken(payload.sessionId, tokenHash);
-      if (!valid) {
-        throw new Error('Token reuse detected');
-      }
-
       const session = await sessionStore.get(payload.sessionId);
-      if (!session) {
-        throw new Error('Session gone');
-      }
+      // No live session: either a parallel refresh just rotated it away, or it really is gone
+      const outcome = session
+        ? await rotateTokenPair(fastify, reply, { sessionId: payload.sessionId, tokenHash }, session)
+        : await sessionStore.inspectSpentRefreshToken(payload.sessionId, tokenHash);
 
-      await sessionStore.revoke(payload.sessionId);
-      await issueTokenPair(fastify, payload.sub, session.role, reply, !!session.twoFactorVerified);
+      if (outcome.kind === 'race') {
+        // Another tab/request refreshed with this token a moment ago. Hand back the pair it
+        // produced (covers a response that never arrived); failing that, keep the cookies and let
+        // the client pick up the winner's tokens.
+        if (outcome.next && await resendRotatedPair(fastify, reply, outcome.next)) {
+          return reply.send(successResponse({ message: 'Token refreshed' }));
+        }
+        return reply.status(409).send(errorResponse('REFRESH_RACE', 'Session was just refreshed'));
+      }
+      if (outcome.kind === 'reused') {
+        // A refresh token that was rotated long ago is being replayed: assume it was stolen and
+        // end the live session it led to, forcing a fresh sign-in.
+        if (outcome.familyId) await sessionStore.revokeFamily(outcome.familyId);
+        logger.warn('Refresh token reuse detected — login family revoked', { userId: payload.sub });
+        return rejectRefresh('Session ended for security. Please sign in again.');
+      }
+      if (outcome.kind === 'invalid') return rejectRefresh();
 
       await auditLogger.log(payload.sub, 'TOKEN_REFRESHED', 'auth', undefined, request.ip, request.headers['user-agent']);
 
       return reply.send(successResponse({ message: 'Token refreshed' }));
     } catch (error) {
-      reply
-        .clearCookie('access_token')
-        .clearCookie('refresh_token', { path: '/api/auth/refresh' })
-        .status(401)
-        .send(errorResponse(ERROR_CODES.TOKEN_INVALID, 'Refresh failed'));
+      // Session store unreachable (e.g. Redis blip): not the user's fault, so don't sign them out
+      logger.error('Token refresh failed — session store error', { error: (error as Error).message });
+      return reply.status(503).send(errorResponse(ERROR_CODES.SERVICE_UNAVAILABLE, 'Service temporarily unavailable. Please try again.'));
     }
   });
 

@@ -1,5 +1,5 @@
 import { CanonicalAsset } from '../schemas/canonicalAsset'
-import { toNumber } from '../../utils/sanitize'
+import { toNumber, toPaise } from '../../utils/sanitize'
 
 // ─────────────────────────────────────────────
 // Unclaimed Assets Normaliser
@@ -25,15 +25,13 @@ export function normaliseUnclaimedData(
           primarySource:      'iepf',
           secondarySources:   [],
           sourceRecordIds:    {
-            iepf: record.reference_number ?? record.id ?? record.investor_id
+            iepf: String(record.source_ref ?? record.reference_number ?? record.id ?? record.investor_id)
           },
 
           institutionName:    record.company_name ?? record.issuer,
           institutionType:    'IEPF',
 
-          currentValuePaise:  Math.round(
-            (record.amount ?? record.unclaimed_amount ?? 0) * 100
-          ),
+          currentValuePaise:  toPaise(record.amount ?? record.unclaimed_amount),
           investedValuePaise: 0,
           gainLossPaise:      0,
           currency:           'INR',
@@ -43,7 +41,6 @@ export function normaliseUnclaimedData(
 
           isActive:           true,
           isDormant:          true,
-          hasNominee:         false,
 
           openedDate:         record.dividend_date ?? record.transfer_date,
           lastTransactionDate:record.last_claim_date,
@@ -67,7 +64,7 @@ export function normaliseUnclaimedData(
           primarySource:      'iepf',
           secondarySources:   [],
           sourceRecordIds:    {
-            iepf: record.reference_number ?? record.id
+            iepf: String(record.source_ref ?? record.reference_number ?? record.id)
           },
 
           institutionName:    record.company_name ?? record.issuer,
@@ -85,7 +82,6 @@ export function normaliseUnclaimedData(
 
           isActive:           true,
           isDormant:          true,
-          hasNominee:         false,
 
           openedDate:         record.transfer_date,
           valuationDate:      new Date().toISOString().split('T')[0],
@@ -112,7 +108,8 @@ export function normaliseUnclaimedData(
         primarySource:      'epfo',
         secondarySources:   [],
         sourceRecordIds:    {
-          epfo: account.uan ?? account.member_id ?? account.id
+          // Opaque ref when available: source_record_ids is not encrypted
+          epfo: String(account.source_ref ?? account.uan ?? account.member_id ?? account.id)
         },
 
         institutionName:    account.establishment_name ?? account.company_name,
@@ -123,12 +120,8 @@ export function normaliseUnclaimedData(
         currentValuePaise:  Math.round(
           (totalBalance ?? 0) * 100
         ),
-        investedValuePaise: Math.round(
-          (account.employee_share ?? 0) * 100
-        ),
-        gainLossPaise:      Math.round(
-          (account.interest_earned ?? 0) * 100
-        ),
+        investedValuePaise: toPaise(account.employee_share),
+        gainLossPaise:      toPaise(account.interest_earned),
         currency:           'INR',
 
         assetName:          `EPF — ${account.establishment_name ?? account.uan ?? 'Unknown'}`,
@@ -137,7 +130,8 @@ export function normaliseUnclaimedData(
         isActive:           account.status !== 'SETTLED' &&
                             account.status !== 'CLOSED',
         isDormant:          account.status === 'INOPERATIVE',
-        hasNominee:         !!account.nominee_name,
+        // Unknown unless the source names a nominee (never claim "no nominee" without data)
+        hasNominee:         account.nominee_name ? true : undefined,
         nomineeName:        account.nominee_name,
 
         openedDate:         account.date_of_joining ?? account.start_date,
@@ -159,7 +153,7 @@ export function normaliseUnclaimedData(
         primarySource:      'epfo',
         secondarySources:   [],
         sourceRecordIds:    {
-          epfo: `eps_${pension.uan ?? pension.member_id}`
+          epfo: `eps_${pension.source_ref ?? pension.uan ?? pension.member_id}`
         },
 
         institutionName:    pension.establishment_name ?? pension.company_name,
@@ -179,7 +173,7 @@ export function normaliseUnclaimedData(
 
         isActive:           pension.status !== 'SETTLED',
         isDormant:          false,
-        hasNominee:         !!pension.nominee_name,
+        hasNominee:         pension.nominee_name ? true : undefined,
         nomineeName:        pension.nominee_name,
 
         openedDate:         pension.date_of_joining,
@@ -187,6 +181,39 @@ export function normaliseUnclaimedData(
 
         documentAvailable:  false,
         rawData:            pension,
+      })
+    }
+  }
+
+  // ── IRDAI unclaimed insurance amounts ──
+  if (Array.isArray(raw?.irdai?.records)) {
+    for (const record of raw.irdai.records) {
+      assets.push({
+        userId,
+        assetClass:         'UNCLAIMED',
+        primarySource:      'irdai',
+        secondarySources:   [],
+        sourceRecordIds:    { irdai: String(record.source_ref ?? record.id ?? '') },
+
+        institutionName:    record.company_name ?? 'Insurer',
+        institutionType:    'IRDAI',
+        policyNumber:       record.policy_number,
+
+        currentValuePaise:  toPaise(record.amount),
+        investedValuePaise: 0,
+        gainLossPaise:      0,
+        currency:           'INR',
+
+        assetName:          `Unclaimed Insurance — ${record.company_name ?? 'Unknown'}`,
+        assetSubtype:       'unclaimed_insurance',
+
+        isActive:           true,
+        isDormant:          true,
+
+        valuationDate:      new Date().toISOString().split('T')[0],
+
+        documentAvailable:  false,
+        rawData:            record,
       })
     }
   }

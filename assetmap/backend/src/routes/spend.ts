@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { verifyAccessToken }    from '../middleware/auth'
+import { userRateLimit } from '../middleware/userRateLimit'
 import { planEnforcer }         from '../plans/planEnforcer'
 import { pool }                 from '../db/connection'
 import { auditLogger }          from '../services/auditLogger'
@@ -378,8 +379,8 @@ export async function spendAnalyticsRoutes(app: FastifyInstance) {
 
   // ── Run the pipeline (classify → summary → analysis → insights) ─────────
   app.post('/analyze', {
-    preHandler: gated,
-    config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
+    preHandler: [...gated, userRateLimit('spend_analyze', 10, 60 * 60)],
+    config: { rateLimit: { max: 50, timeWindow: '1 hour' } },
     schema: {
       body: {
         type: ['object', 'null'],
@@ -423,8 +424,8 @@ export async function spendAnalyticsRoutes(app: FastifyInstance) {
 
   // POST re-run classification over existing rows (after learning) — queued
   app.post('/reclassify', {
-    preHandler: gated,
-    config: { rateLimit: { max: 2, timeWindow: '1 hour' } },
+    preHandler: [...gated, userRateLimit('spend_reclassify', 2, 60 * 60)],
+    config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
   }, async (req, reply) => {
     const { classifierWorkerQueue } = await import('../workers/classifierWorker')
     await classifierWorkerQueue.add('reclassify', { userId: req.user!.id, reclassify: true },
@@ -477,8 +478,8 @@ export async function spendAnalyticsRoutes(app: FastifyInstance) {
 
   // ── Ask about my spending ───────────────────────────────────────────────
   app.post('/ask', {
-    preHandler: gated,
-    config: { rateLimit: { max: 20, timeWindow: '1 hour' } },
+    preHandler: [...gated, userRateLimit('spend_ask', 20, 60 * 60)],
+    config: { rateLimit: { max: 100, timeWindow: '1 hour' } },
     schema: {
       body: {
         type: 'object', required: ['question'],

@@ -251,14 +251,19 @@ export const accountSettings = {
         SELECT consent_id, status, fi_types, purpose, date_range_start, date_range_end, created_at, revoked_at
           FROM consents WHERE user_id = $1 ORDER BY created_at DESC`),
       assets: (await q(`
-        SELECT asset_class, institution_name, account_ref_enc, current_value_paise, has_nominee,
-               source, is_active, last_synced_at
+        SELECT asset_class, asset_name, institution_name, account_ref_enc, folio_number_enc, policy_number_enc,
+               current_value_paise, has_nominee, nominee_name_enc,
+               COALESCE(primary_source, source) AS source, is_active, last_synced_at
           FROM canonical_assets WHERE user_id = $1 ORDER BY asset_class, institution_name`))
         .map((a: any) => ({
-          assetClass: a.asset_class, institution: a.institution_name,
+          assetClass: a.asset_class, assetName: a.asset_name ?? null, institution: a.institution_name,
           accountReference: safeDecrypt(a.account_ref_enc),
+          folioNumber: safeDecrypt(a.folio_number_enc),
+          policyNumber: safeDecrypt(a.policy_number_enc),
           currentValueRupees: a.current_value_paise == null ? null : Number(a.current_value_paise) / 100,
-          hasNominee: a.has_nominee, source: a.source, active: a.is_active, lastSyncedAt: a.last_synced_at,
+          // null = the source didn't say whether a nominee is registered
+          hasNominee: a.has_nominee, nomineeName: safeDecrypt(a.nominee_name_enc),
+          source: a.source, active: a.is_active, lastSyncedAt: a.last_synced_at,
         })),
       landRecords: (await q(`
         SELECT state, district, taluka, village, survey_number_enc, khasra_number_enc, area_value, area_unit,

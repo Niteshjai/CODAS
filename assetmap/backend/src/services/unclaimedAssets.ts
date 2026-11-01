@@ -4,6 +4,7 @@ import { Pool } from 'pg'
 import { encryptPII as encrypt, decryptPII as decrypt } from '../utils/encryption'
 import { auditLogger } from './auditLogger'
 import { logger } from '../utils/logger'
+import { enqueueAgentRun } from '../agent/agentRuns'
 
 // IEPF, EPFO, IRDAI portals — public data
 const IEPF_SEARCH_URL =
@@ -61,6 +62,7 @@ export const unclaimedAssets = {
     `, [searchId])
 
     const results: any[] = []
+    let completed = false
 
     try {
       // Search 1 — IEPF (unclaimed dividends, shares, deposits)
@@ -101,6 +103,7 @@ export const unclaimedAssets = {
         SET search_status = 'completed', completed_at = NOW()
         WHERE id = $1
       `, [searchId])
+      completed = true
 
     } catch (err) {
       logger.error('[UnclaimedSearch] Failed', { searchId, error: (err as Error).message })
@@ -120,6 +123,11 @@ export const unclaimedAssets = {
       undefined,
       { resultsFound: results.length }
     )
+
+    // Found unclaimed assets feed the asset-orchestration agent (never throws)
+    if (completed && results.length > 0) {
+      void enqueueAgentRun(userId, 'data_updated', { reason: 'unclaimed_search' })
+    }
   },
 
   async searchIEPF(pan: string, name: string): Promise<any[]> {

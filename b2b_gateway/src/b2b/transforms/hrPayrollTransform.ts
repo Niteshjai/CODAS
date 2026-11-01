@@ -45,25 +45,28 @@ export async function transformForHRPayroll(
   requestId: string
 ): Promise<HRPayrollResponse> {
 
+  // AA transactions live in the backend's `transactions` table (migrations 020 + 033):
+  // date TIMESTAMPTZ, narration, type 'CREDIT'/'DEBIT' (older rows may say CR/DR), and
+  // amount DECIMAL in rupees. Salary is summed in integer paise like every other figure here.
   const [txResult, assetsResult] = await Promise.all([
     pool.query(`
       SELECT
-        COUNT(DISTINCT DATE_TRUNC('month', value_date)) AS months,
-        AVG(monthly_total) AS avg_salary,
-        MAX(value_date) AS last_credit
+        COUNT(*)            AS months,
+        AVG(monthly_total)  AS avg_salary,
+        MAX(last_credit)    AS last_credit
       FROM (
         SELECT
-          DATE_TRUNC('month', value_date) AS month_date,
-          MAX(value_date) AS value_date,
-          SUM(amount_paise) AS monthly_total
-        FROM aa_transactions
-        WHERE user_id = $1
-        AND transaction_type = 'CREDIT'
-        AND description ILIKE ANY(
+          DATE_TRUNC('month', t.date)               AS month_date,
+          MAX(t.date)                               AS last_credit,
+          SUM(ROUND(ABS(t.amount) * 100))::BIGINT   AS monthly_total
+        FROM transactions t
+        WHERE t.user_id = $1
+        AND UPPER(t.type) IN ('CREDIT', 'CR')
+        AND COALESCE(t.narration, '') ILIKE ANY(
           ARRAY['%salary%','%sal%','%payroll%','%neft%']
         )
-        AND value_date >= NOW() - INTERVAL '12 months'
-        GROUP BY DATE_TRUNC('month', value_date)
+        AND t.date >= NOW() - INTERVAL '12 months'
+        GROUP BY DATE_TRUNC('month', t.date)
       ) monthly
     `, [userId]),
 
@@ -80,15 +83,21 @@ export async function transformForHRPayroll(
   const avgSalary    = parseFloat(txRow.avg_salary) || 0
   const monthsHistory= parseInt(txRow.months) || 0
   const hasSalary    = avgSalary > 0
+  const lastCredit   = txRow.last_credit ? new Date(txRow.last_credit).toISOString() : undefined
 
-  const totalAssets  = assets.reduce(
-    (s, a) => s + parseInt(a.current_value_paise ?? '0', 10), 0
-  )
+  const valueOf = (a: { current_value_paise: string | null }) =>
+    parseInt(a.current_value_paise ?? '0', 10) || 0
+  const sumClass = (cls: string) =>
+    assets.filter(a => a.asset_class === cls).reduce((s, a) => s + valueOf(a), 0)
+
+  // Net worth counts holdings only: insurance values are cover or surrender values, unclaimed
+  // registry money isn't recovered yet, and ancestral-search land has no valuation.
+  const NOT_HOLDINGS = new Set(['INSURANCE_LIFE', 'INSURANCE_HEALTH', 'INSURANCE_OTHER', 'UNCLAIMED', 'AGRICULTURAL_LAND_MANUAL'])
+  const totalAssets  = assets
+    .filter(a => !NOT_HOLDINGS.has(a.asset_class))
+    .reduce((s, a) => s + valueOf(a), 0)
   const hasPF = assets.some(a => a.asset_class === 'EPF')
   const hasNPS= assets.some(a => a.asset_class === 'NPS')
-
-  const pfBalance  = assets.find(a => a.asset_class === 'EPF')
-  const npsBalance = assets.find(a => a.asset_class === 'NPS')
 
   const netWorthLabel = (paise: number): string => {
     const v = paise / 100
@@ -122,7 +131,7 @@ export async function transformForHRPayroll(
       monthsOfSalaryHistory:     monthsHistory,
       estimatedEmployerType:     avgSalary > 500000 ? 'corporate' :
                                  avgSalary > 100000 ? 'mid_size' : 'sme',
-      lastSalaryCreditDate:      txRow.last_credit,
+      lastSalaryCreditDate:      lastCredit,
       salaryRangeLabel:          salaryLabel(avgSalary),
     },
 
@@ -130,12 +139,8 @@ export async function transformForHRPayroll(
       hasPF,
       hasNPS,
       hasGratuity: false,
-      pfBalance:   pfBalance
-        ? netWorthLabel(parseInt(pfBalance.current_value_paise ?? '0', 10))
-        : undefined,
-      npsBalance:  npsBalance
-        ? netWorthLabel(parseInt(npsBalance.current_value_paise ?? '0', 10))
-        : undefined,
+      pfBalance:   hasPF  ? netWorthLabel(sumClass('EPF')) : undefined,
+      npsBalance:  hasNPS ? netWorthLabel(sumClass('NPS')) : undefined,
     },
 
     financialHealth: {

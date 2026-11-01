@@ -6,32 +6,58 @@ export async function fraudRiskScore(
   userId: string
 ): Promise<DimensionResult> {
 
-  // Check anomalies from AI enrichment
+  // Open agent anomalies, de-duplicated. Since 034 the agent upserts one row per fingerprint
+  // (last_seen_at/occurrences grow on every run); rows written before that have no fingerprint
+  // and repeat per run, so they collapse on (type, asset or description). Anomalies whose asset
+  // has since been deactivated, or that the agent has not seen for 30 days, no longer count.
+  const agentAnomalies = await pool.query(`
+    SELECT COUNT(DISTINCT COALESCE(
+             an.fingerprint,
+             an.anomaly_type || ':' || COALESCE(an.canonical_id::text, an.description, '')
+           )) AS unresolved,
+           COALESCE(array_agg(DISTINCT an.anomaly_type), '{}') AS types
+    FROM asset_anomalies an
+    LEFT JOIN canonical_assets ca ON ca.id = an.canonical_id AND ca.user_id = an.user_id
+    WHERE an.user_id = $1
+    AND an.is_resolved = false
+    AND an.last_seen_at > NOW() - INTERVAL '30 days'
+    AND (an.canonical_id IS NULL OR ca.is_active IS NOT FALSE)
+  `, [userId])
+
+  // AI anomaly flags on assets that have no open anomaly row of their own — the agent records
+  // each flag as an asset_anomalies row too, and the same problem must not be penalised twice.
   const anomalyResult = await pool.query(`
     SELECT COUNT(*) AS active_anomalies
-    FROM canonical_assets
-    WHERE user_id = $1
-    AND ai_anomaly_flag = true
-    AND is_active = true
+    FROM canonical_assets ca
+    WHERE ca.user_id = $1
+    AND ca.ai_anomaly_flag = true
+    AND ca.is_active = true
+    AND NOT EXISTS (
+      SELECT 1 FROM asset_anomalies an
+       WHERE an.user_id = ca.user_id AND an.canonical_id = ca.id AND an.is_resolved = false
+    )
   `, [userId])
 
-  // Check agent run anomalies
-  const agentAnomalies = await pool.query(`
-    SELECT COUNT(*) AS unresolved,
-           array_agg(anomaly_type) AS types
-    FROM asset_anomalies
-    WHERE user_id = $1
-    AND is_resolved = false
-    AND created_at > NOW() - INTERVAL '30 days'
-  `, [userId])
-
-  // Check for new accounts (recently linked)
+  // Bank accounts that are genuinely new. The agent creates every row on its first run, so a
+  // row's created_at only means "new account" once the user's canonical history is older than
+  // the 30-day window (the account appeared in a later sync). A known opened_date overrides
+  // that: an account opened in the last 30 days is new whenever it was first seen, and one
+  // opened earlier never is.
   const newAccounts = await pool.query(`
+    WITH first_seen AS (
+      SELECT MIN(created_at) AS at FROM canonical_assets WHERE user_id = $1
+    )
     SELECT COUNT(*) AS new_count
-    FROM canonical_assets
-    WHERE user_id = $1
-    AND created_at > NOW() - INTERVAL '30 days'
-    AND asset_class = 'BANK_ACCOUNT'
+    FROM canonical_assets ca, first_seen fs
+    WHERE ca.user_id = $1
+    AND ca.asset_class = 'BANK_ACCOUNT'
+    AND ca.is_active = true
+    AND (
+      (ca.opened_date IS NOT NULL AND ca.opened_date >= CURRENT_DATE - 30)
+      OR (ca.opened_date IS NULL
+          AND ca.created_at > NOW() - INTERVAL '30 days'
+          AND ca.created_at > fs.at + INTERVAL '30 days')
+    )
   `, [userId])
 
   // Check for alerts history
@@ -52,9 +78,9 @@ export async function fraudRiskScore(
   const reasons:  string[] = []
   const warnings: string[] = []
 
-  if (activeAnomalies === 0)
+  if (activeAnomalies === 0 && unresolvedAgentAnomalies === 0)
     reasons.push('No active anomaly flags on any linked account')
-  else {
+  else if (activeAnomalies > 0) {
     score -= activeAnomalies * 20
     warnings.push(`${activeAnomalies} active anomaly flag(s) detected by AI`)
   }
@@ -89,6 +115,7 @@ export async function fraudRiskScore(
     data: {
       activeAnomalies,
       unresolvedAgentAnomalies,
+      anomalyTypes:      agentAnomalies.rows[0].types ?? [],
       newAccountCount,
       criticalAlertCount
     }

@@ -1,36 +1,43 @@
 import { Pool } from 'pg'
 import { DimensionResult } from './assetStrengthScore'
+import { USER_TRANSACTIONS_SQL } from './transactionSource'
 
 export async function liabilityBurdenScore(
   pool: Pool,
   userId: string
 ): Promise<DimensionResult> {
 
-  // Detect existing loans from transaction patterns
+  // Detect existing loans from transaction patterns. Narrations carry per-payment reference
+  // numbers and dates, so one loan's EMIs are counted once by their letters-only narration.
   const loansResult = await pool.query(`
     SELECT
-      COUNT(DISTINCT description) AS loan_count,
-      SUM(amount_paise)           AS total_monthly_emi
-    FROM aa_transactions
+      COUNT(DISTINCT NULLIF(TRIM(regexp_replace(LOWER(description), '[^a-z]+', ' ', 'g')), ''))
+                                  AS loan_count,
+      COALESCE(SUM(amount_paise), 0) AS total_monthly_emi
+    FROM ${USER_TRANSACTIONS_SQL} tx
     WHERE user_id = $1
     AND transaction_type = 'DEBIT'
     AND description ILIKE ANY(ARRAY['%emi%','%loan%','%repay%','%ecs%'])
+    -- a returned ECS/NACH debit is a bounce (counted below), not another loan
+    AND NOT description ILIKE ANY(ARRAY['%bounce%','%returned%','%insufficient%','%nsf%','%dishonour%'])
     AND value_date >= NOW() - INTERVAL '3 months'
   `, [userId])
 
   const loanCount     = parseInt(loansResult.rows[0].loan_count)     || 0
   const monthlyEMI    = Math.round(
-    parseInt(loansResult.rows[0].total_monthly_emi) / 3
+    (parseInt(loansResult.rows[0].total_monthly_emi) || 0) / 3
   )
 
-  // Detect credit card usage
+  // Detect credit card usage (the agent tags card accounts by institution_type; older rows by subtype)
   const ccResult = await pool.query(`
     SELECT COUNT(*) AS cc_count
     FROM canonical_assets
     WHERE user_id = $1
-    AND asset_class = 'OTHER'
-    AND asset_subtype ILIKE '%credit%card%'
     AND is_active = true
+    AND (
+      UPPER(COALESCE(institution_type, '')) IN ('CREDIT_CARD', 'CREDITCARD')
+      OR (asset_class = 'OTHER' AND asset_subtype ILIKE '%credit%card%')
+    )
   `, [userId])
 
   const creditCardCount = parseInt(ccResult.rows[0].cc_count) || 0
@@ -38,7 +45,7 @@ export async function liabilityBurdenScore(
   // Check for bounced/returned payments (NSF)
   const nsfResult = await pool.query(`
     SELECT COUNT(*) AS nsf_count
-    FROM aa_transactions
+    FROM ${USER_TRANSACTIONS_SQL} tx
     WHERE user_id = $1
     AND description ILIKE ANY(
       ARRAY['%bounce%','%returned%','%insufficient%',
@@ -64,7 +71,7 @@ export async function liabilityBurdenScore(
   else if (monthlyEMI < 1000000)  score += 5  // < ₹10K
   else if (monthlyEMI < 3000000)  score -= 0  // ₹10–30K
   else if (monthlyEMI < 5000000)  score -= 10 // ₹30–50K
-  else { score -= 20; warnings.push(`High EMI burden of ₹${fmt(monthlyEMI)}/month`) }
+  else { score -= 20; warnings.push(`High EMI burden of ${fmt(monthlyEMI)}/month`) }
 
   // Credit card penalty
   if (creditCardCount >= 4) {

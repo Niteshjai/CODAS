@@ -10,7 +10,7 @@ Four independent npm packages, no workspace tooling — run `npm install` and co
 
 - `assetmap/backend/` — Fastify API (CommonJS, `tsx` for dev)
 - `assetmap/frontend/` — React 19 + Vite SPA (Tailwind v4, Zustand, Radix/shadcn primitives in `src/components/ui/`)
-- `assetmap/agent-worker/` — headless BullMQ worker running the Claude asset-orchestration agent (ESM, `tsx`); shares the backend's Postgres/Redis, has its own `CLAUDE.md`. Its schema is backend migration `032_agent_orchestration.sql`
+- `assetmap/agent-worker/` — headless BullMQ worker running the Claude asset-orchestration agent (ESM; `tsx` in dev, esbuild bundle `dist/index.js` in prod); shares the backend's Postgres/Redis, has its own `CLAUDE.md`. The backend enqueues runs (`asset-orchestration` queue, job data `{ runId, userId, triggerType }` only) after it stores new AA/land/unclaimed data or the user presses Rescan (`POST /api/agent/runs`); the worker also runs a daily 03:30 IST catch-up. It reads backend-stored data (`asset_snapshots_aa`, `land_records`, `unclaimed_assets_found`, decrypting with the shared `ENCRYPTION_KEY`) and writes `canonical_assets` / `asset_anomalies` — it does not call Setu, land or IEPF APIs. Without `ANTHROPIC_API_KEY` it runs deterministically (no AI enrichment). Schema: backend migrations `032_agent_orchestration.sql` and `034_agent_integration.sql`
 - `b2b_gateway/` — separate partner-facing Fastify service (ESM / `NodeNext`, so relative imports need `.js` extensions)
 
 There is **no `python-service/`** directory despite references in README, ARCHITECTURE, and `assetmap/.github/copilot-instructions.md`; it is commented out in `docker-compose.yml`.
@@ -18,7 +18,7 @@ There is **no `python-service/`** directory despite references in README, ARCHIT
 ## Commands
 
 ```bash
-# Infra (Postgres 15 + Redis 7 + backend + frontend)
+# Infra (Postgres 15 + Redis 7 + backend + frontend + agent-worker)
 cd assetmap && docker-compose up -d
 
 # Backend (port 3000)
@@ -36,10 +36,13 @@ npm run dev
 npm run lint         # oxlint
 npm run build        # tsc -b && vite build
 
-# Agent worker (no port; needs DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY, and the backend's ENCRYPTION_KEY)
+# Agent worker (no port; needs DATABASE_URL, REDIS_URL (same Redis as the backend), the backend's
+# ENCRYPTION_KEY; ANTHROPIC_API_KEY optional). Healthy while AGENT_HEARTBEAT_FILE mtime < 2 min
 cd assetmap/agent-worker
 npm run dev          # tsx watch, loads .env if present
 npm run typecheck
+npm run build        # esbuild -> dist/index.js
+npm start            # node dist/index.js
 
 # B2B gateway (port 3001, requires JWT_SECRET)
 cd b2b_gateway
@@ -85,4 +88,4 @@ Standalone service (`src/server.ts`) for partners: API-key auth (`src/b2b/auth/a
 
 ## Deployment
 
-`.github/workflows/azure-deploy.yml` runs on every push to `main`: the backend Docker image goes to GHCR → Azure Web App, and the frontend goes to Azure Static Web Apps. There is no CI test/lint gate, so run checks locally before pushing to `main`. The gateway is not deployed by CI.
+`.github/workflows/azure-deploy.yml` runs on every push to `main`. A `checks` job (backend typecheck + build, frontend lint + build, agent-worker typecheck + build) gates every deploy; the backend test suite runs alongside but is non-blocking. Then `deploy-backend` applies pending migrations (if the `AZURE_DATABASE_URL` secret is set) and ships the backend image (GHCR → Azure Web App, optionally via the `AZURE_STAGING_SLOT` slot swap), and the frontend goes to Azure Static Web Apps. `deploy-agent-worker` (after `deploy-backend`, so migrations ran first) pushes `ghcr.io/<repo>/agent-worker:<sha12>` and runs `az containerapp update`; it is skipped unless repo variable `AGENT_CONTAINERAPP_NAME` is set and fails if `AZURE_RESOURCE_GROUP` is missing. The Container App must already exist (no ingress, min replicas 1, secrets `DATABASE_URL`/`REDIS_URL`/`ENCRYPTION_KEY`/`ANTHROPIC_API_KEY`, ghcr registry credentials) — see the comment above the job. The gateway is not deployed by CI.

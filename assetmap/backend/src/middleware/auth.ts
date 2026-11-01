@@ -11,6 +11,7 @@ export async function verifyAccessToken(
     return
   }
 
+  let payload: { sub: string; role: string; sessionId: string; type: string; twoFactorVerified?: boolean };
   try {
     // Try Authorization header first (LocalStorage flow), then fall back to cookies
     const authHeader = request.headers['authorization'];
@@ -21,8 +22,6 @@ export async function verifyAccessToken(
     if (!token) {
       return reply.status(401).send({ success: false, error: { code: 'NO_TOKEN', message: 'Authentication required' } })
     }
-
-    let payload: { sub: string; role: string; sessionId: string; type: string; twoFactorVerified?: boolean };
 
     if (authHeader?.startsWith('Bearer ')) {
       // Verify from raw token (Authorization header)
@@ -38,19 +37,29 @@ export async function verifyAccessToken(
       return reply.status(401).send({ success: false, error: { code: 'WRONG_TOKEN_TYPE', message: 'Invalid token type' } })
     }
 
-    const [session, blocked] = await Promise.all([
-      sessionStore.get(payload.sessionId),
-      sessionStore.isBlocked(payload.sessionId)
-    ])
-
-    if (!session || blocked) {
-      return reply.status(401).send({ success: false, error: { code: 'SESSION_INVALID', message: 'Session expired or revoked' } })
-    }
-
-    request.user = { id: payload.sub, role: payload.role, sessionId: payload.sessionId, twoFactorVerified: !!payload.twoFactorVerified }
   } catch (err) {
     return reply.status(401).send({ success: false, error: { code: 'TOKEN_INVALID', message: 'Invalid or expired token' } })
   }
+
+  // The token itself is valid. If the session store can't be reached (e.g. a Redis blip), answer
+  // 503 so clients keep the user signed in and retry, instead of 401, which reads as "logged out".
+  let session, blocked
+  try {
+    ;[session, blocked] = await Promise.all([
+      sessionStore.get(payload.sessionId),
+      sessionStore.isBlocked(payload.sessionId)
+    ])
+  } catch (err) {
+    request.log.error({ err: (err as Error).message }, 'Session store unavailable')
+    reply.header('Retry-After', '5')
+    return reply.status(503).send({ success: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable. Please try again.' } })
+  }
+
+  if (!session || blocked) {
+    return reply.status(401).send({ success: false, error: { code: 'SESSION_INVALID', message: 'Session expired or revoked' } })
+  }
+
+  request.user = { id: payload.sub, role: payload.role, sessionId: payload.sessionId, twoFactorVerified: !!payload.twoFactorVerified }
 }
 
 export function requireRole(...allowedRoles: string[]) {

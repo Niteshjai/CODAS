@@ -1,7 +1,13 @@
 import { Pool }    from 'pg'
 import { memberName, FamilyError } from './familyVault'
 
-// Asset class → share column mapping
+// Asset class → share column mapping. Covers every class in canonical_assets' CHECK list
+// (migration 032); a class missing here is never shown to the family.
+//  - share_land ("Property"): registry land, agent property records, legacy REAL_ESTATE and
+//    land the user confirmed from ancestral search.
+//  - share_gold ("Gold & other", off by default): gold, bonds, vehicles, money found in
+//    unclaimed-asset registries and anything unclassified. Bonds sit here rather than with
+//    fixed deposits, whose toggle promises "FD and RD values".
 const SHARE_COLUMNS: Record<string, string> = {
   BANK_ACCOUNT:    'share_bank_accounts',
   FIXED_DEPOSIT:   'share_fixed_deposits',
@@ -13,7 +19,14 @@ const SHARE_COLUMNS: Record<string, string> = {
   INSURANCE_LIFE:  'share_insurance',
   INSURANCE_HEALTH:'share_insurance',
   INSURANCE_OTHER: 'share_insurance',
-  REAL_ESTATE:     'share_land',
+  LAND:                     'share_land',
+  PROPERTY:                 'share_land',
+  REAL_ESTATE:              'share_land',
+  AGRICULTURAL_LAND_MANUAL: 'share_land',
+  GOLD:            'share_gold',
+  BOND:            'share_gold',
+  VEHICLE:         'share_gold',
+  UNCLAIMED:       'share_gold',
   OTHER:           'share_gold',   // "Gold & other assets"
 }
 
@@ -169,7 +182,7 @@ export const familyAggregator = {
     const placeholders = sharedClasses.map((_, i) => `$${i + 2}`).join(',')
     // Family sees institution, type and value — never account/folio numbers or nominee names
     const assets = await pool.query(`
-      SELECT id, asset_class, institution_name, source,
+      SELECT id, asset_class, institution_name, COALESCE(primary_source, source) AS source,
              current_value_paise, has_nominee, last_synced_at
         FROM canonical_assets
        WHERE user_id = $1 AND is_active = true AND asset_class IN (${placeholders})

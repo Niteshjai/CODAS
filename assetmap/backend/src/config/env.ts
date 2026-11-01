@@ -11,6 +11,17 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   MOCK_MODE: z.enum(['true', 'false']).default('false'),
   REDIS_URL: z.string().optional(),
+  // Postgres pool sizing/timeouts (read in db/connection.ts). Keep instances × PG_POOL_MAX
+  // (+ b2b gateway + agent worker) under ~80% of the server's max_connections.
+  PG_POOL_MAX: z.coerce.number().int().min(1).max(200).optional(),
+  PG_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).optional(),
+  SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
+  // Application Insights (src/telemetry.ts); telemetry is off when unset
+  APPLICATIONINSIGHTS_CONNECTION_STRING: z.string().optional(),
+  APPINSIGHTS_SAMPLING_RATIO: z.coerce.number().min(0).max(1).optional(),
+  // Start the in-process cron jobs and BullMQ workers (src/index.ts). Must be a slot-sticky
+  // App Service setting: false on the staging slot, true (or unset) on production.
+  RUN_BACKGROUND_JOBS: z.preprocess(v => (v === '' ? undefined : v), z.enum(['true', 'false']).default('true')),
   
   // Secrets
   COOKIE_SECRET: z.string().min(16, 'COOKIE_SECRET must be at least 16 characters long'),

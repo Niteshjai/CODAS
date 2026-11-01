@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import { DimensionResult } from './assetStrengthScore'
+import { USER_TRANSACTIONS_SQL } from './transactionSource'
 
 export async function incomeStabilityScore(
   pool: Pool,
@@ -13,7 +14,7 @@ export async function incomeStabilityScore(
       DATE_TRUNC('month', value_date) AS month,
       SUM(amount_paise)               AS monthly_income,
       COUNT(*)                        AS credit_count
-    FROM aa_transactions
+    FROM ${USER_TRANSACTIONS_SQL} tx
     WHERE user_id = $1
     AND transaction_type = 'CREDIT'
     AND description ILIKE ANY(
@@ -44,7 +45,7 @@ export async function incomeStabilityScore(
   // EMI affordability: recommended max FOIR 55%
   const existingEMIs = await pool.query(`
     SELECT COALESCE(SUM(amount_paise), 0) AS monthly_obligations
-    FROM aa_transactions
+    FROM ${USER_TRANSACTIONS_SQL} tx
     WHERE user_id = $1
     AND transaction_type = 'DEBIT'
     AND description ILIKE ANY(ARRAY['%emi%','%loan%','%repay%'])

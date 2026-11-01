@@ -74,7 +74,13 @@ export default function ConsentFlow() {
   }, []);
 
   const dateRangeStart = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const dateRangeEnd = new Date().toISOString().split('T')[0];
+  // Display only: the server sets the data window's end to the consent's expiry (12 months from
+  // now) so periodic refreshes keep bringing new transactions; it ignores the value sent here.
+  const dateRangeEnd = (() => {
+    const end = new Date();
+    end.setUTCMonth(end.getUTCMonth() + 12);
+    return end.toISOString().split('T')[0];
+  })();
 
   function toggleFIType(value: string) {
     if (linkedTypes.includes(value)) return; // Prevent toggling already linked types
@@ -298,7 +304,7 @@ export default function ConsentFlow() {
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">Data Period</div>
                   <p className="text-sm font-medium text-foreground">
-                    {dateRangeStart} to {dateRangeEnd}
+                    From {dateRangeStart}, refreshed until {dateRangeEnd}
                   </p>
                 </div>
 

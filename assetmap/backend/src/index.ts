@@ -1,3 +1,5 @@
+// Telemetry must load first so it can instrument fastify/pg/ioredis/winston as they are imported
+import { flushTelemetry } from './telemetry';
 import 'dotenv/config';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
@@ -6,8 +8,11 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 
-import { pool, checkDatabaseHealth, checkRedisHealth, closeConnections, connectRedis } from './db/connection';
+import { pool, redis, checkDatabaseHealth, checkRedisHealth, closeConnections, connectRedis } from './db/connection';
+import { normalizeIp } from './utils/clientIp';
 import { logger } from './utils/logger';
+import cron from 'node-cron';
+import { isShuttingDown, markShuttingDown, runClosers } from './utils/lifecycle';
 import { errorResponse, successResponse, ERROR_CODES } from './utils/constants';
 import { env } from './config/env';
 
@@ -46,6 +51,7 @@ import { ancestralRoutes } from './routes/ancestral';
 import { startAncestralSearchWorker } from './workers/ancestralSearchWorker';
 import { twoFactorRoutes } from './routes/twoFactor';
 import { notificationsRoutes } from './routes/notifications';
+import { agentRoutes } from './routes/agent';
 import { startTwoFactorSweeper } from './cron/twoFactorSweeper';
 import { verifyAccessToken, requireRole } from './middleware/auth';
 
@@ -117,7 +123,14 @@ async function registerPlugins() {
     credentials: true,
     exposedHeaders: ['x-access-token', 'x-refresh-token']
   });
-  await app.register(rateLimit, { max: 300, timeWindow: '1 minute' }); // General per-IP limit
+  // General per-IP limit. In production the counters live in Redis so every instance shares
+  // them; if Redis is briefly unreachable requests are allowed rather than failed.
+  await app.register(rateLimit, {
+    max: 300,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => normalizeIp(req.ip) ?? req.ip,
+    ...(process.env.NODE_ENV === 'production' ? { redis, skipOnError: true, nameSpace: 'rl:' } : {}),
+  });
 
   await app.register(fastifyCookie, {
     secret: env.COOKIE_SECRET, // for cookie signature
@@ -181,8 +194,17 @@ app.addHook('onSend', async (request, reply, payload) => {
   return payload;
 });
 
-// Health check
+// Liveness: is the process up? No dependency checks, so a DB/Redis blip doesn't make the
+// platform restart every instance at once. Point the App Service health check here.
+app.get('/api/health/live', async (_request, reply) => {
+  reply.status(isShuttingDown() ? 503 : 200).send(successResponse({ status: isShuttingDown() ? 'shutting_down' : 'alive' }));
+});
+
+// Readiness: can this instance serve traffic right now? 503 while draining or when a dependency is down.
 app.get('/api/health', async (request, reply) => {
+  if (isShuttingDown()) {
+    return reply.status(503).send(successResponse({ status: 'shutting_down', timestamp: new Date().toISOString() }));
+  }
   const [dbHealthy, redisHealthy] = await Promise.all([
     checkDatabaseHealth(),
     checkRedisHealth(),
@@ -198,6 +220,8 @@ app.get('/api/health', async (request, reply) => {
         database: dbHealthy ? 'connected' : 'disconnected',
         redis: redisHealthy ? 'connected' : 'disconnected',
       },
+      // waiting > 0 for long means the pool is saturated (slow queries or too small PG_POOL_MAX)
+      dbPool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
     })
   );
 });
@@ -228,6 +252,7 @@ async function registerRoutes() {
   await app.register(ancestralRoutes);
   await app.register(twoFactorRoutes);
   await app.register(notificationsRoutes, { prefix: '/api/notifications' });
+  await app.register(agentRoutes, { prefix: '/api/agent' });
 
   app.post('/api/admin/run-migration', {
     preHandler: [verifyAccessToken, requireRole('admin')],
@@ -273,34 +298,77 @@ async function startServer(): Promise<void> {
       }
     }
 
-    startLandSyncWorker(pool);
-    startAssetChangeWorker(pool);
-    startNetWorthSnapshotWorker(pool);
-    runUnclaimedSyncWorker(pool);
-    // startNomineeWorker();
-    startStatusSweeper();
-    startNomineeVerificationWorker();
-    startClassifierWorker(pool);
-    startFamilySnapshotWorker(pool);
-    startAncestralSearchWorker(pool);
-    startTwoFactorSweeper();
+    // Cron sweepers and BullMQ workers. RUN_BACKGROUND_JOBS is a slot-sticky App Service setting:
+    // false on the staging slot so the warming-up release, and the old release left there after a
+    // swap, never run jobs (duplicate alerts, paid lookups, feed entries) against production data.
+    if (env.RUN_BACKGROUND_JOBS === 'true') {
+      startLandSyncWorker(pool);
+      startAssetChangeWorker(pool);
+      startNetWorthSnapshotWorker(pool);
+      runUnclaimedSyncWorker(pool);
+      // startNomineeWorker();
+      startStatusSweeper();
+      startNomineeVerificationWorker();
+      startClassifierWorker(pool);
+      startFamilySnapshotWorker(pool);
+      startAncestralSearchWorker(pool);
+      startTwoFactorSweeper();
+    } else {
+      logger.info('RUN_BACKGROUND_JOBS=false — cron jobs and queue workers are not started on this instance');
+    }
 
     await app.listen({ port: PORT, host: '0.0.0.0' });
     logger.info(`AssetMap backend running on port ${PORT}`);
   } catch (error) {
     logger.error('Failed to start server', { error: (error as Error).message });
+    await flushTelemetry();
     process.exit(1);
   }
 }
 
-async function gracefulShutdown(signal: string): Promise<void> {
+const SHUTDOWN_TIMEOUT_MS = parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '25000', 10);
+
+// Deploys send SIGTERM. Drain instead of dropping work: stop accepting requests and let in-flight
+// ones finish, stop scheduling cron runs, let BullMQ jobs finish, then close DB/Redis.
+async function gracefulShutdown(signal: string, exitCode = 0): Promise<void> {
+  if (isShuttingDown()) return;
+  markShuttingDown();
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
-  await closeConnections();
-  process.exit(0);
+
+  // The final telemetry flush is bounded (see telemetry.ts), so worst case is SHUTDOWN_TIMEOUT_MS
+  // plus a few seconds — keep that under the platform's SIGTERM→SIGKILL grace period.
+  const force = setTimeout(() => {
+    logger.error('Graceful shutdown timed out — forcing exit', { timeoutMs: SHUTDOWN_TIMEOUT_MS });
+    void flushTelemetry().finally(() => process.exit(1));
+  }, SHUTDOWN_TIMEOUT_MS);
+  force.unref();
+
+  try {
+    for (const task of cron.getTasks().values()) task.stop();
+    await app.close();               // waits for in-flight HTTP requests
+    await runClosers();              // BullMQ workers finish their current job
+    await closeConnections();
+    logger.info('Shutdown complete');
+  } catch (err) {
+    logger.error('Error during shutdown', { error: (err as Error).message });
+    exitCode = 1;
+  }
+  await flushTelemetry();            // export the last batched spans/logs, including this shutdown's
+  process.exit(exitCode);
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// A stray rejected promise should be logged, not crash every in-flight request.
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', { error: reason instanceof Error ? reason.message : String(reason) });
+});
+// After an uncaught exception the process state is unknown: drain and exit so the platform restarts it.
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception — shutting down', { error: err.message, stack: err.stack });
+  void gracefulShutdown('uncaughtException', 1);
+});
 
 startServer();
 

@@ -8,6 +8,36 @@ import { toNumber, toPaise, toIsoDate } from '../../utils/sanitize'
 //          area calculations, title status
 // ─────────────────────────────────────────────
 
+/**
+ * Lower-case enums the backend readers use (land_records CHECKs in migration 004;
+ * scoring/landCollateralScore counts 'clear', 'dispute' and 'joint').
+ */
+export type TitleStatus = 'clear' | 'dispute' | 'mutation_pending' | 'encumbered' | 'unknown'
+export type OwnershipType = 'self' | 'inherited' | 'joint' | 'disputed' | 'unknown'
+
+const enumKey = (value: unknown): string =>
+  String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+
+export function normaliseTitleStatus(value: unknown): TitleStatus {
+  const v = enumKey(value)
+  if (!v) return 'unknown'
+  if (['clear', 'clean', 'clear_title', 'free', 'verified', 'valid'].includes(v)) return 'clear'
+  if (v.includes('disput') || v.includes('litigat') || v.includes('court') || v === 'contested') return 'dispute'
+  if (v.includes('mutation')) return 'mutation_pending'
+  if (v.includes('encumb') || v.includes('mortgage') || v.includes('lien') || v === 'charged') return 'encumbered'
+  return 'unknown'
+}
+
+export function normaliseOwnershipType(value: unknown): OwnershipType {
+  const v = enumKey(value)
+  if (!v) return 'unknown'
+  if (['self', 'sole', 'single', 'individual', 'owner', 'self_acquired', 'self_owned'].includes(v)) return 'self'
+  if (v.includes('inherit') || v.includes('ancestral')) return 'inherited'
+  if (v.includes('joint') || v.includes('co_own') || v.includes('coown') || v === 'shared') return 'joint'
+  if (v.includes('disput')) return 'disputed'
+  return 'unknown'
+}
+
 /** Rough placeholder rate used only when the source gives no valuation. */
 const FALLBACK_RUPEES_PER_ACRE = 500000
 
@@ -45,12 +75,13 @@ export function normaliseLandData(
     const purchaseValue = toNumber(record.purchase_value)
     const investedPaise = purchaseValue !== undefined ? toPaise(purchaseValue) : 0
 
-    // Build a readable asset name from available identifiers
+    // asset_name is a plaintext column: survey / khasra / plot numbers are stored
+    // encrypted by the backend, so they stay out of it (they remain in raw_data_enc).
+    const landType  = record.land_type ?? record.land_use
     const assetName = [
-      record.survey_number  && `Survey ${record.survey_number}`,
-      record.khasra_number  && `Khasra ${record.khasra_number}`,
-      record.plot_number    && `Plot ${record.plot_number}`,
-    ].filter(Boolean).join(' / ') || 'Land Parcel'
+      landType ? `${landType} land` : 'Land parcel',
+      record.village,
+    ].filter(Boolean).join(' — ')
 
     const location = [
       record.village,
@@ -85,13 +116,14 @@ export function normaliseLandData(
       isActive:           true,
       isDormant:          false,
       // Land has no nominee concept in the registry; leave unknown
-      titleStatus:        record.title_status ?? 'unknown',
-      ownershipType:      record.ownership_type ?? record.holder_type ?? 'unknown',
+      titleStatus:        normaliseTitleStatus(record.title_status),
+      ownershipType:      normaliseOwnershipType(record.ownership_type ?? record.holder_type),
 
       openedDate:         toIsoDate(record.registration_date ?? record.purchase_date),
-      valuationDate:      new Date().toISOString().slice(0, 10),
+      valuationDate:      toIsoDate(record.valuation_date) ?? new Date().toISOString().slice(0, 10),
 
-      documentAvailable:  false,
+      digilockerUri:      record.digilocker_doc_uri,
+      documentAvailable:  record.digilocker_doc_available === true,
       rawData:            record,
     })
   }

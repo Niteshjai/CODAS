@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from '../testFramework';
 import { otpGuard } from '../../src/services/otpGuard';
 import { otpStore } from '../../src/services/otpStore';
-import { kvStore } from '../../src/db/connection';
+import { kvStore, redis, useMemoryStore } from '../../src/db/connection';
 
 export function registerOtpGuardAndStoreTests() {
   describe('otpGuard & otpStore (Rate Limiting & Redis Stores)', () => {
@@ -32,6 +32,38 @@ export function registerOtpGuardAndStoreTests() {
 
       // Clearing on success removes failures
       await otpGuard.clearOnSuccess(testPhone);
+    });
+
+    it('otpGuard.allow: caps requests per target within the window', async () => {
+      const id = 'allow-test-' + Date.now();
+      try {
+        for (let i = 1; i <= 3; i++) expect(await otpGuard.allow('test_scope', id, 3, 60)).toBe(true);
+        expect(await otpGuard.allow('test_scope', id, 3, 60)).toBe(false);
+        if (!useMemoryStore()) {
+          const ttl = await redis.ttl(`otp_rate:test_scope:${id}`);
+          expect(ttl).toBeGreaterThan(0);
+          expect(ttl).toBeLessThan(61);
+        }
+      } finally {
+        await kvStore.del(`otp_rate:test_scope:${id}`);
+      }
+    });
+
+    it('otpGuard.allow: a counter left without a TTL gets one instead of locking out forever', async () => {
+      const id = 'allow-nottl-' + Date.now();
+      const key = `otp_rate:test_scope:${id}`;
+      try {
+        // A crash between INCR and EXPIRE used to leave exactly this behind
+        await kvStore.incr(key);
+        await kvStore.incr(key);
+        expect(await otpGuard.allow('test_scope', id, 5, 60)).toBe(true);
+        if (!useMemoryStore()) {
+          expect(await redis.ttl(key)).toBeGreaterThan(0);
+        }
+        expect(await kvStore.get(key)).toBe('3');
+      } finally {
+        await kvStore.del(key);
+      }
     });
 
     it('otpStore: phone OTP lifecycle (save, fetch, mark used, delete)', async () => {

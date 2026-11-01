@@ -19,6 +19,12 @@ export interface Consent {
   revokedAt: string | null;
 }
 
+/**
+ * How long an AA consent stays valid (the consentDuration sent to Setu). A consent's validity is
+ * its created_at plus this duration; date_range_start/date_range_end are only the FI data window.
+ */
+export const CONSENT_DURATION_MONTHS = 12;
+
 export const ConsentModel = {
   async findById(id: string): Promise<Consent | null> {
     const result = await pool.query('SELECT * FROM consents WHERE id = $1', [id]);
@@ -39,9 +45,15 @@ export const ConsentModel = {
   },
 
   async getActiveConsents(userId: string): Promise<Consent[]> {
+    // Active = approved and not past its consent duration. Not date_range_end: that is the end of
+    // the data window (a DATE, so `>= NOW()` was already false on the day of creation for consents
+    // whose window ended "today").
     const result = await pool.query(
-      "SELECT * FROM consents WHERE user_id = $1 AND status = 'ACTIVE' AND date_range_end >= NOW() ORDER BY created_at DESC",
-      [userId]
+      `SELECT * FROM consents
+        WHERE user_id = $1 AND status = 'ACTIVE'
+          AND created_at + make_interval(months => $2::int) > NOW()
+        ORDER BY created_at DESC`,
+      [userId, CONSENT_DURATION_MONTHS]
     );
     return result.rows.map(mapRow);
   },

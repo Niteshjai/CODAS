@@ -8,6 +8,7 @@ import {
   logLandSync
 } from '../db/queries/landRecords'
 import { auditLogger } from './auditLogger'
+import { enqueueAgentRun } from '../agent/agentRuns'
 
 const ZOOP_BASE = process.env.ZOOP_API_URL || 'https://prod.aadhaarapi.com/api/v1'
 const ZOOP_APP_ID = process.env.ZOOP_APP_ID || ''
@@ -199,6 +200,12 @@ export const landRegistryService = {
         trigger,
       }
     )
+
+    // New land records feed the asset-orchestration agent. Never throws; bursts (e.g. the nightly
+    // sync touching several parcels of one user) collapse into one queued run.
+    if (rawRecords.length > 0) {
+      void enqueueAgentRun(userId, 'data_updated', { reason: 'land_records', trigger })
+    }
 
     // Invalidate cache so fresh data loads
     await landCache.invalidateUserRecords(userId)

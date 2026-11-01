@@ -5,10 +5,103 @@ on:
     branches:
       - main
 
+# Never run two deploys at once; a newer push waits for the running one to finish
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
-  # JOB 1: Build, Push Container, and Deploy to Azure Web App
+  # JOB 0: Gate — nothing deploys unless the code compiles, builds and lints
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: |
+          assetmap/backend/package-lock.json
+          assetmap/frontend/package-lock.json
+          assetmap/agent-worker/package-lock.json
+
+    - name: Backend — install, typecheck, build
+      working-directory: assetmap/backend
+      run: |
+        npm ci
+        npm run typecheck
+        npm run build
+
+    - name: Frontend — install, lint, build
+      working-directory: assetmap/frontend
+      run: |
+        npm ci
+        npm run lint
+        npm run build
+
+    - name: Agent worker — install, typecheck, build
+      working-directory: assetmap/agent-worker
+      run: |
+        npm ci
+        npm run typecheck
+        npm run build
+
+  # Backend test suite against throwaway Postgres + Redis. Non-blocking until it has been seen
+  # green in CI (it was only ever run against a local database); then delete continue-on-error.
+  backend-tests:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: assetmap
+          POSTGRES_PASSWORD: assetmap_ci
+          POSTGRES_DB: assetmap
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U assetmap" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://assetmap:assetmap_ci@localhost:5432/assetmap
+      REDIS_URL: redis://localhost:6379
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: assetmap/backend/package-lock.json
+    - name: Install
+      working-directory: assetmap/backend
+      run: npm ci
+    - name: Generate throwaway secrets
+      run: |
+        openssl genrsa -out /tmp/jwt.key 2048
+        openssl rsa -in /tmp/jwt.key -pubout -out /tmp/jwt.pub
+        {
+          echo "JWT_PRIVATE_KEY=$(awk 'NF {printf "%s\\n", $0}' /tmp/jwt.key)"
+          echo "JWT_PUBLIC_KEY=$(awk 'NF {printf "%s\\n", $0}' /tmp/jwt.pub)"
+          echo "COOKIE_SECRET=$(openssl rand -hex 32)"
+          echo "AADHAAR_SALT=$(openssl rand -hex 32)"
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+        } >> "$GITHUB_ENV"
+    - name: Create schema
+      working-directory: assetmap/backend
+      run: |
+        psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f src/db/schema.sql
+        MIGRATE_DATABASE_URL="$DATABASE_URL" node migrate_azure.js --from=000 --no-ssl
+    - name: Test
+      working-directory: assetmap/backend
+      run: npm test
+
+  # JOB 1: Migrate, build, push and deploy the backend container
   deploy-backend:
     runs-on: ubuntu-latest
+    needs: checks
     permissions:
       contents: read
       packages: write
@@ -16,9 +109,41 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Set lower case image tag
+    # A half-configured staging slot must fail here, before migrations run or anything is pushed,
+    # rather than deploying to the slot and then being unable to swap it into production.
+    - name: Check staging slot configuration
+      if: ${{ vars.AZURE_STAGING_SLOT != '' }}
+      env:
+        RG: ${{ vars.AZURE_RESOURCE_GROUP }}
       run: |
-        echo "IMAGE_TAG=ghcr.io/${GITHUB_REPOSITORY,,}/backend:latest" >> $GITHUB_ENV
+        if [ -z "$RG" ]; then
+          echo "::error::Repo variable AZURE_STAGING_SLOT is set but AZURE_RESOURCE_GROUP is not. Set both (or neither)."
+          exit 1
+        fi
+
+    # Images are tagged with the commit SHA so any previous version can be redeployed to roll back
+    - name: Set image tags
+      run: |
+        IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/backend"
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+        echo "IMAGE_SHA=$IMAGE:${GITHUB_SHA::12}" >> $GITHUB_ENV
+
+    # Migrations run BEFORE the new code goes live (they are additive). Skipped unless the
+    # AZURE_DATABASE_URL secret is configured. Each file is transactional; a failure stops the deploy.
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - name: Apply pending database migrations
+      working-directory: assetmap/backend
+      env:
+        MIGRATE_DATABASE_URL: ${{ secrets.AZURE_DATABASE_URL }}
+      run: |
+        if [ -z "$MIGRATE_DATABASE_URL" ]; then
+          echo "AZURE_DATABASE_URL secret not set — skipping migrations (apply them manually: npm run migrate)"
+          exit 0
+        fi
+        npm ci --omit=dev --ignore-scripts
+        node migrate_azure.js
 
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
@@ -33,20 +158,152 @@ jobs:
         context: ./assetmap/backend
         file: ./assetmap/backend/Dockerfile
         push: true
-        tags: ${{ env.IMAGE_TAG }}
+        tags: |
+          ${{ env.IMAGE_SHA }}
+          ${{ env.IMAGE }}:latest
 
     - name: Log in to Azure
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy Container to Azure Web App
+    # With a staging slot configured, the new image is deployed there, warmed up and
+    # health-checked, then swapped in with no downtime. Without it, the image is deployed straight
+    # to production as before. Slot deploys need BOTH repo variables:
+    #   AZURE_STAGING_SLOT    slot name, e.g. "staging"
+    #   AZURE_RESOURCE_GROUP  resource group of codas-api-prod (used for health-check host and swap)
+    # and the app setting RUN_BACKGROUND_JOBS marked as a deployment-slot (sticky) setting:
+    #   staging slot = false, production = true (or unset). The staging slot shares production's
+    #   database and Redis, so without this both slots run every cron job and BullMQ worker
+    #   (duplicate SMS/email alerts, repeated paid registry lookups) — and after a swap the old
+    #   release keeps running them from the staging slot. The step below refuses to deploy otherwise.
+    - name: Verify staging slot does not run background jobs
+      if: ${{ vars.AZURE_STAGING_SLOT != '' }}
+      env:
+        RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+        SLOT: ${{ vars.AZURE_STAGING_SLOT }}
+      run: |
+        STAGING=$(az webapp config appsettings list -g "$RG" -n codas-api-prod --slot "$SLOT" -o json \
+          | jq -r '.[] | select(.name == "RUN_BACKGROUND_JOBS") | "\(.value) \(.slotSetting)"')
+        if [ "$STAGING" != "false true" ]; then
+          echo "::error::Slot '$SLOT' must have RUN_BACKGROUND_JOBS=false as a deployment slot setting (found: '${STAGING:-unset}')"
+          exit 1
+        fi
+        PROD=$(az webapp config appsettings list -g "$RG" -n codas-api-prod -o json \
+          | jq -r '.[] | select(.name == "RUN_BACKGROUND_JOBS") | .value')
+        if [ "$PROD" = "false" ]; then
+          echo "::error::Production has RUN_BACKGROUND_JOBS=false — no instance would run background jobs after the swap"
+          exit 1
+        fi
+
+    - name: Deploy to staging slot
+      if: ${{ vars.AZURE_STAGING_SLOT != '' }}
       uses: azure/webapps-deploy@v3
       with:
         app-name: 'codas-api-prod'
-        images: ${{ env.IMAGE_TAG }}
+        slot-name: ${{ vars.AZURE_STAGING_SLOT }}
+        images: ${{ env.IMAGE_SHA }}
 
-  # JOB 2: Build and Deploy Vite Frontend
+    - name: Wait for staging to be healthy, then swap into production
+      if: ${{ vars.AZURE_STAGING_SLOT != '' }}
+      env:
+        RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+        SLOT: ${{ vars.AZURE_STAGING_SLOT }}
+      run: |
+        HOST=$(az webapp show -g "$RG" -n codas-api-prod --slot "$SLOT" --query defaultHostName -o tsv)
+        if [ -z "$HOST" ]; then echo "::error::Could not resolve the host of slot '$SLOT'"; exit 1; fi
+        for i in $(seq 1 30); do
+          if curl -fsS --max-time 10 "https://$HOST/api/health" > /dev/null; then echo "staging healthy"; break; fi
+          if [ "$i" = 30 ]; then echo "staging never became healthy — not swapping"; exit 1; fi
+          sleep 10
+        done
+        # The swap restarts the staging instances with production's sticky settings
+        # (RUN_BACKGROUND_JOBS=true) before routing traffic, and the old release that lands in
+        # the staging slot comes back up with the staging value (false).
+        az webapp deployment slot swap -g "$RG" -n codas-api-prod --slot "$SLOT" --target-slot production
+
+    - name: Deploy Container to Azure Web App
+      if: ${{ vars.AZURE_STAGING_SLOT == '' }}
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: 'codas-api-prod'
+        images: ${{ env.IMAGE_SHA }}
+
+  # JOB 2: Build, push and deploy the agent worker (assetmap/agent-worker) to Azure Container Apps.
+  # Runs after deploy-backend so the migrations it depends on are already applied. Skipped unless the
+  # repo variable AGENT_CONTAINERAPP_NAME is set; also needs AZURE_RESOURCE_GROUP.
+  #
+  # One-time Azure setup this job assumes (it only swaps the image of an existing app):
+  #   - A Container App named $AGENT_CONTAINERAPP_NAME in $AZURE_RESOURCE_GROUP with ingress
+  #     DISABLED (the worker serves no HTTP) and min replicas 1 — with no ingress nothing would
+  #     scale it up from zero, so the BullMQ consumer and its 03:30 IST catch-up job must stay running.
+  #   - Secrets DATABASE_URL, REDIS_URL (rediss:// for Azure Cache for Redis), ENCRYPTION_KEY (the
+  #     backend's key, byte for byte) and ANTHROPIC_API_KEY, mapped to env vars of the same name via
+  #     secretref:, plus NODE_ENV=production. Same database and Redis as codas-api-prod.
+  #   - Registry credentials for ghcr.io (username + a PAT with read:packages, stored as a secret),
+  #     e.g. az containerapp registry set -g RG -n NAME --server ghcr.io --username U --password P
+  #   - The AZURE_CREDENTIALS service principal has Contributor on the Container App.
+  # Container Apps probes are HTTP/TCP only, so the heartbeat file (AGENT_HEARTBEAT_FILE) is checked
+  # by docker-compose locally, not by Azure; watch the app's logs/restarts instead.
+  # Roll back: az containerapp update -g RG -n NAME --image ghcr.io/<repo>/agent-worker:<older sha12>
+  deploy-agent-worker:
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    if: ${{ vars.AGENT_CONTAINERAPP_NAME != '' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Check agent worker configuration
+      env:
+        RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+      run: |
+        if [ -z "$RG" ]; then
+          echo "::error::Repo variable AGENT_CONTAINERAPP_NAME is set but AZURE_RESOURCE_GROUP is not. Set both (or neither)."
+          exit 1
+        fi
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set image tags
+      run: |
+        IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/agent-worker"
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+        echo "IMAGE_SHA=$IMAGE:${GITHUB_SHA::12}" >> $GITHUB_ENV
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./assetmap/agent-worker
+        file: ./assetmap/agent-worker/Dockerfile
+        push: true
+        tags: |
+          ${{ env.IMAGE_SHA }}
+          ${{ env.IMAGE }}:latest
+
+    - name: Log in to Azure
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Container App
+      env:
+        RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+        NAME: ${{ vars.AGENT_CONTAINERAPP_NAME }}
+      run: |
+        az extension add --name containerapp --upgrade --only-show-errors
+        az containerapp update -g "$RG" -n "$NAME" --image "$IMAGE_SHA" --only-show-errors \
+          --query "{revision: properties.latestRevisionName, state: properties.provisioningState}" -o table
+
+  # JOB 3: Build and Deploy Vite Frontend
   deploy-frontend:
     runs-on: ubuntu-latest
     needs: deploy-backend

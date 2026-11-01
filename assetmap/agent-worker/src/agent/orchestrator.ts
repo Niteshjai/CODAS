@@ -1,109 +1,77 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { Pool } from 'pg'
-import { AgentContext, CanonicalAsset } from './schemas/canonicalAsset'
-import { fetchAADataTool }         from './tools/fetchAAData'
-import { fetchLandDataTool }       from './tools/fetchLandData'
+import type Anthropic from '@anthropic-ai/sdk'
+import type { PoolClient } from 'pg'
+import { AgentContext, CanonicalAsset, SourceKey } from './schemas/canonicalAsset'
+import { loadAASnapshots }         from './loaders/aaSnapshots'
+import { loadLandRecords }         from './loaders/landRecords'
+import { loadUnclaimed }           from './loaders/unclaimed'
 import { fetchDocumentsTool }      from './tools/fetchDocuments'
-import { fetchUnclaimedTool }      from './tools/fetchUnclaimed'
 import { fetchMCADataTool }        from './tools/fetchMCAData'
 import { normaliseDataTool }       from './tools/normaliseData'
 import { deduplicateDataTool }     from './tools/deduplicateData'
 import { enrichWithAITool }        from './tools/enrichWithAI'
-import { injectToDatabaseTool }    from './tools/injectToDatabase'
-import { auditLogger }             from '../services/auditLogger'
-import { logRunStep }              from './queue/agentQueue'
+import { injectToDatabaseTool, InjectResult } from './tools/injectToDatabase'
+import { aiAvailable, anthropic, noteAiError } from './ai'
+import { config } from '../config'
 
-const MODEL     = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
-const MAX_STEPS = 20 // model turns; safety limit
-
-let anthropic: Anthropic | undefined
-function client(): Anthropic {
-  anthropic ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  return anthropic
-}
+const MAX_TURNS = 20 // model turns; safety limit
 
 // ─────────────────────────────────────────────
 // Design note
-// The model only decides *which step runs next*. Every identity value
-// (userId, consentId, PAN, name, state, runId) and every data payload
-// (raw API responses, asset arrays) lives server-side in RunState and is
-// never taken from tool input. Previously the model was asked to echo
-// whole datasets back as tool arguments: a hallucinated userId could write
-// into another user's account, and an empty or invented array went straight
-// to the database. Tool results returned to the model are counts only, so
-// account numbers, transactions and nominee names are not sent to the LLM
-// or stored unencrypted in agent_run_steps.
+// Claude is optional. When available it only decides *which step runs next*;
+// every identity value and data payload lives server-side in RunState and is
+// never taken from tool input. Tool results sent to the model are counts only.
+// Any Claude problem (no key, rejected key, overloaded, timeout, network) ends
+// the model loop and completePipeline() runs the remaining steps
+// deterministically: load → normalise → dedup → enrich (defaults) → inject.
+// A run never fails because of AI.
+//
+// Sources are read from the backend's tables (the backend owns every Setu,
+// land-registry and unclaimed-asset call). DigiLocker and MCA21 call external
+// APIs and only run when AGENT_ENABLE_EXTERNAL_SOURCES=true.
 // ─────────────────────────────────────────────
-
-type SourceKey = 'setu_aa' | 'surepass' | 'digilocker' | 'iepf_epfo' | 'mca21'
 
 const FETCH_TOOL_SOURCE: Record<string, SourceKey> = {
   fetch_aa_data:   'setu_aa',
   fetch_land_data: 'surepass',
-  fetch_documents: 'digilocker',
   fetch_unclaimed: 'iepf_epfo',
+  fetch_documents: 'digilocker',
   fetch_mca_data:  'mca21',
-}
-
-const SOURCE_ALIASES: Record<string, SourceKey> = {
-  setu_aa: 'setu_aa', aa: 'setu_aa',
-  surepass: 'surepass', land: 'surepass',
-  digilocker: 'digilocker',
-  iepf_epfo: 'iepf_epfo', iepf: 'iepf_epfo', epfo: 'iepf_epfo',
-  mca21: 'mca21', mca: 'mca21',
 }
 
 const NO_INPUT = { type: 'object' as const, properties: {} }
 
-const AGENT_TOOLS: Anthropic.Tool[] = [
-  {
+const FETCH_TOOLS: Record<SourceKey, Anthropic.Tool> = {
+  setu_aa: {
     name: 'fetch_aa_data',
-    description:
-      'Fetches bank accounts, mutual funds, equity, NPS and insurance from Setu Account ' +
-      'Aggregator for the current user using their active consent. Returns counts only.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        fiTypes: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional FI types to keep: DEPOSIT, MUTUAL_FUND, EQUITY, NPS, INSURANCE_POLICIES',
-        },
-      },
-    },
-  },
-  {
-    name: 'fetch_land_data',
-    description: 'Searches Surepass land records for the current user using their profile name and state. Returns counts only.',
+    description: 'Loads the user\'s stored Account Aggregator accounts (bank, mutual funds, equity, NPS, insurance) for their active consents. Returns counts only.',
     input_schema: NO_INPUT,
   },
-  {
+  surepass: {
+    name: 'fetch_land_data',
+    description: 'Loads the user\'s stored land records. Returns counts only.',
+    input_schema: NO_INPUT,
+  },
+  iepf_epfo: {
+    name: 'fetch_unclaimed',
+    description: 'Loads the unclaimed assets (IEPF, EPFO, IRDAI) found by the user\'s unclaimed-asset searches. Returns counts only.',
+    input_schema: NO_INPUT,
+  },
+  digilocker: {
     name: 'fetch_documents',
     description: 'Fetches the current user\'s DigiLocker documents (land records, insurance, vehicle RC). Returns counts only.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        docTypes: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional document types: AADHAAR, PAN, LAND_RECORD, INSURANCE, RC',
-        },
-      },
-    },
-  },
-  {
-    name: 'fetch_unclaimed',
-    description: 'Searches IEPF (unclaimed dividends/shares) and EPFO (provident fund) for the current user. Returns counts only.',
     input_schema: NO_INPUT,
   },
-  {
+  mca21: {
     name: 'fetch_mca_data',
     description: 'Searches MCA21 for company directorships and shareholdings linked to the current user. Returns counts only.',
     input_schema: NO_INPUT,
   },
+}
+
+const PIPELINE_TOOLS: Anthropic.Tool[] = [
   {
     name: 'normalise_data',
-    description: 'Converts everything fetched so far into the canonical asset schema. Call after all fetches are done.',
+    description: 'Converts everything loaded so far into the canonical asset schema. Call after all fetches are done.',
     input_schema: NO_INPUT,
   },
   {
@@ -118,7 +86,7 @@ const AGENT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'inject_to_database',
-    description: 'Saves the enriched assets and triggers net-worth, nominee and dormancy checks. Final step.',
+    description: 'Saves the enriched assets. Final step.',
     input_schema: NO_INPUT,
   },
 ]
@@ -130,16 +98,14 @@ asset data. The server already holds the user's identity and every
 intermediate result; tools take no identifiers and return counts only.
 
 Order:
-1. Call each fetch tool for the sources listed as requested. Call them in
-   the same turn so they run in parallel.
+1. Call every fetch tool you were given, in the same turn so they run in parallel.
 2. normalise_data
 3. deduplicate_data
 4. enrich_with_ai
 5. inject_to_database
 
 A fetch that fails or is skipped is not fatal: carry on with the rest.
-Once inject_to_database has succeeded, reply with a one-paragraph summary
-of what was processed, which sources failed and any anomalies, then stop.
+Once inject_to_database has succeeded, reply with a one-sentence summary and stop.
 `.trim()
 
 interface FetchOutcome {
@@ -154,25 +120,34 @@ interface RunState {
   normalised:       CanonicalAsset[] | null
   deduped:          CanonicalAsset[] | null
   enriched:         CanonicalAsset[] | null
-  injected:         { created: number; updated: number } | null
+  injected:         InjectResult | null
   anomalies:        number
   enrichFallback:   boolean
+  /** Claude failed (or was unavailable) at some point in this run */
+  aiFailed:         boolean
   tokensUsed:       number
   aiCalls:          number
   stepsCompleted:   string[]
   stepsFailed:      string[]
 }
 
-class StepError extends Error {}
-
-function requestedSources(context: AgentContext): Set<SourceKey> {
-  const set = new Set<SourceKey>()
-  for (const s of context.sourcesToFetch) {
-    const key = SOURCE_ALIASES[s.toLowerCase()]
-    if (key) set.add(key)
-  }
-  return set
+export interface RunOutcome {
+  status:              'completed' | 'partial'
+  aiUsed:              boolean
+  recordsCreated:      number
+  recordsUpdated:      number
+  recordsDeduplicated: number
+  recordsDeactivated:  number
+  anomaliesDetected:   number
+  tokensUsed:          number
+  aiCalls:             number
+  sourcesFetched:      string[]
+  sourcesFailed:       string[]
+  stepsCompleted:      string[]
+  stepsFailed:         string[]
 }
+
+class StepError extends Error {}
 
 function countOf(source: SourceKey, result: any): number {
   switch (source) {
@@ -181,67 +156,51 @@ function countOf(source: SourceKey, result: any): number {
     case 'digilocker': return result?.documents?.length ?? 0
     case 'iepf_epfo':  return (result?.iepf?.records?.length ?? 0) +
                               (result?.epfo?.accounts?.length ?? 0) +
-                              (result?.epfo?.pension?.length ?? 0)
+                              (result?.epfo?.pension?.length ?? 0) +
+                              (result?.irdai?.records?.length ?? 0)
     case 'mca21':      return result?.companies?.length ?? 0
   }
 }
 
-/** Run one fetch tool. Inputs come from the context, never from the model. */
+/** Run one source load. Inputs come from the context, never from the model. */
 async function runFetch(
-  pool: Pool,
+  db: PoolClient,
   context: AgentContext,
   state: RunState,
   source: SourceKey,
-  toolInput: any,
 ): Promise<FetchOutcome> {
   const { userId, userProfile } = context
   const skip = (error: string): FetchOutcome => ({ status: 'skipped', error })
 
-  if (!requestedSources(context).has(source)) {
-    return skip(`${source} is not in sourcesToFetch for this run`)
+  if (!context.sourcesToFetch.includes(source)) {
+    return skip(`${source} is not enabled for this run`)
   }
 
   let result: any
   switch (source) {
     case 'setu_aa':
-      if (!context.consentId) return skip('No active AA consent for this user')
-      result = await fetchAADataTool(pool, {
-        userId,
-        consentId: context.consentId,
-        fiTypes:   Array.isArray(toolInput?.fiTypes) && toolInput.fiTypes.length ? toolInput.fiTypes : undefined,
-      })
+      result = await loadAASnapshots(db, userId)
       break
     case 'surepass':
-      if (!userProfile.state) return skip('User state unknown — land search needs a state')
-      result = await fetchLandDataTool(pool, {
-        userId,
-        ownerName: userProfile.name,
-        state:     userProfile.state,
-        stateCode: userProfile.stateCode,
-        district:  userProfile.district,
-      })
-      break
-    case 'digilocker':
-      result = await fetchDocumentsTool(pool, {
-        userId,
-        docTypes: Array.isArray(toolInput?.docTypes) && toolInput.docTypes.length ? toolInput.docTypes : undefined,
-      })
+      result = await loadLandRecords(db, userId)
       break
     case 'iepf_epfo':
-      if (!userProfile.pan) return skip('PAN not available')
-      result = await fetchUnclaimedTool(pool, { userId, pan: userProfile.pan, name: userProfile.name })
+      result = await loadUnclaimed(db, userId)
+      break
+    case 'digilocker':
+      result = await fetchDocumentsTool(db, { userId })
       break
     case 'mca21':
       if (!userProfile.pan) return skip('PAN not available')
-      result = await fetchMCADataTool(pool, { userId, pan: userProfile.pan })
+      result = await fetchMCADataTool(db, { userId, pan: userProfile.pan })
       break
   }
+
+  if (result?.skipped) return skip(result.error ?? `${source} not available`)
 
   state.rawData[source] = result
   // New raw data invalidates anything derived from the old set
   state.normalised = state.deduped = state.enriched = null
-
-  if (result?.skipped) return skip(result.error ?? `${source} not available`)
 
   return result?.success === false
     ? { status: 'failed', error: result.error, count: countOf(source, result) }
@@ -250,15 +209,21 @@ async function runFetch(
 
 /** Execute a tool by name and return the summary sent back to the model. */
 async function executeTool(
-  pool: Pool,
+  db: PoolClient,
   context: AgentContext,
   state: RunState,
   toolName: string,
-  toolInput: any,
 ): Promise<Record<string, unknown>> {
   const fetchSource = FETCH_TOOL_SOURCE[toolName]
   if (fetchSource) {
-    const outcome = await runFetch(pool, context, state, fetchSource, toolInput)
+    let outcome: FetchOutcome
+    try {
+      outcome = await runFetch(db, context, state, fetchSource)
+    } catch (err: any) {
+      // Record the failure so completePipeline does not retry it and the source is
+      // never treated as loaded (no deactivation)
+      outcome = { status: 'failed', error: `${fetchSource} load failed: ${String(err?.message ?? err).slice(0, 200)}` }
+    }
     state.fetches[fetchSource] = outcome
     if (outcome.status === 'failed') throw new StepError(outcome.error ?? `${fetchSource} fetch failed`)
     return { source: fetchSource, ...outcome }
@@ -277,7 +242,7 @@ async function executeTool(
 
     case 'deduplicate_data': {
       if (!state.normalised) throw new StepError('Call normalise_data first')
-      state.deduped  = await deduplicateDataTool(pool, context.userId, state.normalised, context.runId)
+      state.deduped  = await deduplicateDataTool(db, context.userId, state.normalised, context.runId)
       state.enriched = null
       return {
         success:     true,
@@ -289,9 +254,10 @@ async function executeTool(
 
     case 'enrich_with_ai': {
       if (!state.deduped) throw new StepError('Call deduplicate_data first')
-      const result = await enrichWithAITool(pool, context.userId, state.deduped, context.runId, {
+      const result = await enrichWithAITool(db, context.userId, state.deduped, {
         enrichWithAI:    context.options.enrichWithAI,
         detectAnomalies: context.options.detectAnomalies,
+        aiAllowed:       !state.aiFailed,
       })
       state.enriched       = result.assets
       state.anomalies      = result.anomaliesDetected
@@ -309,7 +275,13 @@ async function executeTool(
     case 'inject_to_database': {
       if (!state.enriched) throw new StepError('Call enrich_with_ai first')
       if (state.injected) return { success: true, alreadyInjected: true, ...state.injected }
-      state.injected = await injectToDatabaseTool(pool, context.userId, context.runId, state.enriched, context)
+      const loadedSources = (Object.entries(state.fetches) as Array<[SourceKey, FetchOutcome]>)
+        .filter(([, o]) => o.status === 'success')
+        .map(([s]) => s)
+      state.injected = await injectToDatabaseTool(db, context.userId, context.runId, state.enriched, {
+        loadedSources,
+        detectAnomalies: context.options.detectAnomalies,
+      })
       return { success: true, ...state.injected }
     }
 
@@ -318,15 +290,33 @@ async function executeTool(
   }
 }
 
+async function logRunStep(
+  db: PoolClient,
+  params: {
+    runId: string; userId: string; stepName: string
+    status: 'completed' | 'failed' | 'skipped'
+    outputSummary: unknown; durationMs: number; errorMessage?: string
+  },
+): Promise<void> {
+  await db.query(`
+    INSERT INTO agent_run_steps (
+      run_id, user_id, step_name, status,
+      input_summary, output_summary, duration_ms, error_message
+    ) VALUES ($1, $2, $3, $4, '{}'::jsonb, $5, $6, $7)
+  `, [
+    params.runId, params.userId, params.stepName, params.status,
+    JSON.stringify(params.outputSummary ?? {}), params.durationMs, params.errorMessage ?? null,
+  ])
+}
+
 /** Execute + log one step. Never throws for step-level failures. */
 async function runStep(
-  pool: Pool,
+  db: PoolClient,
   context: AgentContext,
   state: RunState,
   toolName: string,
-  toolInput: any,
 ): Promise<{ summary: Record<string, unknown>; isError: boolean }> {
-  await pool.query(`UPDATE agent_runs SET current_step = $2 WHERE id = $1`, [context.runId, toolName])
+  await db.query(`UPDATE agent_runs SET current_step = $2 WHERE id = $1`, [context.runId, toolName])
 
   const started = Date.now()
   let summary: Record<string, unknown>
@@ -334,25 +324,24 @@ async function runStep(
   let errorMessage: string | undefined
 
   try {
-    summary = await executeTool(pool, context, state, toolName, toolInput)
+    summary = await executeTool(db, context, state, toolName)
   } catch (err: any) {
-    isError      = true
-    errorMessage = err?.message ?? String(err)
-    summary      = { success: false, tool: toolName, error: errorMessage }
-    console.error(`[Agent] Tool ${toolName} failed:`, errorMessage)
-    // A database failure while saving is not recoverable by the model
+    // A database failure while saving is not recoverable here: fail the attempt (retried)
     if (toolName === 'inject_to_database' && !(err instanceof StepError)) throw err
+    isError      = true
+    errorMessage = String(err?.message ?? err).slice(0, 500)
+    summary      = { success: false, tool: toolName, error: errorMessage }
+    console.warn(`[Agent] run ${context.runId}: step ${toolName} failed: ${errorMessage}`)
   }
 
   const skipped = summary.status === 'skipped'
   ;(isError ? state.stepsFailed : state.stepsCompleted).push(toolName)
 
-  await logRunStep(pool, {
+  await logRunStep(db, {
     runId:         context.runId,
     userId:        context.userId,
     stepName:      toolName,
     status:        isError ? 'failed' : skipped ? 'skipped' : 'completed',
-    inputSummary:  { keys: Object.keys(toolInput ?? {}) },
     outputSummary: summary,
     durationMs:    Date.now() - started,
     errorMessage,
@@ -362,202 +351,136 @@ async function runStep(
 }
 
 /**
- * Finish whatever the model left undone (it stopped early, hit the step
- * limit, or refused). Fetched data is never discarded because the model
- * ended its turn.
+ * Finish whatever the model left undone (no AI, AI error, early stop, step
+ * limit). Fetched data is never discarded because the model ended its turn.
  */
-async function completePipeline(pool: Pool, context: AgentContext, state: RunState): Promise<void> {
+async function completePipeline(db: PoolClient, context: AgentContext, state: RunState): Promise<void> {
   for (const [tool, source] of Object.entries(FETCH_TOOL_SOURCE)) {
-    if (!state.fetches[source]) await runStep(pool, context, state, tool, {})
+    if (context.sourcesToFetch.includes(source) && !state.fetches[source]) {
+      await runStep(db, context, state, tool)
+    }
   }
-  if (!state.normalised) await runStep(pool, context, state, 'normalise_data', {})
-  if (!state.deduped)    await runStep(pool, context, state, 'deduplicate_data', {})
-  if (!state.enriched)   await runStep(pool, context, state, 'enrich_with_ai', {})
-  if (!state.injected)   await runStep(pool, context, state, 'inject_to_database', {})
+  if (!state.normalised) await runStep(db, context, state, 'normalise_data')
+  if (!state.deduped)    await runStep(db, context, state, 'deduplicate_data')
+  if (!state.enriched)   await runStep(db, context, state, 'enrich_with_ai')
+  if (!state.injected)   await runStep(db, context, state, 'inject_to_database')
 }
 
-export async function runOrchestrationAgent(
-  pool: Pool,
-  context: AgentContext
-): Promise<{ success: boolean; recordsProcessed: number; runId: string }> {
-
-  const startTime = Date.now()
-
-  await pool.query(`
-    UPDATE agent_runs
-    SET status = 'running', started_at = NOW(), current_step = 'initialising',
-        error_message = NULL, error_stack = NULL
-    WHERE id = $1
-  `, [context.runId])
-
-  const state: RunState = {
-    rawData: {}, fetches: {},
-    normalised: null, deduped: null, enriched: null, injected: null,
-    anomalies: 0, enrichFallback: false, tokensUsed: 0, aiCalls: 0,
-    stepsCompleted: [], stepsFailed: [],
-  }
-
-  const sources = [...requestedSources(context)]
+/** Let Claude drive the step order. Returns when the model is done or Claude fails. */
+async function modelLoop(db: PoolClient, context: AgentContext, state: RunState): Promise<void> {
+  const tools = [
+    ...context.sourcesToFetch.map(s => FETCH_TOOLS[s]),
+    ...PIPELINE_TOOLS,
+  ]
   const userMessage = `
 Process all financial and physical assets for the current user.
 
 Trigger: ${context.triggerType}
-Requested sources: ${sources.join(', ') || 'none'}
-AA consent available: ${context.consentId ? 'yes' : 'no'}
-PAN available: ${context.userProfile.pan ? 'yes' : 'no'}
-State known (for land search): ${context.userProfile.state ? 'yes' : 'no'}
-Force refresh: ${context.options.forceRefresh}
-Is estate case: ${context.options.isEstateCase}
+Fetch tools to call: ${tools.filter(t => FETCH_TOOL_SOURCE[t.name]).map(t => t.name).join(', ') || 'none'}
 `.trim()
 
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: userMessage }]
 
-  try {
-    for (let turn = 0; turn < MAX_STEPS && !state.injected; turn++) {
-      const response = await client().messages.create({
-        model:      MODEL,
-        max_tokens: 4096,
+  for (let turn = 0; turn < MAX_TURNS && !state.injected; turn++) {
+    if (!aiAvailable()) { state.aiFailed = true; return }
+
+    let response: Anthropic.Message
+    try {
+      response = await anthropic().messages.create({
+        model:      config.routingModel(),
+        max_tokens: 1024,
         system:     AGENT_SYSTEM_PROMPT,
-        tools:      AGENT_TOOLS,
+        tools,
         messages,
       })
-
-      state.tokensUsed += response.usage.input_tokens + response.usage.output_tokens
-      state.aiCalls++
-
-      // Only continue on tool_use. end_turn means done; max_tokens / refusal /
-      // anything else would leave a tool_use without a tool_result in the
-      // history and the next request would 400 — fall through to the
-      // deterministic completion instead.
-      if (response.stop_reason !== 'tool_use') {
-        if (response.stop_reason !== 'end_turn') {
-          console.warn(`[Agent] Model stopped with ${response.stop_reason}; completing pipeline deterministically`)
-        }
-        break
-      }
-
-      messages.push({ role: 'assistant', content: response.content })
-
-      const toolUses = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
-      )
-
-      // Fetches are independent — run them concurrently; pipeline steps
-      // run afterwards in the order the model asked for them.
-      const results = new Map<string, Anthropic.ToolResultBlockParam>()
-      const toResult = (block: Anthropic.ToolUseBlock, r: { summary: Record<string, unknown>; isError: boolean }) =>
-        results.set(block.id, {
-          type:        'tool_result',
-          tool_use_id: block.id,
-          content:     JSON.stringify(r.summary),
-          is_error:    r.isError,
-        })
-
-      const fetchBlocks = toolUses.filter(b => FETCH_TOOL_SOURCE[b.name])
-      const otherBlocks = toolUses.filter(b => !FETCH_TOOL_SOURCE[b.name])
-
-      const fetchResults = await Promise.all(
-        fetchBlocks.map(b => runStep(pool, context, state, b.name, b.input))
-      )
-      fetchBlocks.forEach((b, i) => toResult(b, fetchResults[i]))
-
-      for (const b of otherBlocks) {
-        toResult(b, await runStep(pool, context, state, b.name, b.input))
-      }
-
-      // All results go back in one user message, in the original order
-      messages.push({ role: 'user', content: toolUses.map(b => results.get(b.id)!) })
+    } catch (err) {
+      noteAiError(err, 'routing')
+      state.aiFailed = true
+      return
     }
 
-    if (!state.injected) {
-      await completePipeline(pool, context, state)
-    }
-    if (!state.injected) {
-      throw new Error('Pipeline did not reach inject_to_database')
-    }
+    state.tokensUsed += response.usage.input_tokens + response.usage.output_tokens
+    state.aiCalls++
 
-    const sourcesFetched = Object.entries(state.fetches)
-      .filter(([, o]) => o?.status === 'success')
-      .map(([s]) => s)
-    const anyFetchFailed = Object.values(state.fetches).some(o => o?.status === 'failed')
-    const status = anyFetchFailed || state.enrichFallback ? 'partial' : 'completed'
-    const normalisedCount = state.normalised?.length ?? 0
-    const dedupedCount    = state.deduped?.length ?? 0
-
-    await pool.query(`
-      UPDATE agent_runs SET
-        status               = $2,
-        completed_at         = NOW(),
-        duration_ms          = $3,
-        records_created      = $4,
-        records_updated      = $5,
-        records_deduplicated = $6,
-        anomalies_detected   = $7,
-        ai_tokens_used       = $8,
-        ai_calls_made        = $9,
-        sources_fetched      = $10,
-        steps_completed      = $11,
-        steps_failed         = $12,
-        current_step         = 'done'
-      WHERE id = $1
-    `, [
-      context.runId,
-      status,
-      Date.now() - startTime,
-      state.injected.created,
-      state.injected.updated,
-      normalisedCount - dedupedCount,
-      state.anomalies,
-      state.tokensUsed,
-      state.aiCalls,
-      sourcesFetched,
-      state.stepsCompleted,
-      state.stepsFailed,
-    ])
-
-    const recordsProcessed = state.injected.created + state.injected.updated
-
-    await auditLogger.log({
-      userId:     context.userId,
-      action:     'AGENT_RUN_COMPLETED',
-      entityType: 'agent_run',
-      entityId:   context.runId,
-      metadata:   {
-        trigger:    context.triggerType,
-        status,
-        recordsProcessed,
-        tokensUsed: state.tokensUsed,
-        durationMs: Date.now() - startTime,
+    // Only continue on tool_use. Anything else would leave a tool_use without a
+    // tool_result in the history; the deterministic completion takes over instead.
+    if (response.stop_reason !== 'tool_use') {
+      if (response.stop_reason !== 'end_turn') {
+        console.warn(`[Agent] run ${context.runId}: model stopped with ${response.stop_reason}; completing deterministically`)
       }
-    })
+      return
+    }
 
-    return { success: true, recordsProcessed, runId: context.runId }
+    messages.push({ role: 'assistant', content: response.content })
 
-  } catch (err: any) {
-    await pool.query(`
-      UPDATE agent_runs SET
-        status        = 'failed',
-        completed_at  = NOW(),
-        duration_ms   = $2,
-        error_message = $3,
-        error_stack   = $4,
-        ai_tokens_used = $5,
-        ai_calls_made  = $6,
-        steps_completed = $7,
-        steps_failed    = $8
-      WHERE id = $1
-    `, [
-      context.runId,
-      Date.now() - startTime,
-      err?.message ?? String(err),
-      err?.stack ?? null,
-      state.tokensUsed,
-      state.aiCalls,
-      state.stepsCompleted,
-      state.stepsFailed,
-    ]).catch(updateErr => console.error('[Agent] Could not record failure:', updateErr.message))
+    const toolUses = response.content.filter(
+      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+    )
 
-    console.error('[Agent] Orchestration failed:', err)
-    throw err
+    // Fetches are independent — run them concurrently; pipeline steps run
+    // afterwards in the order the model asked for them.
+    const results = new Map<string, Anthropic.ToolResultBlockParam>()
+    const toResult = (block: Anthropic.ToolUseBlock, r: { summary: Record<string, unknown>; isError: boolean }) =>
+      results.set(block.id, {
+        type:        'tool_result',
+        tool_use_id: block.id,
+        content:     JSON.stringify(r.summary),
+        is_error:    r.isError,
+      })
+
+    const fetchBlocks = toolUses.filter(b => FETCH_TOOL_SOURCE[b.name])
+    const otherBlocks = toolUses.filter(b => !FETCH_TOOL_SOURCE[b.name])
+
+    const fetchResults = await Promise.all(fetchBlocks.map(b => runStep(db, context, state, b.name)))
+    fetchBlocks.forEach((b, i) => toResult(b, fetchResults[i]))
+
+    for (const b of otherBlocks) {
+      toResult(b, await runStep(db, context, state, b.name))
+    }
+
+    messages.push({ role: 'user', content: toolUses.map(b => results.get(b.id)!) })
+  }
+}
+
+/**
+ * Run the pipeline for one attempt on the run's dedicated connection.
+ * Throws only for non-AI failures (database errors while saving, …); the
+ * caller owns the agent_runs status updates and the audit log.
+ */
+export async function runOrchestrationAgent(db: PoolClient, context: AgentContext): Promise<RunOutcome> {
+  const state: RunState = {
+    rawData: {}, fetches: {},
+    normalised: null, deduped: null, enriched: null, injected: null,
+    anomalies: 0, enrichFallback: false, aiFailed: false, tokensUsed: 0, aiCalls: 0,
+    stepsCompleted: [], stepsFailed: [],
+  }
+
+  if (aiAvailable()) {
+    await modelLoop(db, context, state)
+  } else {
+    state.aiFailed = true
+  }
+
+  if (!state.injected) await completePipeline(db, context, state)
+  if (!state.injected) throw new Error('Pipeline did not reach inject_to_database')
+
+  const fetches = Object.entries(state.fetches) as Array<[SourceKey, FetchOutcome]>
+  const sourcesFetched = fetches.filter(([, o]) => o.status === 'success').map(([s]) => s)
+  const sourcesFailed  = fetches.filter(([, o]) => o.status === 'failed').map(([s]) => s)
+
+  return {
+    status:              sourcesFailed.length > 0 || state.enrichFallback ? 'partial' : 'completed',
+    aiUsed:              state.aiCalls > 0,
+    recordsCreated:      state.injected.created,
+    recordsUpdated:      state.injected.updated,
+    recordsDeduplicated: (state.normalised?.length ?? 0) - (state.deduped?.length ?? 0),
+    recordsDeactivated:  state.injected.deactivated,
+    anomaliesDetected:   state.injected.anomalies,
+    tokensUsed:          state.tokensUsed,
+    aiCalls:             state.aiCalls,
+    sourcesFetched,
+    sourcesFailed,
+    stepsCompleted:      state.stepsCompleted,
+    stepsFailed:         state.stepsFailed,
   }
 }

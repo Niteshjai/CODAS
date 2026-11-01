@@ -9,6 +9,7 @@ import { documentCollector }  from './documents/documentCollector'
 import { timelineEstimator }  from './tracking/timelineEstimator'
 import { recoveryNotifier }   from './notifications/recoveryNotifier'
 import { encryptPII }         from '../utils/encryption'
+import { normalizeIp }        from '../utils/clientIp'
 import { logger }             from '../utils/logger'
 
 // Newly Integrated Modules
@@ -251,9 +252,13 @@ export const recoveryEngine = {
     pool:      Pool,
     userId:    string,
     caseId:    string,
-    ipAddress: string,
+    ipAddress: string | null | undefined,
     userAgent: string
   ) {
+    // user_ip is INET: strip the ":port" Azure appends to IPv4 clients, and store NULL for
+    // anything that isn't an address rather than failing the cast (and the acceptance)
+    const userIp = normalizeIp(ipAddress)
+
     // Mock mode
     if (process.env.MOCK_MODE === 'true') {
       const mc = mockCases.find(c => c.id === caseId && c.userId === userId)
@@ -271,7 +276,7 @@ export const recoveryEngine = {
       })
       await AuditLogModel.insert({
         userId, action: 'UPDATE_RECORD', entityType: 'recovery_case', entityId: caseId,
-        metadata: { status: 'documents_collecting', ipAddress, userAgent }
+        metadata: { status: 'documents_collecting', ipAddress: userIp, userAgent }
       })
       return
     }
@@ -302,7 +307,7 @@ export const recoveryEngine = {
         estimated_fee_paise, agreement_text,
         user_ip, user_agent
       ) VALUES ($1,$2,$3,$4,$5,$6,$7)
-    `, [caseId, userId, feeDetails.feePct, feeDetails.feeAmountPaise, agreementText, ipAddress, userAgent])
+    `, [caseId, userId, feeDetails.feePct, feeDetails.feeAmountPaise, agreementText, userIp, userAgent])
 
     await pool.query(`
       UPDATE recovery_cases
@@ -321,7 +326,7 @@ export const recoveryEngine = {
 
     await AuditLogModel.insert({
         userId, action: 'UPDATE_RECORD', entityType: 'recovery_case', entityId: caseId,
-        metadata: { status: 'documents_collecting', ipAddress, userAgent }
+        metadata: { status: 'documents_collecting', ipAddress: userIp, userAgent }
     })
 
     // Simulated Digilocker fetch — never in production, where 'mock-token' would hit the real gateway

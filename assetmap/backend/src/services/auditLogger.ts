@@ -1,4 +1,5 @@
 import { pool } from '../db/connection';
+import { normalizeIp } from '../utils/clientIp'
 import { AuditAction } from '../utils/constants';
 import { logger } from '../utils/logger';
 
@@ -32,7 +33,7 @@ class AuditLogger {
           action,
           entityType || null,
           entityId || null,
-          ipAddress || null,
+          normalizeIp(ipAddress),
           userAgent || null,
           metadata ? JSON.stringify(metadata) : null,
         ]
@@ -157,6 +158,9 @@ const ACTION_DESCRIPTIONS: Record<AuditAction, string> = {
   SPEND_ANALYSIS_RUN: 'Spending analysis run',
   SPEND_CATEGORY_CORRECTED: 'Transaction category corrected',
   SPEND_PROFILE_UPDATED: 'Spending needs profile updated',
+  AGENT_RUN_REQUESTED: 'Asset scan requested',
+  AGENT_RUN_COMPLETED: 'Asset scan completed',
+  AGENT_RUN_FAILED: 'Asset scan failed',
 };
 
 function formatAuditLog(row: any): AuditLogEntry {

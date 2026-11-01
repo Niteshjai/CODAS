@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.log
+*.heartbeat
+.git
+.vscode
+.idea
+Dockerfile
+.dockerignore
+CLAUDE.md

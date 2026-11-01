@@ -7,8 +7,14 @@ import { dormantAccountFinder } from './dormantAccountFinder';
 import { FIType, FI_TYPE_LABELS } from '../utils/constants';
 import { logger } from '../utils/logger';
 import { auditLogger } from './auditLogger';
-import { TransactionModel } from '../models/transaction';
+import { enqueueSpendAnalysis } from '../workers/classifierWorker';
+import { accountKeyOf, accountObject, flattenFiResponse, nomineeFlagOf, parseTransactions, pendingAccountCount, relinkAccountTransactions, saveAccountTransactions, withoutTransactions } from './aaTransactions';
 import { UserModel } from '../models/user';
+import { CONSENT_DURATION_MONTHS } from '../models/consent';
+import { enqueueAgentRun } from '../agent/agentRuns';
+
+/** Why an AA fetch ran: decides the agent trigger after the data is stored. Not PII. */
+export type AaFetchReason = 'consent_callback' | 'aa_refresh';
 
 // ═══════════════════════════════════════════════════════════════
 // Account Aggregator (Setu) Service
@@ -23,11 +29,66 @@ interface ConsentArtefact {
 
 interface FinancialDataItem {
   fiType: FIType;
-  institutionName: string;
+  institutionName: string;   // display only — never part of a stored key
   accountRef: string;
   balance: number;
   currency: string;
-  rawJson: Record<string, unknown>;
+  rawJson: Record<string, any>;
+  // Stable identifiers from the AA payload (absent for sandbox mock items)
+  fipId?: string;
+  rawType?: string;          // ReBIT account.type, normalised (e.g. deposit, term_deposit)
+  linkRefNumber?: string;
+}
+
+const isoDay = (d: Date): string => d.toISOString().slice(0, 10);
+
+// ReBIT account.type values (lower-cased) whose transactions are bank CREDIT/DEBIT movements.
+// '' covers payloads that don't state a type.
+const BANK_DEPOSIT_ACCOUNT_TYPES = new Set(['', 'deposit', 'savings', 'current']);
+
+// Sandbox items carry a ReBIT-style nominee flag so the nominee check has something to read
+const MOCK_NO_NOMINEE = { profile: { holders: { holder: [{ nominee: 'NOT-REGISTERED' }] } } };
+
+/** Identity used to match a stored snapshot to a re-delivered account (snapshot columns only). */
+const snapshotIdentity = (fiType: string, institution: string, accountRef: string): string =>
+  `${fiType}|${String(institution ?? '').trim().toLowerCase()}|${String(accountRef ?? '').trim().toUpperCase()}`;
+
+function safeDecrypt(value: string | null): string {
+  if (!value) return '';
+  try {
+    return decryptPII(value);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * FI data window for a new consent: from the requested start (never after today) to the consent's
+ * expiry, so PERIODIC fetches can keep bringing new transactions for the consent's whole life.
+ * Dates are YYYY-MM-DD; Setu gets them as UTC midnight.
+ */
+export function consentDataRange(requestedStart: string, now: Date = new Date()): { start: string; end: string } {
+  const today = isoDay(now);
+  const end = new Date(now);
+  end.setUTCMonth(end.getUTCMonth() + CONSENT_DURATION_MONTHS);
+  const parsed = new Date(requestedStart);
+  let start: string;
+  if (Number.isNaN(parsed.getTime())) {
+    const yearAgo = new Date(now);
+    yearAgo.setUTCFullYear(yearAgo.getUTCFullYear() - 1);
+    start = isoDay(yearAgo);
+  } else {
+    start = isoDay(parsed) > today ? today : isoDay(parsed);
+  }
+  return { start, end: isoDay(end) };
+}
+
+/** A data session's window: the consent's data range, but never asking for data beyond now. */
+export function sessionDataRange(rangeStart: string, rangeEnd: string, now: number = Date.now()): { from: string; to: string } {
+  return {
+    from: new Date(rangeStart).toISOString(),
+    to: new Date(Math.min(now, new Date(rangeEnd).getTime())).toISOString(),
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -85,11 +146,13 @@ export async function createConsentRequest(
   userId: string,
   fiTypes: FIType[],
   purpose: string,
-  dateRange: { start: string; end: string },
+  dateRangeStart: string,
   ipAddress: string,
   userAgent: string
 ): Promise<ConsentArtefact> {
   const client = createSetuClient();
+  // The server, not the client, decides where the data window ends
+  const dateRange = consentDataRange(dateRangeStart);
 
   try {
     if (process.env.MOCK_MODE === 'true') {
@@ -137,7 +200,7 @@ export async function createConsentRequest(
       },
       consentDuration: {
         unit: 'MONTH',
-        value: 12,
+        value: CONSENT_DURATION_MONTHS,
       },
       consentMode: 'STORE',
       fetchType: 'PERIODIC',
@@ -273,7 +336,7 @@ export async function handleConsentCallback(
   // If consent was approved, fetch data in the background so the webhook acks quickly
   // (Setu retries slow callbacks, which would re-trigger the fetch)
   if (mappedStatus === 'ACTIVE') {
-    fetchFinancialData(consentId, userId).catch((error) => {
+    fetchFinancialData(consentId, userId, undefined, undefined, 'consent_callback').catch((error) => {
       logger.error('Auto data fetch after consent approval failed', {
         consentId,
         error: (error as Error).message,
@@ -290,13 +353,18 @@ export async function fetchFinancialData(
   consentId: string,
   userId: string,
   ipAddress?: string,
-  userAgent?: string
+  userAgent?: string,
+  reason: AaFetchReason = 'aa_refresh'
 ): Promise<FinancialDataItem[]> {
   const client = createSetuClient();
 
-  // Get consent details
+  // Get consent details. Dates as text: pg turns a DATE into local midnight, which outside UTC
+  // would fall before the consent's own UTC-midnight bounds and get the session rejected.
   const consentResult = await pool.query(
-    'SELECT fi_types, date_range_start, date_range_end FROM consents WHERE consent_id = $1 AND status = $2',
+    `SELECT fi_types,
+            to_char(date_range_start, 'YYYY-MM-DD') AS range_start,
+            to_char(date_range_end, 'YYYY-MM-DD') AS range_end
+       FROM consents WHERE consent_id = $1 AND status = $2`,
     [consentId, 'ACTIVE']
   );
 
@@ -308,23 +376,25 @@ export async function fetchFinancialData(
 
   try {
     let financialData: FinancialDataItem[];
-    const latestTxnDate = await TransactionModel.getLatestTransactionDate(userId);
-    const syncStartDate = latestTxnDate ? latestTxnDate : consent.date_range_start;
+    // A PARTIAL session delivers only some accounts; the others keep their previous snapshot
+    let partial = false;
 
     if (process.env.NODE_ENV === 'production') {
-      // Step 1: Create data session
+      // Step 1: Create data session. Always request the full consented range, up to now:
+      // duplicates are dropped on insert, and a "since the latest stored transaction" start would
+      // never backfill an account linked later. Consents created before the server set the range
+      // end (end = their creation day) can't be widened; they keep fetching up to that end.
       const sessionResponse = await client.post('/v2/sessions', {
         consentId,
-        dataRange: {
-          from: new Date(syncStartDate).toISOString(),
-          to: new Date(consent.date_range_end).toISOString(),
-        },
+        dataRange: sessionDataRange(consent.range_start, consent.range_end),
         format: 'json',
       });
 
       const sessionId = sessionResponse.data.id;
 
-      // Step 2: Fetch data (with retry for async processing)
+      // Step 2: Fetch data (with retry for async processing). PARTIAL means some FIPs failed or
+      // denied — terminal once no account is still PENDING, and acceptable with whatever is READY
+      // if accounts are still pending when we stop waiting.
       let dataResponse;
       let retries = 0;
       const maxRetries = 5;
@@ -332,15 +402,20 @@ export async function fetchFinancialData(
       while (retries < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, 2000 * (retries + 1)));
         dataResponse = await client.get(`/v2/sessions/${sessionId}`);
-        if (dataResponse.data.status === 'COMPLETED') break;
+        const status = dataResponse.data.status;
+        if (status === 'COMPLETED') break;
+        if (status === 'FAILED' || status === 'EXPIRED') throw new Error(`Data session ${status}`);
+        if (status === 'PARTIAL' && pendingAccountCount(dataResponse.data) === 0) break;
         retries++;
       }
 
-      if (!dataResponse || dataResponse.data.status !== 'COMPLETED') {
+      const finalStatus = dataResponse?.data.status;
+      if (finalStatus !== 'COMPLETED' && finalStatus !== 'PARTIAL') {
         throw new Error('Data session timed out');
       }
+      partial = finalStatus === 'PARTIAL';
 
-      financialData = normalizeFinancialData(dataResponse.data.data || []);
+      financialData = normalizeFinancialData(flattenFiResponse(dataResponse!.data));
     } else {
       // Sandbox: generate mock financial data
       financialData = [
@@ -350,7 +425,7 @@ export async function fetchFinancialData(
           accountRef: 'XXXX1234',
           balance: 450000.50,
           currency: 'INR',
-          rawJson: { type: 'SAVINGS', status: 'ACTIVE' },
+          rawJson: { type: 'SAVINGS', status: 'ACTIVE', ...MOCK_NO_NOMINEE },
         },
         {
           fiType: 'DEPOSIT',
@@ -358,7 +433,7 @@ export async function fetchFinancialData(
           accountRef: 'XXXX8877',
           balance: 155000.00,
           currency: 'INR',
-          rawJson: { type: 'SAVINGS', status: 'ACTIVE' },
+          rawJson: { type: 'SAVINGS', status: 'ACTIVE', ...MOCK_NO_NOMINEE },
         },
         {
           fiType: 'EQUITY',
@@ -366,7 +441,7 @@ export async function fetchFinancialData(
           accountRef: 'DMAT-XXXX9999',
           balance: 1250000.00,
           currency: 'INR',
-          rawJson: { type: 'DEMAT', holdings: 15 },
+          rawJson: { type: 'DEMAT', holdings: 15, ...MOCK_NO_NOMINEE },
         },
         {
           fiType: 'MUTUAL_FUND',
@@ -374,7 +449,7 @@ export async function fetchFinancialData(
           accountRef: 'FOLIO-XXXX5555',
           balance: 850000.00,
           currency: 'INR',
-          rawJson: { type: 'MUTUAL_FUND', folios: 2 },
+          rawJson: { type: 'MUTUAL_FUND', folios: 2, ...MOCK_NO_NOMINEE },
         },
       ];
 
@@ -390,7 +465,7 @@ export async function fetchFinancialData(
           accountRef: 'POL-XXXX2222',
           balance: 500000.00,
           currency: 'INR',
-          rawJson: { type: 'LIFE', status: 'ACTIVE' },
+          rawJson: { type: 'LIFE', status: 'ACTIVE', ...MOCK_NO_NOMINEE },
         });
       }
 
@@ -402,51 +477,144 @@ export async function fetchFinancialData(
           accountRef: 'PRAN-XXXX4411',
           balance: 620000.00,
           currency: 'INR',
-          rawJson: { type: 'TIER_1', status: 'ACTIVE' },
+          rawJson: { type: 'TIER_1', status: 'ACTIVE', ...MOCK_NO_NOMINEE },
         });
       }
     }
 
-    // Delete old snapshots for this consent and insert fresh ones
-    await pool.query(
-      'DELETE FROM asset_snapshots_aa WHERE consent_id = (SELECT id FROM consents WHERE consent_id = $1)',
-      [consentId]
-    );
+    // Replace this consent's snapshots and store transactions atomically. The per-user advisory
+    // lock serialises concurrent refreshes (two tabs, a retry) so accounts can't be duplicated,
+    // and a failure part-way rolls back instead of leaving the user with half their accounts.
+    let newTransactions = 0;
+    // Bank deposit accounts whose history lives in the transactions table (for the dormancy check)
+    const keyedDeposits: Array<{ item: FinancialDataItem; accountKey: string }> = [];
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`aa-refresh:${userId}`]);
+      const consentDbId = (await db.query('SELECT id FROM consents WHERE consent_id = $1', [consentId])).rows[0]?.id;
 
-    const consentDbId = await pool.query('SELECT id FROM consents WHERE consent_id = $1', [consentId]);
-
-    for (const item of financialData) {
-      const insertRes = await pool.query(
-        `INSERT INTO asset_snapshots_aa (user_id, consent_id, fi_type, institution_name, account_ref_encrypted, balance_encrypted, raw_json_encrypted, currency)
-         VALUES ($1, $2, $3::fi_type, $4, $5, $6, $7, $8) RETURNING id`,
-        [
-          userId,
-          consentDbId.rows[0]?.id,
-          item.fiType,
-          item.institutionName,
-          encryptPII(item.accountRef),
-          encryptPII(item.balance.toString()),
-          encryptPII(JSON.stringify(item.rawJson)),
-          item.currency,
-        ]
-      );
-
-      const accountId = insertRes.rows[0].id;
-
-      // Simulate incremental transactions fetch by inserting 2 mock transactions with current timestamp.
-      // Never in production: it would fabricate entries in real users' bank histories.
-      if (item.fiType === 'DEPOSIT' && process.env.NODE_ENV !== 'production') {
-        await TransactionModel.bulkInsert(accountId, userId, [
-          { date: new Date().toISOString(), type: 'CREDIT', amount: 5000, narration: 'Incremental Sync Credit' },
-          { date: new Date().toISOString(), type: 'DEBIT', amount: 1200, narration: 'Incremental Sync Debit' }
-        ]);
+      if (partial) {
+        // Only replace the accounts that were re-delivered; accounts whose FIP failed this time
+        // keep their previous snapshot (and their transaction history stays linked to it).
+        const delivered = new Set(financialData.map((i) => snapshotIdentity(i.fiType, i.institutionName, i.accountRef)));
+        const existing = await db.query(
+          'SELECT id, fi_type, institution_name, account_ref_encrypted FROM asset_snapshots_aa WHERE consent_id = $1',
+          [consentDbId]
+        );
+        const replaced = existing.rows
+          .filter((r) => delivered.has(snapshotIdentity(r.fi_type, r.institution_name, safeDecrypt(r.account_ref_encrypted))))
+          .map((r) => r.id);
+        if (replaced.length) {
+          await db.query('DELETE FROM asset_snapshots_aa WHERE id = ANY($1::uuid[])', [replaced]);
+        }
+      } else {
+        await db.query('DELETE FROM asset_snapshots_aa WHERE consent_id = $1', [consentDbId]);
       }
+
+      const usedKeys = new Set<string>();
+      for (const item of financialData) {
+        // Key from stable identifiers (raw ReBIT type, FIP id), not display or mapped fields.
+        // Sandbox mock items have neither and fall back to fiType/institution as before.
+        let accountKey: string | null = accountKeyOf(item.rawType || item.fiType, item.fipId || item.institutionName, item.accountRef);
+        if (usedKeys.has(accountKey)) {
+          // Two accounts at one FIP with the same masked number: disambiguate by link reference,
+          // or store no transactions for this one rather than merge two histories.
+          accountKey = item.linkRefNumber
+            ? accountKeyOf(item.rawType || item.fiType, item.fipId || item.institutionName, `${item.accountRef}#${item.linkRefNumber}`)
+            : null;
+          if (accountKey && usedKeys.has(accountKey)) accountKey = null;
+          logger.warn('AA accounts share a masked account number', { userId, fiType: item.fiType, disambiguated: !!accountKey });
+        }
+        if (accountKey) usedKeys.add(accountKey);
+
+        // Only bank deposit (savings/current) entries are CREDIT/DEBIT cash movements. Term/recurring
+        // deposits, insurance, MF etc. keep their transactions inside the encrypted payload, so they
+        // never reach the Spend Analyser as income or spend.
+        const isBankDeposit = item.fiType === 'DEPOSIT' &&
+          BANK_DEPOSIT_ACCOUNT_TYPES.has(String(accountObject(item.rawJson).type ?? '').toLowerCase());
+        const txns = accountKey && isBankDeposit ? parseTransactions(item.rawJson) : [];
+        // Transactions are stored in their own table; don't duplicate them inside the encrypted
+        // payload that every dashboard read loads.
+        const storedRaw = txns.length ? withoutTransactions(item.rawJson) : item.rawJson;
+
+        const insertRes = await db.query(
+          `INSERT INTO asset_snapshots_aa (user_id, consent_id, fi_type, institution_name, account_ref_encrypted, balance_encrypted, raw_json_encrypted, currency)
+           VALUES ($1, $2, $3::fi_type, $4, $5, $6, $7, $8) RETURNING id`,
+          [
+            userId,
+            consentDbId,
+            item.fiType,
+            item.institutionName,
+            encryptPII(item.accountRef),
+            encryptPII(item.balance.toString()),
+            encryptPII(JSON.stringify(storedRaw)),
+            item.currency,
+          ]
+        );
+        const accountId = insertRes.rows[0].id;
+        if (!accountKey) continue;
+        if (isBankDeposit) keyedDeposits.push({ item, accountKey });
+
+        if (txns.length) {
+          newTransactions += await saveAccountTransactions(db, userId, accountId, accountKey, txns, item.currency);
+        } else if (isBankDeposit && process.env.NODE_ENV !== 'production') {
+          // Sandbox only: two simulated entries per day so the UI has something to show. Never in
+          // production — it would fabricate entries in real users' bank histories. Keyed by day,
+          // so repeated refreshes don't pile up copies.
+          const day = new Date().toISOString().slice(0, 10);
+          newTransactions += await saveAccountTransactions(db, userId, accountId, accountKey, [
+            { txnId: `SIM-${day}-C`, date: new Date().toISOString(), type: 'CREDIT', amount: 5000, balanceAfter: null, narration: 'Incremental Sync Credit', reference: null, mode: null, dedupeKey: `sim:${day}:c` },
+            { txnId: `SIM-${day}-D`, date: new Date().toISOString(), type: 'DEBIT', amount: 1200, balanceAfter: null, narration: 'Incremental Sync Debit', reference: null, mode: null, dedupeKey: `sim:${day}:d` },
+          ], item.currency);
+        } else {
+          await relinkAccountTransactions(db, userId, accountId, accountKey);
+        }
+      }
+      await db.query('COMMIT');
+    } catch (err) {
+      await db.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      db.release();
+    }
+    logger.info('AA data stored', { userId, accounts: financialData.length, newTransactions });
+
+    // Hand the stored data to the asset-orchestration agent. enqueueAgentRun never throws and a
+    // burst of refreshes collapses into one queued run; not awaited so the caller isn't held up.
+    void enqueueAgentRun(userId, reason === 'consent_callback' ? 'consent_granted' : 'data_updated', { reason });
+
+    // New transactions feed the Spend Analyser: classify them in the background
+    if (newTransactions > 0) {
+      void enqueueSpendAnalysis(userId);
     }
 
     // Engagement Features: Nominee and Dormant Checks
     try {
-      await nomineeChecker.processAAData(pool, userId, financialData);
-      await dormantAccountFinder.analyzeAccounts(pool, userId, financialData);
+      // The nominee flag is in the ReBIT profile (holders.holder[].nominee). Accounts whose payload
+      // says nothing are skipped, so an unknown is never recorded (and alerted) as "no nominee".
+      const nomineeInput = financialData.flatMap((item) => {
+        const flag = nomineeFlagOf(item.rawJson);
+        return flag ? [{ ...item, nomineeRegistered: flag === 'REGISTERED' }] : [];
+      });
+      await nomineeChecker.processAAData(pool, userId, nomineeInput);
+
+      // Dormancy from the stored history (it spans earlier refreshes, not just this fetch's window)
+      if (keyedDeposits.length) {
+        const spans = await pool.query(
+          `SELECT account_key, MIN(date) AS first_tx, MAX(date) AS last_tx
+             FROM transactions
+            WHERE user_id = $1 AND account_key = ANY($2::text[])
+            GROUP BY account_key`,
+          [userId, keyedDeposits.map((k) => k.accountKey)]
+        );
+        const byKey = new Map(spans.rows.map((r) => [r.account_key as string, r]));
+        const dormantInput = keyedDeposits.flatMap(({ item, accountKey }) => {
+          const span = byKey.get(accountKey);
+          return span ? [{ ...item, transactions: [{ valueDate: span.first_tx }, { valueDate: span.last_tx }] }] : [];
+        });
+        await dormantAccountFinder.analyzeAccounts(pool, userId, dormantInput);
+      }
     } catch (e) {
       logger.error('Failed to run engagement checks', { error: (e as Error).message });
     }
@@ -515,36 +683,72 @@ export async function revokeConsent(
 // Data Normalisation
 // ─────────────────────────────────────────────
 
-function normalizeFinancialData(rawData: any[]): FinancialDataItem[] {
-  return rawData.map((item) => ({
-    fiType: mapFIType(item.type || item.fiType),
-    institutionName: item.fipName || item.institutionName || 'Unknown',
-    accountRef: item.maskedAccNumber || item.accountRef || '',
-    balance: parseFloat(item.summary?.currentBalance || item.balance || '0'),
-    currency: item.summary?.currency || item.currency || 'INR',
-    rawJson: item,
-  }));
+const normaliseTypeName = (type: unknown): string =>
+  String(type ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+export function normalizeFinancialData(rawData: any[]): FinancialDataItem[] {
+  return rawData.flatMap((item) => {
+    // v2 nests the ReBIT account under data.account; the older flat shape has it at the top level
+    const account = accountObject(item);
+    const summary = account.summary ?? item.summary ?? {};
+    // The Setu-level FI type (what the consent asked for) is authoritative; the ReBIT account.type
+    // is the fallback. An unknown type is skipped, not silently filed as a bank deposit.
+    const fiType = mapFIType(item.fiType) ?? mapFIType(account.type) ?? mapFIType(item.type);
+    if (!fiType) {
+      logger.warn('Skipping AA account with unrecognised FI type', {
+        fiType: String(item.fiType ?? ''),
+        accountType: String(account.type ?? item.type ?? ''),
+      });
+      return [];
+    }
+    return [{
+      fiType,
+      institutionName: item.fipName || item.institutionName || item.fipID || item.fipId || 'Unknown',
+      accountRef: item.maskedAccNumber || account.maskedAccNumber || item.accountRef || item.linkRefNumber || '',
+      balance: parseFloat(summary.currentBalance ?? summary.currentValue ?? item.balance ?? '0') || 0,
+      currency: summary.currency || item.currency || 'INR',
+      rawJson: item,
+      fipId: String(item.fipID ?? item.fipId ?? ''),
+      rawType: normaliseTypeName(account.type ?? item.type ?? item.fiType),
+      linkRefNumber: item.linkRefNumber ? String(item.linkRefNumber) : undefined,
+    }];
+  });
 }
 
-function mapFIType(type: string): FIType {
+/** Maps a Setu FI type (DEPOSIT, EQUITIES, MUTUAL_FUNDS, GSTR1_3B, …) or a ReBIT account.type. */
+export function mapFIType(type: unknown): FIType | null {
   const typeMap: Record<string, FIType> = {
     deposit: 'DEPOSIT',
     savings: 'DEPOSIT',
     current: 'DEPOSIT',
+    term_deposit: 'DEPOSIT',
+    recurring_deposit: 'DEPOSIT',
     equity: 'EQUITY',
+    equities: 'EQUITY',
     shares: 'EQUITY',
+    etf: 'EQUITY',
+    etfs: 'EQUITY',
+    bonds: 'EQUITY',
+    mutual_funds: 'MUTUAL_FUND',
     mutual_fund: 'MUTUAL_FUND',
     mutualfund: 'MUTUAL_FUND',
+    mutualfunds: 'MUTUAL_FUND',
     mf: 'MUTUAL_FUND',
+    sip: 'MUTUAL_FUND',
     insurance: 'INSURANCE_POLICIES',
     insurance_policies: 'INSURANCE_POLICIES',
+    insurancepolicies: 'INSURANCE_POLICIES',
     life_insurance: 'INSURANCE_POLICIES',
+    general_insurance: 'INSURANCE_POLICIES',
+    ulip: 'INSURANCE_POLICIES',
     nps: 'NPS',
     pension: 'NPS',
     gstn: 'GSTN',
     gst: 'GSTN',
+    gstr: 'GSTN',
+    gstr1_3b: 'GSTN',
   };
-  return typeMap[type.toLowerCase()] || 'DEPOSIT';
+  return typeMap[normaliseTypeName(type)] ?? null;
 }
 
 // ─────────────────────────────────────────────

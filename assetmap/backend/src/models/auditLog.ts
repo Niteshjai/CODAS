@@ -1,5 +1,6 @@
 import { pool } from '../db/connection';
 import { AuditAction } from '../utils/constants';
+import { normalizeIp } from '../utils/clientIp';
 
 // ═══════════════════════════════════════════════════════════════
 // Audit Log Model — READ ONLY
@@ -32,7 +33,7 @@ export const AuditLogModel = {
     const result = await pool.query(
       `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, ip_address, user_agent, metadata)
        VALUES ($1, $2::audit_action, $3, $4, $5::inet, $6, $7::jsonb) RETURNING id`,
-      [data.userId, data.action, data.entityType, data.entityId, data.ipAddress, data.userAgent, data.metadata ? JSON.stringify(data.metadata) : null]
+      [data.userId, data.action, data.entityType, data.entityId, normalizeIp(data.ipAddress), data.userAgent, data.metadata ? JSON.stringify(data.metadata) : null]
     );
     return result.rows[0].id;
   },

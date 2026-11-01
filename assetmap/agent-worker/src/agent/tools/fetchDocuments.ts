@@ -1,11 +1,13 @@
-import { Pool } from 'pg'
 import axios     from 'axios'
+import type { Queryable } from '../../db/types'
 
 // ─────────────────────────────────────────────
 // Fetch Documents Tool (DigiLocker)
 // Pulls issued and linked documents from
 // DigiLocker. Returns Aadhaar, PAN, land
 // records, insurance, vehicle RC documents.
+// External call: only reachable when AGENT_ENABLE_EXTERNAL_SOURCES=true
+// (the backend has no DigiLocker token storage yet). Logs counts only.
 // ─────────────────────────────────────────────
 
 interface FetchDocumentsParams {
@@ -19,7 +21,7 @@ const DEFAULT_DOC_TYPES = [
 ]
 
 export async function fetchDocumentsTool(
-  pool: Pool,
+  db: Queryable,
   params: FetchDocumentsParams
 ): Promise<any> {
   const {
@@ -27,16 +29,11 @@ export async function fetchDocumentsTool(
     docTypes = DEFAULT_DOC_TYPES,
   } = params
 
-  const clientId     = process.env.DIGILOCKER_CLIENT_ID!
-  const clientSecret = process.env.DIGILOCKER_CLIENT_SECRET!
-
-  console.log(`[FetchDocs] Fetching documents for user ${userId}`)
-
   try {
     // Step 1: Get the user's DigiLocker access token from DB
     let tokenRow
     try {
-      tokenRow = await pool.query(`
+      tokenRow = await db.query(`
         SELECT access_token, refresh_token, token_expires_at
         FROM digilocker_tokens
         WHERE user_id = $1
@@ -103,7 +100,7 @@ export async function fetchDocumentsTool(
       )
       pulledDocs = pulledRes.data?.items ?? pulledRes.data?.documents ?? []
     } catch (pullErr: any) {
-      console.warn(`[FetchDocs] Pulled docs fetch failed:`, pullErr.message)
+      console.warn(`[FetchDocs] Pulled docs fetch failed (${pullErr.response?.status ?? 'no status'})`)
     }
 
     // Combine all documents
@@ -147,7 +144,7 @@ export async function fetchDocumentsTool(
           enrichedDocs.push({ ...doc, uri: docUri })
         }
       } catch (detailErr: any) {
-        console.warn(`[FetchDocs] Detail fetch failed for ${doc.name}:`, detailErr.message)
+        console.warn(`[FetchDocs] Document detail fetch failed (${detailErr.response?.status ?? 'no status'})`)
         enrichedDocs.push(doc)
       }
     }
@@ -168,7 +165,7 @@ export async function fetchDocumentsTool(
     }
 
   } catch (error: any) {
-    console.error(`[FetchDocs] Error:`, error.message)
+    console.error(`[FetchDocs] Fetch failed (${error.response?.status ?? 'no status'})`)
 
     return {
       success:   false,

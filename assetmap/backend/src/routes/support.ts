@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants';
 import { verifyAccessToken } from '../middleware/auth';
+import { userRateLimit } from '../middleware/userRateLimit'
 import { SUPPORT_CATEGORIES, SUPPORT_LIMITS, SupportError, supportService } from '../services/supportService';
 
 const uuidParam = {
@@ -31,10 +32,14 @@ function handleError(err: unknown, reply: FastifyReply) {
 
 export async function supportRoutes(app: FastifyInstance) {
   const auth = { preHandler: [verifyAccessToken] };
+  // Creating a ticket triggers an AI assistant first reply (a Claude call) plus an inbox email.
+  // Both creating routes share one per-user bucket, so closing tickets to free the open-ticket
+  // cap or rotating IPs (the IP limit below) can't buy unbounded Claude calls.
+  const ticketCreateLimit = userRateLimit('support_ticket', 5, 60 * 60);
 
   // Open a ticket (chat or email form)
   app.post('/tickets', {
-    ...auth,
+    preHandler: [verifyAccessToken, ticketCreateLimit],
     config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
     schema: { body: createBody },
   }, async (req, reply) => {
@@ -57,7 +62,9 @@ export async function supportRoutes(app: FastifyInstance) {
   });
 
   app.post('/tickets/:ticketId/messages', {
-    ...auth,
+    // No AI here (messages only notify the support inbox); the per-user cap stops one account
+    // spamming that inbox from many IPs
+    preHandler: [verifyAccessToken, userRateLimit('support_message', 60, 60 * 60)],
     config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     schema: {
       params: uuidParam,
@@ -91,7 +98,7 @@ export async function supportRoutes(app: FastifyInstance) {
 
   // Legacy endpoint (older clients): now creates an email ticket instead of sending raw HTML mail
   app.post('/contact', {
-    ...auth,
+    preHandler: [verifyAccessToken, ticketCreateLimit],
     config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
     schema: {
       body: {

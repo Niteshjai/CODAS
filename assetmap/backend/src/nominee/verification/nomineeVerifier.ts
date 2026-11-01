@@ -23,7 +23,7 @@ export const nomineeVerifier = {
         ca.has_nominee,
         ca.nominee_name_enc AS current_nominee_enc
       FROM nominee_update_tasks t
-      LEFT JOIN canonical_assets ca ON ca.id = t.canonical_asset_id
+      LEFT JOIN canonical_assets ca ON ca.id = t.canonical_asset_id AND ca.user_id = t.user_id
       WHERE t.status IN ('auto_submitted', 'user_completed', 'form_sent')
       AND t.next_verify_at <= NOW()
       AND t.verification_attempts < 5
@@ -54,13 +54,25 @@ export const nomineeVerifier = {
   },
 
   async verifyTask(task: any): Promise<boolean> {
-    const currentNomineeName = task.current_nominee_enc
-      ? decryptPII(task.current_nominee_enc)
-      : null;
-    const hasNominee = task.has_nominee ?? false;
+    // The name is optional. The asset-orchestration agent sets has_nominee = TRUE from the AA
+    // holder flag (nominee "REGISTERED") without a name, and a ciphertext that no longer
+    // decrypts must not stall or crash the task. The task's asset had no nominee when the
+    // batch was created, so has_nominee = TRUE now is the confirmation we are waiting for.
+    let currentNomineeName: string | null = null;
+    if (task.current_nominee_enc) {
+      try {
+        currentNomineeName = decryptPII(task.current_nominee_enc) || null;
+      } catch {
+        logger.warn('[NomineeVerifier] Nominee name could not be decrypted; verifying on the flag alone', {
+          taskId: task.id,
+        });
+      }
+    }
+    const hasNominee = task.has_nominee === true;
 
-    if (hasNominee && currentNomineeName) {
-      // ✓ Verified — AA data now shows a nominee
+    if (hasNominee) {
+      // ✓ Verified — the source now shows a nominee. post_update_nominee keeps the canonical
+      // row's ciphertext (never the plaintext name), or NULL when the source gave no name.
       await pool.query(`
         UPDATE nominee_update_tasks SET
           status = 'verified',
@@ -69,16 +81,10 @@ export const nomineeVerifier = {
           verification_attempts = verification_attempts + 1,
           updated_at = NOW()
         WHERE id = $1
-      `, [task.id, currentNomineeName]);
+      `, [task.id, currentNomineeName ? task.current_nominee_enc : null]);
 
-      // Update canonical_assets
-      if (task.canonical_asset_id) {
-        await pool.query(`
-          UPDATE canonical_assets
-          SET has_nominee = true, updated_at = NOW()
-          WHERE id = $1
-        `, [task.canonical_asset_id]);
-      }
+      // canonical_assets.has_nominee is already TRUE here. The verifier never writes FALSE or
+      // NULL, and the agent's upsert never downgrades TRUE, so the two writers cannot fight.
 
       await nomineeNotifier.send(task.user_id, {
         channel: 'push',
@@ -97,10 +103,10 @@ export const nomineeVerifier = {
     await pool.query(`
       UPDATE nominee_update_tasks SET
         verification_attempts = $2,
-        next_verify_at = NOW() + INTERVAL '${nextDays} days',
+        next_verify_at = NOW() + make_interval(days => $3::int),
         updated_at = NOW()
       WHERE id = $1
-    `, [task.id, attempts]);
+    `, [task.id, attempts, nextDays]);
 
     // Send reminder after 2+ failed verifications
     if (attempts >= 2) {

@@ -103,56 +103,62 @@ export function withComputedGainLoss(asset: CanonicalAsset): CanonicalAsset {
 }
 
 // ─────────────────────────────────────────────
-// Agent Run Context Schema
-// Passed to the orchestrator on every run.
+// Agent Run Context
 // ─────────────────────────────────────────────
 
 export const ALL_SOURCES = [
   'setu_aa', 'surepass', 'digilocker', 'iepf_epfo', 'mca21',
 ] as const
 
+export type SourceKey = typeof ALL_SOURCES[number]
+
+/**
+ * Sources read from the backend's tables (asset_snapshots_aa, land_records,
+ * unclaimed_assets_found). DigiLocker and MCA21 have no backend storage and call
+ * external APIs, so they are only added when AGENT_ENABLE_EXTERNAL_SOURCES=true.
+ */
+export const DB_SOURCES: readonly SourceKey[] = ['setu_aa', 'surepass', 'iepf_epfo']
+export const EXTERNAL_SOURCES: readonly SourceKey[] = ['digilocker', 'mca21']
+
 export const TriggerTypeEnum = z.enum([
-  'consent_granted', 'cron_scheduled', 'user_refresh',
-  'estate_case', 'manual_admin', 'webhook'
+  'consent_granted', 'data_updated', 'cron_scheduled', 'user_refresh',
+  'estate_case', 'manual_admin', 'webhook',
 ])
+export type TriggerType = z.infer<typeof TriggerTypeEnum>
 
-export const AgentOptionsSchema = z.object({
-  forceRefresh:       z.boolean().default(false),
-  skipCache:          z.boolean().default(false),
-  enrichWithAI:       z.boolean().default(true),
-  detectAnomalies:    z.boolean().default(true),
-  triggerAlerts:      z.boolean().default(true),
-  isEstateCase:       z.boolean().default(false),
-})
+/**
+ * BullMQ job data. Version-independent handoff shared with the backend producer:
+ * ids only, never PII (no name, mobile, PAN or consent ids in Redis).
+ */
+export const AgentJobDataSchema = z.object({
+  runId:       z.string().uuid(),
+  userId:      z.string().uuid(),
+  triggerType: TriggerTypeEnum,
+}).strip()
+export type AgentJobData = z.infer<typeof AgentJobDataSchema>
 
-export const AgentContextSchema = z.object({
-  runId:          z.string().uuid(),
-  userId:         z.string().uuid(),
-  triggerType:    TriggerTypeEnum,
-  triggerMetadata:z.record(z.any()).default({}),
-  consentId:      z.string().optional(),
-  userProfile:    z.object({
-    name:         z.string(),
-    mobile:       z.string(),
-    pan:          z.string().optional(),
-    aadhaarHash:  z.string().optional(),
-    // Needed for land-record search. When absent the land fetch is
-    // skipped rather than letting the model guess a state.
-    state:        z.string().optional(),
-    stateCode:    z.string().optional(),
-    district:     z.string().optional(),
-  }),
-  // Source keys match the raw-data keys the orchestrator collects.
-  // 'iepf' / 'epfo' are accepted as aliases for 'iepf_epfo'.
-  sourcesToFetch: z.array(z.string()).default([...ALL_SOURCES]),
-  options: AgentOptionsSchema.default({
-    forceRefresh: false,
-    skipCache: false,
-    enrichWithAI: true,
-    detectAnomalies: true,
-    triggerAlerts: true,
-    isEstateCase: false,
-  }),
-})
+export interface AgentOptions {
+  enrichWithAI:    boolean
+  detectAnomalies: boolean
+}
 
-export type AgentContext = z.infer<typeof AgentContextSchema>
+/**
+ * Built by the worker at run time from the database (see agent/runContext.ts).
+ * Lives only in memory: PII never reaches Redis, the model or agent_run_steps.
+ */
+export interface AgentContext {
+  runId:       string
+  userId:      string
+  triggerType: TriggerType
+  /** Latest ACTIVE AA consent (Setu consent id); informational only. */
+  consentId?:  string
+  userProfile: {
+    name?:      string
+    pan?:       string
+    state?:     string
+    stateCode?: string
+    district?:  string
+  }
+  sourcesToFetch: SourceKey[]
+  options:        AgentOptions
+}

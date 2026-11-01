@@ -5,9 +5,16 @@
 
 import { FastifyInstance }    from 'fastify'
 import { verifyAccessToken }  from '../middleware/auth'
+import { userRateLimit, consumeUserQuota } from '../middleware/userRateLimit'
 import { manualAssetService } from '../manual/manualAssetService'
 import { manualAIEnricher }   from '../manual/manualAIEnricher'
 import { ASSET_CATEGORIES, CATEGORY_GROUPS } from '../manual/assetCategories'
+
+// AI enrichment calls Claude: one per-user budget covers both the automatic run on create
+// and explicit re-runs via /enrich
+const ENRICH_SCOPE = 'manual_enrich'
+const ENRICH_MAX = 20
+const ENRICH_WINDOW_SEC = 60 * 60
 
 export async function manualRoutes(app: FastifyInstance) {
 
@@ -125,8 +132,11 @@ export async function manualRoutes(app: FastifyInstance) {
           { ...body, extraFields: body.extraFields ?? {} }
         )
 
-        // Fire-and-forget AI enrichment
-        manualAIEnricher.enrich(req.user!.id, result.assetId).catch(() => {})
+        // Fire-and-forget AI enrichment. Over the quota the asset is still saved, just not
+        // enriched; the user can enrich it later through /enrich.
+        if (await consumeUserQuota(ENRICH_SCOPE, req.user!.id, ENRICH_MAX, ENRICH_WINDOW_SEC)) {
+          manualAIEnricher.enrich(req.user!.id, result.assetId).catch(() => {})
+        }
 
         return reply.status(201).send({ success: true, data: result })
       } catch (err: any) {
@@ -205,7 +215,7 @@ export async function manualRoutes(app: FastifyInstance) {
   // ──────────── POST /assets/:assetId/enrich ────────────
   // Re-run AI enrichment for an asset
   app.post('/assets/:assetId/enrich', {
-    preHandler: [verifyAccessToken],
+    preHandler: [verifyAccessToken, userRateLimit(ENRICH_SCOPE, ENRICH_MAX, ENRICH_WINDOW_SEC)],
     handler: async (req) => {
       const { assetId } = req.params as { assetId: string }
       await manualAIEnricher.enrich(req.user!.id, assetId)

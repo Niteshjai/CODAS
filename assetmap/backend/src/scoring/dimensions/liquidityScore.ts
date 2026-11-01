@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import { DimensionResult } from './assetStrengthScore'
+import { COUNTED_ASSET_CLASSES, effectiveLiquidity } from '../assetClasses'
 
 export async function liquidityScore(
   pool: Pool,
@@ -7,21 +8,25 @@ export async function liquidityScore(
   requestedAmountPaise: number
 ): Promise<DimensionResult> {
 
+  // Only holdings count (no insurance cover, unrecovered unclaimed money or unverified claims).
+  // ai_liquidity_score is the agent's AI view; without one each class has a fixed liquidity.
   const result = await pool.query(`
     SELECT asset_class, ai_liquidity_score,
-           SUM(current_value_paise) AS total_value
+           COALESCE(SUM(current_value_paise), 0) AS total_value
     FROM canonical_assets
     WHERE user_id = $1 AND is_active = true
+    AND asset_class = ANY($2)
     GROUP BY asset_class, ai_liquidity_score
-  `, [userId])
+  `, [userId, COUNTED_ASSET_CLASSES])
 
   let weightedLiquidity = 0
   let totalValue        = 0
   let instantLiquid     = 0  // Available within 24 hours
 
   for (const row of result.rows) {
-    const value      = parseInt(row.total_value)
-    const liqScore   = row.ai_liquidity_score ?? 50
+    const value      = Number(row.total_value) || 0
+    if (value <= 0) continue
+    const liqScore   = effectiveLiquidity(row.asset_class, row.ai_liquidity_score)
     weightedLiquidity += value * liqScore
     totalValue        += value
 

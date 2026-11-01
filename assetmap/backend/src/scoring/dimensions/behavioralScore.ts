@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import { DimensionResult } from './assetStrengthScore'
+import { USER_TRANSACTIONS_SQL } from './transactionSource'
 
 export async function behavioralScore(
   pool: Pool,
@@ -22,7 +23,7 @@ export async function behavioralScore(
       COUNT(CASE WHEN description ILIKE ANY(
               ARRAY['%mutual fund%','%sip%','%nps%','%ppf%']
             ) THEN 1 END)                    AS investment_tx_count
-    FROM aa_transactions
+    FROM ${USER_TRANSACTIONS_SQL} tx
     WHERE user_id = $1
     AND value_date >= NOW() - INTERVAL '12 months'
   `, [userId])

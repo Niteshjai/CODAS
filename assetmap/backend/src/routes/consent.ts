@@ -24,7 +24,9 @@ const consentRoutes: FastifyPluginAsync = async (fastify, opts) => {
     preHandler: [verifyAccessToken]
   }, async (request, reply) => {
     try {
-      const { fiTypes, purpose, dateRangeStart, dateRangeEnd } = request.body as Record<string, any>;
+      // dateRangeEnd from the client is ignored: the server sets the data window's end to the
+      // consent's expiry so periodic refreshes can keep fetching new transactions.
+      const { fiTypes, purpose, dateRangeStart } = request.body as Record<string, any>;
       const userId = request.user!.id;
       const ipAddress = request.ip || '';
       const userAgent = request.headers['user-agent'] || '';
@@ -33,7 +35,7 @@ const consentRoutes: FastifyPluginAsync = async (fastify, opts) => {
         userId,
         fiTypes,
         purpose,
-        { start: dateRangeStart, end: dateRangeEnd },
+        dateRangeStart,
         ipAddress,
         userAgent
       );

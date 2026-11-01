@@ -1,4 +1,7 @@
 import { Pool } from 'pg'
+import {
+  COUNTED_ASSET_CLASSES, LIQUID_CLASSES, INVESTMENT_CLASSES, PROPERTY_CLASSES, OTHER_ASSET_CLASSES,
+} from '../assetClasses'
 
 export interface DimensionResult {
   score:    number   // 0–100
@@ -13,37 +16,34 @@ export async function assetStrengthScore(
   requestedAmountPaise: number
 ): Promise<DimensionResult> {
 
+  // Insurance cover, unrecovered unclaimed money and unverified ancestral claims are not
+  // pledgeable assets (see scoring/assetClasses.ts). Rows the AI flagged are left out.
   const result = await pool.query(`
     SELECT
       asset_class,
-      SUM(current_value_paise) AS total_value,
-      COUNT(*)                 AS count
+      COALESCE(SUM(current_value_paise), 0) AS total_value,
+      COUNT(*)                              AS count
     FROM canonical_assets
     WHERE user_id = $1
     AND is_active = true
-    AND ai_anomaly_flag = false
+    AND ai_anomaly_flag IS NOT TRUE
+    AND asset_class = ANY($2)
     GROUP BY asset_class
-  `, [userId])
+  `, [userId, COUNTED_ASSET_CLASSES])
 
   const byClass: Record<string, number> = {}
   for (const row of result.rows) {
-    byClass[row.asset_class] = parseInt(row.total_value)
+    byClass[row.asset_class] = Number(row.total_value) || 0
   }
+  const sumOf = (classes: readonly string[]) =>
+    classes.reduce((s, c) => s + (byClass[c] ?? 0), 0)
 
-  const bankAssets    = byClass['BANK_ACCOUNT']     ?? 0
-  const fdAssets      = byClass['FIXED_DEPOSIT']    ?? 0
-  const mfAssets      = byClass['MUTUAL_FUND']      ?? 0
-  const equityAssets  = byClass['EQUITY']           ?? 0
-  const npsAssets     = byClass['NPS']              ?? 0
-  const landAssets    = byClass['LAND']             ?? 0
-  const propertyAssets= byClass['PROPERTY']         ?? 0
-  const goldAssets    = byClass['GOLD']             ?? 0
-  const insuranceAssets = (byClass['INSURANCE_LIFE'] ?? 0) +
-                          (byClass['INSURANCE_HEALTH'] ?? 0)
+  const landAssets      = byClass['LAND'] ?? 0
+  const propertyAssets  = (byClass['PROPERTY'] ?? 0) + (byClass['REAL_ESTATE'] ?? 0)
 
-  const liquidAssets    = bankAssets + fdAssets
-  const investmentAssets= mfAssets + equityAssets + npsAssets + goldAssets
-  const illiquidAssets  = landAssets + propertyAssets + insuranceAssets
+  const liquidAssets    = sumOf(LIQUID_CLASSES)
+  const investmentAssets= sumOf(INVESTMENT_CLASSES)
+  const illiquidAssets  = sumOf(PROPERTY_CLASSES) + sumOf(OTHER_ASSET_CLASSES)
 
   const totalAssets = liquidAssets + investmentAssets + illiquidAssets
 
@@ -70,8 +70,8 @@ export async function assetStrengthScore(
   else if (liquidToLoanRatio >= 0.5)score += 15
   else if (liquidToLoanRatio >= 0.2)score += 8
 
-  // Diversification bonus
-  const assetClasses = Object.keys(byClass).length
+  // Diversification bonus: classes that actually hold value
+  const assetClasses = Object.values(byClass).filter(v => v > 0).length
   if (assetClasses >= 5)  score += 15
   else if (assetClasses >= 3) score += 10
   else if (assetClasses >= 2) score += 5
@@ -80,7 +80,7 @@ export async function assetStrengthScore(
   if (landAssets > 0 || propertyAssets > 0) {
     score += 10
     reasons.push(
-      `Property assets of ₹${fmt(landAssets + propertyAssets)} ` +
+      `Property assets of ${fmt(landAssets + propertyAssets)} ` +
       `provide strong collateral backing`
     )
   }
@@ -95,7 +95,7 @@ export async function assetStrengthScore(
     reasons.push(`Well-diversified portfolio across ${assetClasses} asset classes`)
 
   if (totalAssets < requestedAmountPaise)
-    warnings.push(`Total assets (₹${fmt(totalAssets)}) are less than loan amount`)
+    warnings.push(`Total assets (${fmt(totalAssets)}) are less than loan amount`)
   if (liquidAssets < requestedAmountPaise * 0.1)
     warnings.push(`Very low liquid reserves — less than 10% of loan amount`)
   if (assetClasses <= 1)

@@ -362,12 +362,18 @@ const nomineeSource: NotificationSource = {
   async load({ pool, userId }) {
     const items: RawNotification[] = []
 
-    // canonical_assets is the central asset table; older accounts only exist in nominee_status
+    // canonical_assets is the central asset table; older accounts only exist in nominee_status.
+    // The switch counts only nominee-eligible rows: once the agent fills the table a user may
+    // have just land, unclaimed or ancestral rows there while their accounts are still only
+    // in nominee_status.
     let missing: Array<{ id: string; institution_name: string; checked_at: Date }> = []
+    let unknown: Array<{ id: string; institution_name: string; checked_at: Date }> = []
     let inProgress = 0
     let canonicalCount = 0
     try {
-      const c = await pool.query(`SELECT COUNT(*)::int AS n FROM canonical_assets WHERE user_id = $1 AND is_active = true`, [userId])
+      const c = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM canonical_assets WHERE user_id = $1 AND is_active = true AND asset_class = ANY($2)`,
+        [userId, NOMINEE_CLASSES])
       canonicalCount = c.rows[0].n
     } catch (err) {
       if (!isMissingRelation(err)) throw err
@@ -378,15 +384,19 @@ const nomineeSource: NotificationSource = {
                WHERE t.user_id = $1 AND t.canonical_asset_id = a.id AND t.status = ANY($2))`
 
     if (canonicalCount > 0) {
+      // has_nominee: FALSE = the source says no nominee; NULL = the source didn't say (the
+      // agent writes NULL rather than guess), so those are "couldn't check", not "missing".
       const r = await pool.query(`
-        SELECT a.id, a.institution_name, a.last_synced_at AS checked_at, ${taskJoin} AS in_progress
+        SELECT a.id, a.institution_name, a.last_synced_at AS checked_at, a.has_nominee, ${taskJoin} AS in_progress
           FROM canonical_assets a
          WHERE a.user_id = $1 AND a.is_active = true
-           AND (a.has_nominee = false OR a.has_nominee IS NULL)
+           AND a.has_nominee IS NOT TRUE
            AND a.asset_class = ANY($3)
       `, [userId, TASK_IN_PROGRESS, NOMINEE_CLASSES])
-      missing = r.rows.filter(x => !x.in_progress)
-      inProgress = r.rows.length - missing.length
+      const open = r.rows.filter(x => !x.in_progress)
+      missing = open.filter(x => x.has_nominee === false)
+      unknown = open.filter(x => x.has_nominee === null)
+      inProgress = r.rows.length - open.length
     } else {
       const r = await pool.query(`
         SELECT a.id, a.institution_name, a.last_checked_at AS checked_at, ${taskJoin} AS in_progress
@@ -407,9 +417,27 @@ const nomineeSource: NotificationSource = {
         severity: 'warning',
         title: `${plural(n, 'account')} ${n === 1 ? 'has' : 'have'} no nominee`,
         body: `${listNames(missing.map(m => m.institution_name))}. Without a nominee, your family faces a longer claim process.`
+          + (unknown.length > 0 ? ` ${plural(unknown.length, 'other account')} couldn't be checked.` : '')
           + (inProgress > 0 ? ` ${plural(inProgress, 'other update')} already in progress.` : ''),
         createdAt: new Date(latest || Date.now()),
         actionLabel: 'Add nominees',
+        actionUrl: '/nominee',
+        source: 'nominees',
+        supersedesAlertType: 'nominee_missing',
+      })
+    } else if (unknown.length > 0) {
+      const ids = unknown.map(m => m.id).sort()
+      const latest = unknown.reduce((t, m) => Math.max(t, new Date(m.checked_at).getTime()), 0)
+      const n = unknown.length
+      items.push({
+        id: `action:nominee-unknown:${fingerprint(ids)}`,
+        kind: 'action',
+        severity: 'info',
+        title: `Check the nominee on ${plural(n, 'account')}`,
+        body: `${listNames(unknown.map(m => m.institution_name))} didn't report whether a nominee is registered. Confirm it so your family isn't caught out.`
+          + (inProgress > 0 ? ` ${plural(inProgress, 'other update')} already in progress.` : ''),
+        createdAt: new Date(latest || Date.now()),
+        actionLabel: 'Review nominees',
         actionUrl: '/nominee',
         source: 'nominees',
         supersedesAlertType: 'nominee_missing',
@@ -469,6 +497,67 @@ const dormantSource: NotificationSource = {
       source: 'dormant',
       supersedesAlertType: 'dormant_account_found',
     }]
+  },
+}
+
+// Open anomalies from the asset-orchestration agent (migrations 032 + 034). One item per
+// condition: since 034 the agent upserts a row per fingerprint and bumps last_seen_at on every
+// run; older rows without a fingerprint repeat per run and are collapsed here the same way.
+const ANOMALY_TITLES: Record<string, string> = {
+  sudden_balance_drop:       'Sudden drop in a balance',
+  new_unknown_account:       'An account you may not recognise',
+  land_mutation_detected:    'Change recorded on a land record',
+  large_transaction:         'Unusually large transaction',
+  dormant_account_activated: 'A dormant account became active',
+  value_spike:               'Unusual jump in an asset’s value',
+  suspicious_pattern:        'Unusual activity on your assets',
+  duplicate_suspected:       'Possible duplicate account',
+}
+const ANOMALY_SEVERITY: Record<string, NotificationSeverity> = { critical: 'critical', warning: 'warning', info: 'info' }
+const MAX_ANOMALIES = 10
+
+const anomalySource: NotificationSource = {
+  name: 'anomalies',
+  async load({ pool, userId }) {
+    const r = await pool.query(`
+      SELECT * FROM (
+        SELECT DISTINCT ON (k.key)
+               an.id, k.key, an.anomaly_type, an.severity, an.description,
+               an.created_at, an.last_seen_at, ca.institution_name
+          FROM asset_anomalies an
+          LEFT JOIN canonical_assets ca ON ca.id = an.canonical_id AND ca.user_id = an.user_id
+          CROSS JOIN LATERAL (SELECT COALESCE(
+            an.fingerprint,
+            an.anomaly_type || ':' || COALESCE(an.canonical_id::text, an.description, '')
+          ) AS key) k
+         WHERE an.user_id = $1
+           AND an.is_resolved = false
+           AND (an.canonical_id IS NULL OR ca.is_active IS NOT FALSE)
+         ORDER BY k.key, an.last_seen_at DESC
+      ) x
+      ORDER BY created_at DESC
+      LIMIT $2
+    `, [userId, MAX_ANOMALIES])
+    return r.rows.map((row): RawNotification => {
+      const severity = ANOMALY_SEVERITY[row.severity] ?? 'warning'
+      const detail = String(row.description ?? '').replace(/\s+/g, ' ').trim()
+      const where = row.institution_name ? `${row.institution_name}: ` : ''
+      const body = detail
+        ? `${where}${detail.length > 200 ? `${detail.slice(0, 197)}…` : detail}`
+        : `${where}We spotted something unusual in your latest asset scan. Check that it's expected.`
+      return {
+        // Same condition → same id, so read/dismiss sticks across scans; an escalation re-surfaces it
+        id: `action:anomaly:${fingerprint([row.key, severity])}`,
+        kind: 'alert',
+        severity,
+        title: ANOMALY_TITLES[row.anomaly_type] ?? 'Something unusual in your assets',
+        body,
+        createdAt: new Date(row.created_at),
+        actionLabel: 'Review assets',
+        actionUrl: '/dashboard?tab=overview',
+        source: 'anomalies',
+      }
+    })
   },
 }
 
@@ -764,10 +853,23 @@ type CopyFn = (meta: Record<string, any>, entityType: string | null) => Activity
 const SECURITY_URL = '/settings#security'
 
 /**
+ * Agent-run audit actions (migration 034). Typed on their own and spread into ACTIVITY_COPY,
+ * so the map stays exhaustive whether or not AUDIT_ACTIONS lists them yet: a spread is not
+ * checked for excess keys, and once they are added to AUDIT_ACTIONS they are already covered.
+ */
+type AgentAuditAction = 'AGENT_RUN_REQUESTED' | 'AGENT_RUN_COMPLETED' | 'AGENT_RUN_FAILED'
+const AGENT_ACTIVITY_COPY: Record<AgentAuditAction, ActivityCopy | CopyFn | null> = {
+  AGENT_RUN_REQUESTED: null, // the user's own Rescan tap; the result is what matters
+  AGENT_RUN_COMPLETED: { title: 'Asset scan finished', body: 'Your linked accounts, land and registry results were re-checked and your asset list was updated.', severity: 'success', label: 'View assets', url: '/dashboard?tab=overview', collapseKey: 'agent-run' },
+  AGENT_RUN_FAILED: null, // retried automatically; a failure has nothing for the user to do
+}
+
+/**
  * Copy for every audit action. `null` = not shown in the feed (internal or too noisy).
  * Kept exhaustive over AUDIT_ACTIONS (a test enforces it) so new actions get a decision.
  */
 export const ACTIVITY_COPY: Record<(typeof AUDIT_ACTIONS)[number], ActivityCopy | CopyFn | null> = {
+  ...AGENT_ACTIVITY_COPY,
   AADHAAR_INITIATED: null,
   AADHAAR_VERIFIED: { title: 'Signed in with Aadhaar', body: 'Your identity was verified with an Aadhaar OTP.', label: 'Review security', url: SECURITY_URL },
   PHONE_OTP_INITIATED: null,
@@ -923,7 +1025,7 @@ const twoFactorActivitySource: NotificationSource = {
 
 export const NOTIFICATION_SOURCES: NotificationSource[] = [
   alertsSource, insightSource, recoverySource,
-  consentSource, nomineeSource, dormantSource, willSource, familyInviteSource,
+  consentSource, nomineeSource, dormantSource, anomalySource, willSource, familyInviteSource,
   supportSource, budgetSource, twoFactorSource, landSource,
   activitySource, twoFactorActivitySource,
 ]

@@ -1,18 +1,13 @@
-import Anthropic    from '@anthropic-ai/sdk'
-import { Pool }     from 'pg'
+import type Anthropic from '@anthropic-ai/sdk'
+import type { Queryable } from '../../db/types'
 import { CanonicalAsset, RiskLevelEnum } from '../schemas/canonicalAsset'
 import { clamp } from '../../utils/sanitize'
+import { config } from '../../config'
+import { aiAvailable, anthropic, noteAiError } from '../ai'
 
-const MODEL      = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
 /** Assets per Claude call — keeps each JSON reply well under max_tokens. */
 const BATCH_SIZE = 25
 const MAX_TOKENS = 16000
-
-let anthropic: Anthropic | undefined
-function client(): Anthropic {
-  anthropic ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  return anthropic
-}
 
 export type EnrichedAsset = CanonicalAsset & {
   ai_category_label:  string
@@ -146,21 +141,29 @@ function applyEnrichment(asset: CanonicalAsset, e: any): EnrichedAsset {
   }
 }
 
+/**
+ * Adds AI risk / liquidity / anomaly fields. Never throws for Claude problems:
+ * without Claude (no key, key rejected, AI already failed this run, API errors)
+ * assets get default enrichment and usedFallback is set.
+ * Anomalies are persisted by the inject step (it knows the canonical ids).
+ */
 export async function enrichWithAITool(
-  pool: Pool,
+  db: Queryable,
   userId: string,
   assets: CanonicalAsset[],
-  runId: string,
-  options: { enrichWithAI?: boolean; detectAnomalies?: boolean } = {}
+  options: { enrichWithAI?: boolean; detectAnomalies?: boolean; aiAllowed?: boolean } = {}
 ): Promise<EnrichResult> {
-  const { enrichWithAI = true, detectAnomalies = true } = options
+  const { enrichWithAI = true, detectAnomalies = true, aiAllowed = true } = options
 
   if (!enrichWithAI || assets.length === 0) {
     return { assets: assets.map(defaultEnrichment), anomaliesDetected: 0, tokensUsed: 0, aiCalls: 0, usedFallback: false }
   }
+  if (!aiAllowed || !aiAvailable()) {
+    return { assets: assets.map(defaultEnrichment), anomaliesDetected: 0, tokensUsed: 0, aiCalls: 0, usedFallback: true }
+  }
 
   // Previous snapshot for anomaly detection
-  const prevSnapshot = await pool.query(`
+  const prevSnapshot = await db.query(`
     SELECT asset_class, SUM(current_value_paise) AS total_value,
            COUNT(*) AS count
     FROM canonical_assets
@@ -186,12 +189,24 @@ export async function enrichWithAITool(
       .slice(offset, offset + BATCH_SIZE)
       .map((asset, i) => ({ index: offset + i, asset }))
 
+    if (!aiAvailable()) { usedFallback = true; break }
+
+    let response: Anthropic.Message
     try {
-      const response = await client().messages.create({
-        model:      MODEL,
+      response = await anthropic().messages.create({
+        model:      config.enrichModel(),
         max_tokens: MAX_TOKENS,
         messages:   [{ role: 'user', content: buildPrompt(batch, prevByClass) }],
       })
+    } catch (err) {
+      // API failure (auth, overloaded after retries, timeout, network): defaults for this batch.
+      // A transient failure ends AI enrichment for this run rather than paying for more timeouts.
+      usedFallback = true
+      noteAiError(err, 'enrich')
+      break
+    }
+
+    try {
       aiCalls++
       tokensUsed += response.usage.input_tokens + response.usage.output_tokens
 
@@ -214,34 +229,17 @@ export async function enrichWithAITool(
         if (e) enriched[index] = applyEnrichment(asset, e)
       }
     } catch (err: any) {
-      // One failed batch must not lose the run — keep default enrichment for it
+      // An unusable reply (bad JSON, truncated) keeps default enrichment for that batch
       usedFallback = true
-      console.error(`[EnrichWithAI] Batch at ${offset} failed, using defaults:`, err.message)
+      console.warn(`[EnrichWithAI] Batch at ${offset} unusable, using defaults: ${String(err?.message ?? err).slice(0, 200)}`)
     }
   }
 
+  // Without anomaly detection the flags are cleared, so nothing downstream acts on them
+  if (!detectAnomalies) {
+    for (const a of enriched) { a.ai_anomaly_flag = false; a.ai_anomaly_reason = null }
+  }
   const anomalies = enriched.filter(a => a.ai_anomaly_flag)
-
-  if (detectAnomalies) {
-    // BullMQ retries reuse the same runId — clear this run's anomalies first
-    // so a retry does not duplicate them.
-    await pool.query(`DELETE FROM asset_anomalies WHERE run_id = $1`, [runId])
-    for (const asset of anomalies) {
-      await pool.query(`
-        INSERT INTO asset_anomalies (
-          run_id, user_id,
-          anomaly_type, severity,
-          description, ai_explanation
-        ) VALUES ($1,$2,$3,$4,$5,$6)
-      `, [
-        runId, userId,
-        'suspicious_pattern',
-        'warning',
-        `Anomaly detected in ${asset.assetClass} at ${asset.institutionName ?? 'unknown institution'}`,
-        asset.ai_anomaly_reason,
-      ])
-    }
-  }
 
   return {
     assets: enriched,

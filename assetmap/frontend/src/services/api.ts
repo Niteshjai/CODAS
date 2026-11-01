@@ -15,6 +15,7 @@ const MSG = {
   server:      'Something went wrong on our side. Please try again.',
   rateLimited: 'Too many attempts. Please wait a moment and try again.',
   session:     'Your session has expired. Please sign in again.',
+  sessionBusy: "We couldn't renew your session just now. Please try again.",
   forbidden:   "You don't have access to this.",
   notFound:    "We couldn't find what you were looking for.",
   invalid:     "Some of the details entered aren't valid. Please check and try again.",
@@ -58,6 +59,8 @@ function buildError(params: {
   message:  string;
   category: ErrorCategory;
   retryable?: boolean;
+  /** Response headers, kept so callers can read e.g. Retry-After on a 429. */
+  headers?: Headers;
 }): AppError {
   const err = new AppError({
     message:     params.message,
@@ -74,7 +77,7 @@ function buildError(params: {
     error:   { ...(params.data?.error ?? {}), code: params.code, message: params.message },
     message: params.message,
   };
-  return Object.assign(err, { response: { status: params.status, data } });
+  return Object.assign(err, { response: { status: params.status, data, headers: params.headers } });
 }
 
 // Collapse bursts (a page firing 6 requests during an outage) into one toast
@@ -142,16 +145,67 @@ async function send(url: string, config: RequestInit): Promise<Response> {
   }
 }
 
+// ±25% jitter so thousands of clients recovering from the same blip don't retry in lockstep
+const jitter = (ms: number) => Math.round(ms * (0.75 + Math.random() * 0.5));
+
 async function sendWithRetry(url: string, config: RequestInit): Promise<Response> {
   const isIdempotent = !config.method || config.method.toUpperCase() === 'GET';
   for (let attempt = 0; ; attempt++) {
+    let response: Response;
     try {
-      return await send(url, config);
+      response = await send(url, config);
     } catch (err) {
       const retryable = err instanceof AppError && err.isRetryable && err.code !== 'OFFLINE';
       if (!isIdempotent || !retryable || attempt >= GET_RETRY_DELAYS.length) throw err;
-      await sleep(GET_RETRY_DELAYS[attempt]);
+      await sleep(jitter(GET_RETRY_DELAYS[attempt]));
+      continue;
     }
+    // 503 = the server is briefly unable to serve (e.g. session store blip): safe to retry reads
+    if (response.status === 503 && isIdempotent && attempt < GET_RETRY_DELAYS.length) {
+      await sleep(jitter(GET_RETRY_DELAYS[attempt]));
+      continue;
+    }
+    return response;
+  }
+}
+
+/**
+ * Renew the session once, even with several tabs open: a Web Lock serialises refreshes across
+ * tabs, and a tab that waited skips its own refresh when another one already stored new tokens.
+ */
+async function refreshSession(sentAccessToken: string | null): Promise<void> {
+  const run = async () => {
+    const current = localStorage.getItem('access_token');
+    if (sentAccessToken && current && current !== sentAccessToken) return; // already renewed elsewhere
+    const storedRefresh = localStorage.getItem('refresh_token');
+    await customFetch('/auth/refresh', {
+      method: 'POST',
+      body: '{}',
+      headers: storedRefresh ? { 'x-refresh-token': storedRefresh } : {},
+    });
+  };
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    await navigator.locks.request('assetmap-auth-refresh', run);
+  } else {
+    await run();
+  }
+}
+
+/**
+ * After losing a refresh race, wait (briefly) until the winner's new access token is stored.
+ * Cookie-only sessions can't be observed from JS, so they just give the winner a moment.
+ */
+async function waitForRotatedToken(sentAccessToken: string | null): Promise<boolean> {
+  if (!sentAccessToken) {
+    await sleep(1000);
+    return true;
+  }
+  const deadline = Date.now() + 3000;
+  for (;;) {
+    const current = localStorage.getItem('access_token');
+    if (current && current !== sentAccessToken) return true;
+    if (Date.now() >= deadline) return false;
+    await sleep(100);
   }
 }
 
@@ -166,7 +220,7 @@ async function readJson(response: Response): Promise<any> {
   }
 }
 
-async function customFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
+async function customFetch(endpoint: string, options: RequestInit = {}, isRetryAfterRefresh = false): Promise<any> {
   const url = `${API_BASE_URL}/api${endpoint}`;
   const headers = new Headers(options.headers || {});
   // Only declare JSON when there is a JSON body: Fastify rejects an empty body sent as
@@ -214,38 +268,50 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
       throw buildError({ status: 401, data: errorData, code: errorData?.error?.code ?? 'UNAUTHENTICATED', ...userMessageFor(401, errorData) });
     }
 
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      }).then(() => customFetch(endpoint, options));
-    }
-
-    isRefreshing = true;
-    try {
-      const storedRefresh = localStorage.getItem('refresh_token');
-      await customFetch('/auth/refresh', {
-        method: 'POST',
-        body: '{}',
-        headers: storedRefresh ? { 'x-refresh-token': storedRefresh } : {},
-      });
-      processQueue(null);
-      response = await sendWithRetry(url, config);
-    } catch (refreshError) {
-      processQueue(refreshError as Error);
-      // A dropped connection during refresh is not a logout: keep the session and let the
-      // banner/retry handle it. Only a real auth rejection signs the user out.
-      const isNetwork = refreshError instanceof AppError && refreshError.category === 'network';
-      if (!isNetwork) {
-        sessionStorage.removeItem('authUser');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
-        }
+    if (!isRetryAfterRefresh) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => customFetch(endpoint, options, true));
       }
-      throw refreshError;
-    } finally {
-      isRefreshing = false;
+
+      isRefreshing = true;
+      try {
+        await refreshSession(storedToken);
+        processQueue(null);
+      } catch (refreshError) {
+        // 409 REFRESH_RACE: a parallel refresh already rotated the tokens. Its response may still be
+        // on its way, so wait for the new token before retrying. If it never shows up (that tab
+        // closed, or its response was lost), fail retryably and keep the session: not a logout.
+        if (refreshError instanceof AppError && refreshError.code === 'REFRESH_RACE') {
+          if (!(await waitForRotatedToken(storedToken))) {
+            const retryError = buildError({
+              status: 409, code: 'REFRESH_RACE', message: MSG.sessionBusy, category: 'network', retryable: true,
+            });
+            processQueue(retryError);
+            throw retryError;
+          }
+          processQueue(null);
+        } else {
+          processQueue(refreshError as Error);
+          // Only a real rejection of the refresh token signs the user out. A dropped connection or
+          // a 5xx/503 (server or session store briefly down) keeps the session for a retry.
+          const status = refreshError instanceof AppError ? refreshError.statusCode : undefined;
+          if (status === 401 || status === 403) {
+            sessionStorage.removeItem('authUser');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            if (window.location.pathname !== '/') {
+              window.location.href = '/';
+            }
+          }
+          throw refreshError;
+        }
+      } finally {
+        isRefreshing = false;
+      }
+      // Rebuild the request so it carries the NEW access token, not the one that just expired
+      return customFetch(endpoint, options, true);
     }
   }
 
@@ -272,6 +338,7 @@ async function customFetch(endpoint: string, options: RequestInit = {}): Promise
       message,
       category,
       retryable: response.status >= 500 || response.status === 429,
+      headers:   response.headers,
     });
   }
 

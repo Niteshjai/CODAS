@@ -1,11 +1,13 @@
-import { Pool } from 'pg'
 import axios     from 'axios'
+import type { Queryable } from '../../db/types'
 
 // ─────────────────────────────────────────────
 // Fetch MCA21 Data Tool
 // Searches Ministry of Corporate Affairs data
 // for directorships and shareholdings linked
 // to the user's PAN.
+// External call: only reachable when AGENT_ENABLE_EXTERNAL_SOURCES=true
+// (the backend has no MCA21 storage yet). Never logs the PAN.
 // ─────────────────────────────────────────────
 
 interface FetchMCAParams {
@@ -14,7 +16,7 @@ interface FetchMCAParams {
 }
 
 export async function fetchMCADataTool(
-  pool: Pool,
+  _db: Queryable,
   params: FetchMCAParams
 ): Promise<any> {
   const { userId, pan } = params
@@ -28,8 +30,6 @@ export async function fetchMCADataTool(
       metadata: { fetchedAt: new Date().toISOString() }
     }
   }
-
-  console.log(`[FetchMCA] Searching for PAN: ${pan}`)
 
   try {
     // Mock API for MCA21
@@ -51,7 +51,7 @@ export async function fetchMCADataTool(
       }
     }
   } catch (error: any) {
-    console.error(`[FetchMCA] Error:`, error.message)
+    console.error(`[FetchMCA] Search failed (${error.response?.status ?? 'no status'})`)
 
     return {
       success:   false,

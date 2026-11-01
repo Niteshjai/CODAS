@@ -68,6 +68,99 @@ function normalizePolicyType(raw: string): string {
   return map[raw?.toUpperCase()] ?? 'OTHER'
 }
 
+interface CoverPolicy {
+  policy_type:       string
+  sum_assured_paise: number
+  policy_status:     string
+  plan_name:         string | null
+}
+
+const CANONICAL_INSURANCE_CLASSES = ['INSURANCE_LIFE', 'INSURANCE_HEALTH', 'INSURANCE_OTHER']
+
+/**
+ * Policy type for a canonical_assets insurance row, by class (and subtype for term / critical
+ * illness). INSURANCE_OTHER (motor, travel, home…) is 'OTHER': it never counts as life or
+ * health cover.
+ */
+export function canonicalPolicyType(assetClass: string, subtype?: string | null): string {
+  const sub = String(subtype ?? '').toUpperCase()
+  switch (assetClass) {
+    case 'INSURANCE_LIFE':   return sub.includes('TERM') ? 'TERM' : 'LIFE'
+    case 'INSURANCE_HEALTH': return sub.includes('CRITICAL') ? 'CRITICAL_ILLNESS' : 'HEALTH'
+    default:                 return 'OTHER'
+  }
+}
+
+/** canonical_assets.current_value_paise is a sum assured only for these sources. */
+function canonicalValueIsCover(source: string | null | undefined): boolean {
+  const s = String(source ?? '').toLowerCase()
+  // Setu AA rows hold the policy's current/surrender value (usually 0), not its cover; the AA
+  // sum assured is stored in insurance_policies, so counting the canonical copy would also
+  // double-count the policy.
+  return s !== 'setu_aa' && s !== 'aa'
+}
+
+/** Every active policy with a positive sum assured, from all the places policies are stored. */
+export async function loadCoverPolicies(pool: Pool, userId: string): Promise<CoverPolicy[]> {
+  const result = await pool.query(`
+    SELECT policy_type, sum_assured_paise, policy_status, plan_name
+    FROM insurance_policies
+    WHERE user_id = $1 AND is_active = true
+    AND policy_status = 'ACTIVE'
+  `, [userId])
+
+  // Also fetch any manual insurance policies
+  const manualResult = await pool.query(`
+    SELECT asset_category as type, asset_name as name, current_value_paise
+    FROM manual_assets
+    WHERE user_id = $1 AND is_active = true
+    AND asset_category IN ('INSURANCE_POLICIES', 'INSURANCE', 'HEALTH_INSURANCE', 'LIFE_INSURANCE', 'TERM_INSURANCE')
+  `, [userId]).catch(() => ({ rows: [] as any[] }))
+
+  // Agent-built canonical insurance rows (classes mapped explicitly, see canonicalPolicyType)
+  const canonicalResult = await pool.query(`
+    SELECT asset_class, asset_subtype, COALESCE(asset_name, institution_name) AS name,
+           current_value_paise, COALESCE(primary_source, source) AS source
+    FROM canonical_assets
+    WHERE user_id = $1 AND is_active = true
+    AND asset_class = ANY($2)
+  `, [userId, CANONICAL_INSURANCE_CLASSES]).catch(() => ({ rows: [] as any[] }))
+
+  const mapPolicyType = (type: string) => {
+    const t = type.toUpperCase();
+    if (t.includes('HEALTH')) return 'HEALTH';
+    if (t.includes('TERM')) return 'TERM';
+    if (t.includes('CRITICAL')) return 'CRITICAL_ILLNESS';
+    return 'LIFE';
+  }
+
+  const manualPolicies: CoverPolicy[] = manualResult.rows.map(m => ({
+    policy_type: mapPolicyType(m.type),
+    sum_assured_paise: Number(m.current_value_paise) || 0,
+    policy_status: 'ACTIVE',
+    plan_name: m.name
+  }))
+
+  const canonicalPolicies: CoverPolicy[] = canonicalResult.rows
+    .filter(c => canonicalValueIsCover(c.source))
+    .map(c => ({
+      policy_type: canonicalPolicyType(c.asset_class, c.asset_subtype),
+      sum_assured_paise: Number(c.current_value_paise) || 0,
+      policy_status: 'ACTIVE',
+      plan_name: c.name
+    }))
+
+  const stored: CoverPolicy[] = result.rows.map(r => ({
+    policy_type: r.policy_type,
+    sum_assured_paise: Number(r.sum_assured_paise) || 0,
+    policy_status: r.policy_status,
+    plan_name: r.plan_name,
+  }))
+
+  // A policy with no known sum assured is not cover (and must not set hasCriticalIllness)
+  return [...stored, ...manualPolicies, ...canonicalPolicies].filter(p => p.sum_assured_paise > 0)
+}
+
 export const insuranceGapFinder = {
 
   // Parse raw AA insurance data and store in insurance_policies table
@@ -125,53 +218,7 @@ export const insuranceGapFinder = {
     profile: UserProfile
   ): Promise<GapAnalysis> {
 
-    // Fetch all active policies
-    const result = await pool.query(`
-      SELECT policy_type, sum_assured_paise, policy_status, plan_name
-      FROM insurance_policies
-      WHERE user_id = $1 AND is_active = true
-      AND policy_status = 'ACTIVE'
-    `, [userId])
-
-    // Also fetch any manual insurance policies
-    const manualResult = await pool.query(`
-      SELECT asset_category as type, asset_name as name, current_value_paise
-      FROM manual_assets
-      WHERE user_id = $1 AND is_active = true
-      AND asset_category IN ('INSURANCE_POLICIES', 'INSURANCE', 'HEALTH_INSURANCE', 'LIFE_INSURANCE', 'TERM_INSURANCE')
-    `, [userId]).catch(() => ({ rows: [] }))
-
-    // Also fetch AA canonical insurance assets
-    const canonicalResult = await pool.query(`
-      SELECT asset_class as type, institution_name as name, current_value_paise
-      FROM canonical_assets
-      WHERE user_id = $1 AND is_active = true
-      AND asset_class ILIKE '%INSUR%'
-    `, [userId]).catch(() => ({ rows: [] }))
-
-    const mapPolicyType = (type: string) => {
-      const t = type.toUpperCase();
-      if (t.includes('HEALTH')) return 'HEALTH';
-      if (t.includes('TERM')) return 'TERM';
-      if (t.includes('CRITICAL')) return 'CRITICAL_ILLNESS';
-      return 'LIFE';
-    }
-
-    const manualPolicies = manualResult.rows.map(m => ({
-      policy_type: mapPolicyType(m.type),
-      sum_assured_paise: m.current_value_paise,
-      policy_status: 'ACTIVE',
-      plan_name: m.name
-    }))
-
-    const canonicalPolicies = canonicalResult.rows.map(c => ({
-      policy_type: mapPolicyType(c.type),
-      sum_assured_paise: c.current_value_paise,
-      policy_status: 'ACTIVE',
-      plan_name: c.name
-    }))
-
-    const policies = [...result.rows, ...manualPolicies, ...canonicalPolicies]
+    const policies = await loadCoverPolicies(pool, userId)
 
     // Aggregate coverage by type
     const lifeCover  = policies

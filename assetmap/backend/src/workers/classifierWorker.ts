@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { Pool }          from 'pg'
 import { runSpendAnalysis } from '../spend/spendOrchestrator'
+import { onShutdown } from '../utils/lifecycle'
 import { logger }        from '../utils/logger'
 import { getRedisConnection, JOB_RETENTION } from './redisConnection'
 
@@ -46,8 +47,28 @@ export function startClassifierWorker(pool: Pool): void {
   worker.on('error', (err) => {
     logger.error('[Classifier] Worker error', { error: err.message })
   })
+  // An EventEmitter 'error' with no listener crashes the process (e.g. on a Redis blip)
+  classifierWorkerQueue.on('error', (err) => {
+    logger.error('[Classifier] Queue error', { error: err.message })
+  })
+  // Let in-flight jobs finish on deploy instead of dropping them mid-way
+  onShutdown('Classifier worker', () => worker.close())
+  onShutdown('Classifier queue', () => classifierWorkerQueue.close())
 
   logger.info('[Classifier] Worker started')
+}
+
+/**
+ * Queue a spend analysis for a user after new transactions arrive. Deduplicated per user, so a
+ * burst of refreshes runs one job. Never throws: a missing queue (no Redis in dev) only logs.
+ */
+export async function enqueueSpendAnalysis(userId: string): Promise<void> {
+  try {
+    if (!classifierWorkerQueue) return
+    await classifierWorkerQueue.add('analyze', { userId }, { deduplication: { id: `spend-analyze:${userId}` } } as any)
+  } catch (err) {
+    logger.warn('[Classifier] Could not queue spend analysis', { userId, error: (err as Error).message })
+  }
 }
 
 export { classifierWorkerQueue }

@@ -10,15 +10,15 @@ export async function landCollateralScore(
 
   const result = await pool.query(`
     SELECT
-      current_value_paise,
-      title_status,
-      ownership_type,
+      COALESCE(current_value_paise, 0)       AS current_value_paise,
+      LOWER(TRIM(title_status))              AS title_status,
+      LOWER(TRIM(ownership_type))            AS ownership_type,
       ai_anomaly_flag,
       asset_subtype AS land_type,
       asset_name
     FROM canonical_assets
     WHERE user_id = $1
-    AND asset_class IN ('LAND','PROPERTY')
+    AND asset_class IN ('LAND','PROPERTY','REAL_ESTATE')
     AND is_active = true
     ORDER BY current_value_paise DESC
   `, [userId])
@@ -27,18 +27,18 @@ export async function landCollateralScore(
 
   const clearTitleValue = parcels
     .filter(p => p.title_status === 'clear' && !p.ai_anomaly_flag)
-    .reduce((s, p) => s + parseInt(p.current_value_paise), 0)
+    .reduce((s, p) => s + (Number(p.current_value_paise) || 0), 0)
 
   const disputedValue = parcels
-    .filter(p => p.title_status === 'dispute')
-    .reduce((s, p) => s + parseInt(p.current_value_paise), 0)
+    .filter(p => p.title_status === 'dispute' || p.title_status === 'disputed')
+    .reduce((s, p) => s + (Number(p.current_value_paise) || 0), 0)
 
   const jointOwnedValue = parcels
     .filter(p => p.ownership_type === 'joint')
-    .reduce((s, p) => s + parseInt(p.current_value_paise), 0)
+    .reduce((s, p) => s + (Number(p.current_value_paise) || 0), 0)
 
   const totalLandValue = parcels
-    .reduce((s, p) => s + parseInt(p.current_value_paise), 0)
+    .reduce((s, p) => s + (Number(p.current_value_paise) || 0), 0)
 
   // LTV: for LAP max 50% of clear title land value
   const maxLAPValue = Math.round(clearTitleValue * 0.50)
@@ -84,17 +84,17 @@ export async function landCollateralScore(
     score = Math.min(100, score)
 
     reasons.push(
-      `Clear-title collateral of ₹${fmt(clearTitleValue)} ` +
+      `Clear-title collateral of ${fmt(clearTitleValue)} ` +
       `across ${parcels.length} parcel(s)`
     )
 
     if (loanProduct === 'lap')
-      reasons.push(`Maximum LAP eligibility: ₹${fmt(maxLAPValue)}`)
+      reasons.push(`Maximum LAP eligibility: ${fmt(maxLAPValue)}`)
   }
 
   if (disputedValue > 0)
     warnings.push(
-      `₹${fmt(disputedValue)} in disputed property — excluded from collateral`
+      `${fmt(disputedValue)} in disputed property — excluded from collateral`
     )
   if (jointOwnedValue > requestedAmountPaise * 0.5)
     warnings.push(`Large joint-ownership holding — co-owner consent required`)

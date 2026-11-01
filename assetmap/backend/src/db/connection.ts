@@ -7,9 +7,15 @@ import { logger } from '../utils/logger';
 // PostgreSQL Connection Pool
 // ─────────────────────────────────────────────
 
+const STATEMENT_TIMEOUT_MS = parseInt(process.env.PG_STATEMENT_TIMEOUT_MS ?? '15000', 10);
+
 const pgConfig: PoolConfig = {
   connectionString: process.env.DATABASE_URL,
-  max: 20,
+  max: parseInt(process.env.PG_POOL_MAX ?? '20', 10),
+  // A hung query (lock wait, runaway plan) must not hold a pool slot forever: the server cancels
+  // it after this long. Transactions left open by a crashed handler are closed after 30s.
+  ...(STATEMENT_TIMEOUT_MS > 0 ? { statement_timeout: STATEMENT_TIMEOUT_MS } : {}),
+  idle_in_transaction_session_timeout: 30000,
   idleTimeoutMillis: 120000, // 2 minutes, prevents reconnect every minute for cron workers
   connectionTimeoutMillis: 5000,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : undefined,
@@ -125,6 +131,27 @@ export async function connectRedis(): Promise<boolean> {
   }
 }
 
+export type KvOp =
+  | { op: 'del'; key: string }
+  | { op: 'setex'; key: string; ttl: number; value: string };
+
+// KEYS[1] = guard, KEYS[2..] = op targets. ARGV[1] = expected guard value, then per op:
+// 'del'  or  'setex', ttl, value
+const COMPARE_AND_APPLY_LUA = `
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+local a = 2
+for k = 2, #KEYS do
+  if ARGV[a] == 'del' then
+    redis.call('DEL', KEYS[k])
+    a = a + 1
+  else
+    redis.call('SETEX', KEYS[k], ARGV[a + 1], ARGV[a + 2])
+    a = a + 3
+  end
+end
+return 1
+`;
+
 /** Key-value store that uses Redis when available, otherwise in-memory. */
 export const kvStore = {
   async setex(key: string, ttl: number, value: string): Promise<void> {
@@ -178,6 +205,58 @@ export const kvStore = {
       return;
     }
     await redis.expire(key, ttl);
+  },
+
+  /**
+   * INCR that always leaves the key with a TTL: sets `ttl` when the key has none (first hit, or
+   * a counter left without one by a crash between INCR and EXPIRE). Atomic on Redis; no Redis 7
+   * `EXPIRE NX` needed.
+   */
+  async incrWithTtl(key: string, ttl: number): Promise<number> {
+    if (useMemoryStore()) {
+      const entry = memoryStore.get(key);
+      const live = entry && !(entry.expiresAt && Date.now() > entry.expiresAt) ? entry : undefined;
+      const next = parseInt(live?.value || '0', 10) + 1;
+      memoryStore.set(key, { value: String(next), expiresAt: live?.expiresAt ?? Date.now() + ttl * 1000 });
+      return next;
+    }
+    const count = await redis.eval(
+      "local c = redis.call('INCR', KEYS[1]) if redis.call('TTL', KEYS[1]) < 0 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return c",
+      1, key, ttl,
+    );
+    return Number(count);
+  },
+
+  /**
+   * All-or-nothing: if `guardKey` currently equals `expected`, apply every op in order and return
+   * true; otherwise change nothing and return false. One Lua script on Redis (the keys must share
+   * a slot on a cluster), one synchronous block in memory, so no other command can interleave.
+   */
+  async compareAndApply(guardKey: string, expected: string, ops: KvOp[]): Promise<boolean> {
+    if (useMemoryStore()) {
+      const entry = memoryStore.get(guardKey);
+      const live = entry && !(entry.expiresAt && Date.now() > entry.expiresAt) ? entry : undefined;
+      if (!live || live.value !== expected) return false;
+      for (const op of ops) {
+        if (op.op === 'del') memoryStore.delete(op.key);
+        else memoryStore.set(op.key, { value: op.value, expiresAt: Date.now() + op.ttl * 1000 });
+      }
+      return true;
+    }
+    const keys = [guardKey, ...ops.map((op) => op.key)];
+    const args: Array<string | number> = [expected];
+    for (const op of ops) {
+      if (op.op === 'del') args.push('del');
+      else args.push('setex', op.ttl, op.value);
+    }
+    const applied = await redis.eval(COMPARE_AND_APPLY_LUA, keys.length, ...keys, ...args);
+    return applied === 1;
+  },
+
+  async mget(keys: string[]): Promise<Array<string | null>> {
+    if (!keys.length) return [];
+    if (useMemoryStore()) return Promise.all(keys.map((k) => kvStore.get(k)));
+    return redis.mget(...keys);
   },
 
   async keys(pattern: string): Promise<string[]> {

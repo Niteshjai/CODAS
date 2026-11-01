@@ -6,6 +6,8 @@ import { generateScorecardPDF } from '../scoring/scorecardGenerator'
 import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { verifyAccessToken } from '../middleware/auth'
+import { planEnforcer } from '../plans/planEnforcer'
+import { userRateLimit } from '../middleware/userRateLimit'
 
 const generateScorecardSchema = z.object({
   loanProduct: z.enum([
@@ -23,7 +25,10 @@ export const scoringRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', verifyAccessToken)
 
   // Generate a new loan scorecard
-  app.post('/generate', async (request, reply) => {
+  // Generating a scorecard calls Claude: plan-gated (Pro) and capped per user
+  app.post('/generate', {
+    preHandler: [planEnforcer.requireFeature('loan_scoring', pool), userRateLimit('loan_scorecard', 10, 60 * 60)],
+  }, async (request, reply) => {
     const userId = request.user!.id
     
     const parsed = generateScorecardSchema.safeParse(request.body)

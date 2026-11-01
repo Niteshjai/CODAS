@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { Pool }          from 'pg'
 import { ancestralSearch } from '../ancestral/ancestralSearch'
+import { onShutdown } from '../utils/lifecycle'
 import { logger }          from '../utils/logger'
 import { getRedisConnection } from './redisConnection'
 
@@ -39,6 +40,13 @@ export function startAncestralSearchWorker(pool: Pool): void {
   worker.on('error', (err) => {
     logger.error('[AncestralSearch] Worker error', { error: err.message })
   })
+  // An EventEmitter 'error' with no listener crashes the process (e.g. on a Redis blip)
+  ancestralSearchQueue.on('error', (err) => {
+    logger.error('[AncestralSearch] Queue error', { error: err.message })
+  })
+  // Let in-flight jobs finish on deploy instead of dropping them mid-way
+  onShutdown('AncestralSearch worker', () => worker.close())
+  onShutdown('AncestralSearch queue', () => ancestralSearchQueue.close())
 
   logger.info('[AncestralSearch] Worker started')
 }

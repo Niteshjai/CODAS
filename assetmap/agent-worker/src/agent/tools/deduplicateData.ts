@@ -1,8 +1,8 @@
-import { Pool } from 'pg'
+import type { Queryable } from '../../db/types'
 import { CanonicalAsset, withComputedGainLoss } from '../schemas/canonicalAsset'
 
 export async function deduplicateDataTool(
-  pool: Pool,
+  db: Queryable,
   userId: string,
   assets: CanonicalAsset[],
   runId: string
@@ -23,7 +23,7 @@ export async function deduplicateDataTool(
 
     seen.set(hash, mergeAssets(existing, asset))
 
-    await pool.query(`
+    await db.query(`
       INSERT INTO asset_dedup_log (
         run_id, user_id, duplicate_source,
         duplicate_ref, merge_strategy, merged_fields

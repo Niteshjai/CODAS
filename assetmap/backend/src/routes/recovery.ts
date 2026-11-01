@@ -157,10 +157,10 @@ export const recoveryRoutes: FastifyPluginAsync = async (fastify, opts) => {
     try {
       const userId = request.user!.id
       const { id } = request.params as { id: string }
-      const ipAddress = request.ip || '0.0.0.0'
       const userAgent = request.headers['user-agent'] || ''
 
-      await recoveryEngine.acceptFeeAgreement(pool, userId, id, ipAddress, userAgent)
+      // acceptFeeAgreement normalises the address for the INET column (Azure sends "ip:port")
+      await recoveryEngine.acceptFeeAgreement(pool, userId, id, request.ip, userAgent)
       return successResponse({ success: true, message: 'Fee agreement accepted. Please upload required documents.' })
     } catch (error: any) {
       request.log.error(error)
@@ -372,7 +372,7 @@ export const recoveryRoutes: FastifyPluginAsync = async (fastify, opts) => {
       // Auto-accept fee for legacy flow
       await recoveryEngine.acceptFeeAgreement(
         pool, userId, result.caseId,
-        request.ip || '0.0.0.0', request.headers['user-agent'] || 'legacy'
+        request.ip, request.headers['user-agent'] || 'legacy'
       )
 
       return successResponse({

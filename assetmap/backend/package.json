@@ -11,12 +11,15 @@
     "typecheck": "tsc --noEmit",
     "security:check": "npm audit --audit-level=high && npx snyk test",
     "tunnel": "npx smee-client --url https://smee.io/assetmap-webhook --path /api/consent/callback --port 3000",
-    "seed:dev": "npx tsx seed_dev_env.ts"
+    "seed:dev": "npx tsx seed_dev_env.ts",
+    "migrate": "node migrate_azure.js",
+    "ai:check": "tsx --env-file=.env scripts/check-ai-key.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
     "@aws-sdk/client-s3": "^3.500.0",
     "@aws-sdk/s3-request-presigner": "^3.500.0",
+    "@azure/monitor-opentelemetry": "1.20.1",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/helmet": "^13.0.2",

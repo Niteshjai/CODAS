@@ -37,6 +37,7 @@ import { AddAssetFlow } from '../components/manual/AddAssetFlow';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { ErrorCard } from '../components/errors/ErrorCard';
 import NotificationCenter from '../components/notifications/NotificationCenter';
+import AssetScanCard from '../components/agent/AssetScanCard';
 
 /* ═══════════════════════════════════════════════════
    AssetMap Dashboard — Lovable-inspired Design
@@ -728,6 +729,11 @@ export default function Dashboard() {
                               </div>
                             </>
                           )}
+
+                          {/* Portfolio scan (asset organiser status) */}
+                          <div className="md:col-span-2 lg:col-span-3">
+                            <AssetScanCard />
+                          </div>
 
                           {/* Financial Protection Shield */}
                           <div className="md:col-span-2 lg:col-span-3">

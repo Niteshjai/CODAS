@@ -14,6 +14,7 @@ import { successResponse, errorResponse, ERROR_CODES } from '../utils/constants'
 import { auditLogger } from '../services/auditLogger';
 import { logger } from '../utils/logger';
 import { planEnforcer } from '../plans/planEnforcer';
+import { userRateLimit } from '../middleware/userRateLimit';
 import { manualAssetService } from '../manual/manualAssetService';
 import { getAssetDetail } from '../services/assetDetail';
 
@@ -152,7 +153,9 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // Re-trigger AA data session
   // ─────────────────────────────────────────────
   fastify.post('/refresh', {
-    preHandler: [verifyAccessToken, planEnforcer.requireFeature('asset_dashboard', pool)],
+    // Each refresh opens a Setu data session (and queues an agent run): cap it per user too,
+    // since the IP limit below can be spread across addresses.
+    preHandler: [verifyAccessToken, userRateLimit('aa_refresh', 6, 3600), planEnforcer.requireFeature('asset_dashboard', pool)],
     config: { rateLimit: { max: 10, timeWindow: '1 hour' } }
   }, async (request, reply) => {
     try {
@@ -171,7 +174,7 @@ const assetRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const ipAddress = request.ip || '';
       const userAgent = request.headers['user-agent'] || '';
 
-      const freshData = await fetchFinancialData(activeConsent.consentId, userId, ipAddress, userAgent);
+      const freshData = await fetchFinancialData(activeConsent.consentId, userId, ipAddress, userAgent, 'aa_refresh');
 
       await auditLogger.log(userId, 'DATA_REFRESHED', 'asset_snapshots', activeConsent.consentId, ipAddress, userAgent);
 
