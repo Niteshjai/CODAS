@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssetStore } from '../store/assetStore';
 import { ErrorBoundary } from '../errors/ErrorBoundary';
-import { getAssetSummary, getFinancialAssets, getLandRecords, getConsents, getAuditLog, type LandRecord } from '../services/assets';
+import { getAssetSummary, getFinancialAssets, getLandRecords, getConsents, generateReport, saveBlob, reportErrorMessage, type LandRecord } from '../services/assets';
 import { api } from '../services/api';
 import { logout } from '../services/auth';
 import { getUnclaimedAssets } from '../services/unclaimed';
@@ -21,7 +21,7 @@ import AncestralSearchPage from '../components/ancestral/AncestralSearchPage';
 import {
   Search, SlidersHorizontal, Plus, Archive,
   LayoutGrid, Wallet, Shield, PieChart, LineChart, Layers,
-  Bell, ChevronDown, Settings, LogOut, UserRound, HelpCircle,
+  ChevronDown, Settings, LogOut, UserRound, HelpCircle,
   TrendingUp, Building2, Calendar, Menu, Eye, EyeOff, TrendingDown, Crown, FileText, Lock, Users, CornerDownRight, Landmark
 } from 'lucide-react';
 
@@ -36,6 +36,7 @@ import { ManualAssetCard } from '../components/manual/ManualAssetCard';
 import { AddAssetFlow } from '../components/manual/AddAssetFlow';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { ErrorCard } from '../components/errors/ErrorCard';
+import NotificationCenter from '../components/notifications/NotificationCenter';
 
 /* ═══════════════════════════════════════════════════
    AssetMap Dashboard — Lovable-inspired Design
@@ -109,7 +110,6 @@ export default function Dashboard() {
   };
   const [showAddManualAsset, setShowAddManualAsset] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isFamilyMenuOpen, setIsFamilyMenuOpen] = useState(false);
   const hasFetched = useRef(false);
@@ -173,8 +173,6 @@ export default function Dashboard() {
         navigate('/consent');
         return;
       }
-
-      try { const audit = await getAuditLog(); setAuditLogs(audit.logs); } catch { /* ok */ }
     } catch (err) {
       setLoadError(err instanceof Error ? err : new Error('Failed to load dashboard data'));
     }
@@ -197,30 +195,25 @@ export default function Dashboard() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const handleGenerateReport = async () => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading('Preparing your asset report…');
     try {
-      setIsGeneratingPdf(true);
-      const res = await api.get('/reports/generate', { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Codas-Report.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
+      const { blob, fileName } = await generateReport();
+      saveBlob(blob, fileName);
+      toast.success('Report downloaded', { id: toastId, description: fileName });
     } catch (error: any) {
-      setIsGeneratingPdf(false);
-      if (error.response?.status === 403 || error.response?.status === 402) {
-        toast.error('Premium Feature', {
-          description: 'This feature is only available for premium subscribers.',
-          action: {
-            label: 'Upgrade',
-            onClick: () => navigate('/pricing')
-          }
-        });
+      const status = error?.response?.status ?? error?.statusCode;
+      if (status === 402) {
+        // api.ts already opens the upgrade prompt for plan-gated features
+        toast.dismiss(toastId);
       } else {
-        toast.error('Failed to generate PDF report. Please try again later.');
+        toast.error("Couldn't create your report", {
+          id: toastId,
+          description: reportErrorMessage(error),
+          ...(status === 429 ? {} : { action: { label: 'Try again', onClick: () => { void handleGenerateReport(); } } }),
+        });
       }
-      console.error(error);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -237,7 +230,8 @@ export default function Dashboard() {
     { key: 'loan' as const, label: 'Loan Eligibility', icon: <Landmark className="size-4" strokeWidth={1.75} /> },
     { key: 'insurance' as const, label: 'Insurance Gap', icon: <Shield className="size-4" strokeWidth={1.75} /> },
     { key: 'header-legacy' as const, label: 'Family & Legacy', isHeader: true },
-    { key: 'family' as const, label: 'Family Vault', icon: <Users className="size-4" strokeWidth={1.75} />, featureKey: 'family_vault' },
+    // Not plan-gated: invited members join without Pro; creating a vault is gated inside the page
+    { key: 'family' as const, label: 'Family Vault', icon: <Users className="size-4" strokeWidth={1.75} /> },
     { key: 'ancestral' as const, label: 'Ancestral Property', icon: <Building2 className="size-4" strokeWidth={1.75} />, featureKey: 'ancestral_search' },
     { key: 'will' as const, label: 'Digital Will', icon: <FileText className="size-4" strokeWidth={1.75} />, featureKey: 'will_builder' },
   ];
@@ -421,7 +415,7 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {t.key === 'family' && isSidebarOpen && isFamilyMenuOpen && vault && (
+                  {t.key === 'family' && isSidebarOpen && isFamilyMenuOpen && vault?.viewer?.isOwner && (
                     <div className="w-full pl-1 pr-3 py-0.5 animate-in slide-in-from-top-2 fade-in duration-200">
                       <InviteMember
                         vault={vault}
@@ -544,7 +538,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <NotificationsMenu logs={auditLogs} />
+                  <NotificationCenter />
                   <ProfileMenu name={firstName} onLogout={handleLogout} />
                 </div>
               </div>
@@ -961,66 +955,6 @@ export default function Dashboard() {
 /* ═══════════════════════════════════════════════════
    Sub-components
    ═══════════════════════════════════════════════════ */
-
-function NotificationsMenu({ logs }: { logs: any[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
-  const getAccountMessage = (action: string) => {
-    switch (action) {
-      case 'DATA_FETCHED': return 'Your financial accounts and assets have been synced successfully.';
-      case 'DATA_REFRESHED': return 'Your account balances have been refreshed with the latest data.';
-      case 'CONSENT_APPROVED': return 'You approved account linking via the Account Aggregator.';
-      case 'CONSENT_CREATED': return 'A new account linking request was initiated.';
-      case 'LAND_SEARCH': return 'Your profile was used to discover land & property records.';
-      case 'REPORT_GENERATED': return 'A comprehensive asset report was generated for your account.';
-      case 'AADHAAR_VERIFIED': return 'Your Aadhaar identity has been successfully verified.';
-      case 'PHONE_VERIFIED': return 'Your mobile number was successfully verified.';
-      case 'AUDIT_LOG_VIEWED': return null; // Ignore viewing logs
-      default: return null;
-    }
-  };
-
-  const accountNotifications = logs
-    .map(log => ({ ...log, message: getAccountMessage(log.action) }))
-    .filter(log => log.message !== null)
-    .slice(0, 10);
-
-  return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen(v => !v)} aria-label="Notifications" aria-expanded={open}
-        className="relative size-10 rounded-full bg-white dark:bg-white/10 grid place-items-center shadow-sm hover:bg-zinc-100 dark:hover:bg-white/15 active:scale-95 transition text-zinc-900 dark:text-zinc-100 border border-transparent dark:border-white/10">
-        <Bell className="size-4" strokeWidth={1.75} />
-        {accountNotifications.length > 0 && <span className="absolute top-2 right-2 size-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-black" />}
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-[#21253A] rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/10 py-2 z-30 max-h-96 overflow-y-auto">
-          <div className="px-4 py-3 border-b border-zinc-100 dark:border-[#2E3148]"><p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Account Notifications</p></div>
-          {accountNotifications.length > 0 ? (
-            <div className="flex flex-col">
-              {accountNotifications.map((log, i) => (
-                <div key={log.id || i} className="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/5 transition border-b border-zinc-50 dark:border-white/5 last:border-0">
-                  <p className="text-sm text-zinc-800 dark:text-zinc-200 break-words">{log.message}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
-              No new account notifications
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ProfileMenu({ name, onLogout }: { name: string; onLogout: () => void }) {
   const [open, setOpen] = useState(false);

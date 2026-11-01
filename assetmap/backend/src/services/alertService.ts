@@ -10,6 +10,12 @@ const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN!
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER!
 
 const twilioClient = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
+
+const PREFERENCE_COLUMNS = new Set([
+  'sms_enabled', 'push_enabled', 'email_enabled', 'marketing_opt_in',
+  'alert_balance_drop', 'alert_new_account', 'alert_land_change',
+  'alert_dormant', 'alert_nominee', 'alert_large_txn',
+])
 export interface AlertPayload {
   userId:    string
   type:      string
@@ -158,12 +164,14 @@ export const alertService = {
         });
       }
 
-      const tokenResult = await pool.query(
-        'SELECT fcm_token FROM users WHERE id = $1',
-        [userId]
-      )
+      // Respect the user's "Push notifications" setting for every push we send
+      const tokenResult = await pool.query(`
+        SELECT u.fcm_token, ap.push_enabled
+          FROM users u LEFT JOIN alert_preferences ap ON ap.user_id = u.id
+         WHERE u.id = $1
+      `, [userId])
       const token = tokenResult.rows[0]?.fcm_token
-      if (!token) return false
+      if (!token || tokenResult.rows[0]?.push_enabled === false) return false
 
       await admin.messaging().send({
         token,
@@ -227,21 +235,19 @@ export const alertService = {
   },
 
   async updatePreferences(
-    pool: Pool, userId: string, prefs: Partial<any>
+    pool: Pool, userId: string, prefs: Record<string, unknown>
   ): Promise<void> {
-    const fields = Object.keys(prefs)
-      .filter(k => k !== 'user_id')
-      .map((k, i) => `${k} = $${i + 2}`)
-      .join(', ')
-    const values = Object.values(prefs)
-      .filter((_, i) => Object.keys(prefs)[i] !== 'user_id')
+    // Column names are interpolated into SQL, so only known boolean columns may pass
+    const entries = Object.entries(prefs)
+      .filter(([k, v]) => PREFERENCE_COLUMNS.has(k) && typeof v === 'boolean')
+    if (!entries.length) return
 
-    if (!fields) return
-
+    const cols = entries.map(([k]) => k)
     await pool.query(`
-      INSERT INTO alert_preferences (user_id)
-      VALUES ($1)
-      ON CONFLICT (user_id) DO UPDATE SET ${fields}, updated_at = NOW()
-    `, [userId, ...values])
+      INSERT INTO alert_preferences (user_id, ${cols.join(', ')})
+      VALUES ($1, ${cols.map((_, i) => `$${i + 2}`).join(', ')})
+      ON CONFLICT (user_id) DO UPDATE SET
+        ${cols.map(c => `${c} = EXCLUDED.${c}`).join(', ')}, updated_at = NOW()
+    `, [userId, ...entries.map(([, v]) => v)])
   }
 }

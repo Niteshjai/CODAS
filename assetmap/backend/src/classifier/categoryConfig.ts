@@ -58,13 +58,12 @@ export const CATEGORIES: Category[] = [
     color: '#2D6A4F',
     isRecurring: true,
     subcategories: ['Rent','Society','Electricity','Gas','Water'],
+    // Utility boards live under BILLS only, so a BESCOM payment can't tie between two categories
     keywords: [
-      'rent','house rent','flat rent','maintenance','society',
-      'bescom','msedcl','bses','adani electricity','tata power',
-      'torrent power','png','mahanagar gas','indraprastha gas',
-      'water board','bbmp','property tax','housing'
+      'rent','house rent','flat rent','room rent','pg rent','maintenance',
+      'society','society maintenance','housing society','brokerage','nobroker'
     ],
-    narrationHints: ['rent','maintenance','society','electricity','gas bill','water']
+    narrationHints: ['rent','maintenance','society','lease']
   },
   {
     id:    'RECHARGE',
@@ -182,7 +181,7 @@ export const CATEGORIES: Category[] = [
       'makemytrip','cleartrip','yatra','ease my trip','goibibo',
       'uber','ola','rapido','namma yatri','bluestar','meru',
       'oyo','treebo','airbnb','fab hotels','lemon tree',
-      'hpcl','bpcl','iocl','indianoil','hp petrol',
+      'hpcl','bpcl','iocl','indianoil','indian oil','hp petrol','petrol pump','fuel station','filling station',
       'metro card','bus pass','paytm metro','dmrc','bmtc'
     ],
     narrationHints: ['flight','train','hotel','cab','fuel','petrol','diesel','metro']
@@ -243,7 +242,7 @@ export const CATEGORIES: Category[] = [
     emoji: '↔️',
     color: '#888780',
     isRecurring: false,
-    subcategories: ['UPI','NEFT','IMPS','Wallet'],
+    subcategories: ['UPI','NEFT','IMPS','RTGS','Wallet','Other'],
     keywords: [
       'paytm wallet','phonepe wallet','amazon pay',
       'transfer to','fund transfer','upi transfer'
@@ -274,6 +273,31 @@ export const CATEGORIES: Category[] = [
       'akshaya patra','temple','donation','charity','ngo'
     ],
     narrationHints: ['donation','charity','temple','religious','ngo']
+  },
+  {
+    id:    'BANK_CHARGES',
+    label: 'Bank Charges & Fees',
+    group: 'expense',
+    emoji: '🏧',
+    color: '#888780',
+    isRecurring: false,
+    subcategories: ['Charges','GST','Penalty','Card fee'],
+    keywords: [
+      'sms charges','sms chrg','annual fee','card fee','min bal','minimum balance',
+      'service charge','penal charges','late fee','debit card fee'
+    ],
+    narrationHints: ['chrg','charges','chgs','gst on','penalty','amc']
+  },
+  {
+    id:    'OTHER_EXPENSE',
+    label: 'Other Spending',
+    group: 'expense',
+    emoji: '🧾',
+    color: '#888780',
+    isRecurring: false,
+    subcategories: ['Other'],
+    keywords: [],
+    narrationHints: []
   },
   // REVENUE CATEGORIES
   {

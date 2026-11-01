@@ -29,7 +29,7 @@ export default function FaqDialog({ open, onOpenChange, initialFaqId, initialQue
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return FAQS;
     return FAQS.filter(f => {
-      const text = `${f.q} ${f.a} ${f.topic}`.toLowerCase();
+      const text = `${f.q} ${f.a} ${f.topic} ${f.keywords ?? ''}`.toLowerCase();
       return words.every(w => text.includes(w));
     });
   }, [query]);

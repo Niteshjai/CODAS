@@ -7,6 +7,7 @@ import { netWorthTracker } from '../services/netWorthTracker'
 import { pool } from '../db/connection'
 import { AlertsPreferencesSchema } from '../utils/validators'
 import { planEnforcer } from '../plans/planEnforcer'
+import { accountSettings, SettingsError } from '../services/accountSettings'
 
 export async function engagementRoutes(app: FastifyInstance) {
 
@@ -31,35 +32,28 @@ export async function engagementRoutes(app: FastifyInstance) {
     }
   })
 
+  // Same preferences as /api/settings/notifications (kept for existing clients)
   app.get('/alerts/preferences', {
-    preHandler: [verifyAccessToken, planEnforcer.requireFeature('email_alerts', pool)],
-    handler: async (request, reply) => {
-      const prefs = await alertService.getPreferences(
-        pool, request.user!.id
-      )
+    preHandler: [verifyAccessToken],
+    handler: async (request) => {
+      const prefs = await accountSettings.getPreferences(pool, request.user!.id)
       return { success: true, data: prefs }
     }
   })
 
   app.patch('/alerts/preferences', {
     schema: { body: AlertsPreferencesSchema },
-    preHandler: [verifyAccessToken, planEnforcer.requireFeature('email_alerts', pool)],
+    preHandler: [verifyAccessToken],
     handler: async (request, reply) => {
-      const body = request.body as Record<string, any>
-
-      if (body.sms) {
-        const check = await planEnforcer.canAccess(pool, request.user!.id, 'sms_alerts' as any)
-        if (!check.allowed) return reply.status(402).send({ success: false, error: 'SMS alerts require Plus plan' })
+      try {
+        const prefs = await accountSettings.updateNotifications(pool, request.user!.id, request.body as Record<string, boolean>)
+        return { success: true, data: prefs }
+      } catch (err) {
+        if (err instanceof SettingsError) {
+          return reply.status(err.statusCode).send({ success: false, error: { code: err.code, message: err.message } })
+        }
+        throw err
       }
-      if (body.push) {
-        const check = await planEnforcer.canAccess(pool, request.user!.id, 'push_alerts' as any)
-        if (!check.allowed) return reply.status(402).send({ success: false, error: 'Push alerts require Plus plan' })
-      }
-
-      await alertService.updatePreferences(
-        pool, request.user!.id, body
-      )
-      return { success: true }
     }
   })
 

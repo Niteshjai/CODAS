@@ -15,7 +15,7 @@ export function Highlight({ text, query }: { text: string; query: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1
-          ? <mark key={i} className="rounded-[3px] bg-lime-200/80 px-0.5 text-inherit dark:bg-lime-400/25">{part}</mark>
+          ? <mark key={i} className="rounded-[2px] bg-lime-200/80 text-inherit dark:bg-lime-400/25">{part}</mark>
           : <span key={i}>{part}</span>
       )}
     </>
@@ -27,8 +27,11 @@ export function excerpt(text: string, query: string, radius = 70): string {
   const first = query.trim().split(/\s+/)[0]?.toLowerCase();
   const idx = first ? text.toLowerCase().indexOf(first) : -1;
   if (idx < 0 || text.length <= radius * 2) return text.length > radius * 2 ? `${text.slice(0, radius * 2)}…` : text;
-  const start = Math.max(0, idx - radius);
-  const end = Math.min(text.length, idx + radius);
+  let start = Math.max(0, idx - radius);
+  let end = Math.min(text.length, idx + radius);
+  // Snap to word boundaries so the snippet never starts or ends mid-word
+  if (start > 0) { const sp = text.indexOf(' ', start); start = sp > -1 && sp < idx ? sp + 1 : start; }
+  if (end < text.length) { const sp = text.lastIndexOf(' ', end); end = sp > idx ? sp : end; }
   return `${start > 0 ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`;
 }
 

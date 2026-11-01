@@ -45,6 +45,7 @@ import { startFamilySnapshotWorker } from './workers/familySnapshotWorker';
 import { ancestralRoutes } from './routes/ancestral';
 import { startAncestralSearchWorker } from './workers/ancestralSearchWorker';
 import { twoFactorRoutes } from './routes/twoFactor';
+import { notificationsRoutes } from './routes/notifications';
 import { startTwoFactorSweeper } from './cron/twoFactorSweeper';
 import { verifyAccessToken, requireRole } from './middleware/auth';
 
@@ -148,6 +149,16 @@ app.setErrorHandler((err, request, reply) => {
     reply.status(400).send(errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Request body is required'));
     return;
   }
+  // Client errors raised by Fastify/plugins (429 rate limit, 413 too large, 415, 404…) keep their
+  // status — otherwise every rate-limited request surfaced as a 500 "something went wrong"
+  const status = Number(error.statusCode);
+  if (status >= 400 && status < 500) {
+    const message = status === 429
+      ? 'Too many requests. Please wait a moment and try again.'
+      : (typeof error.message === 'string' && error.message) || 'Request could not be processed';
+    reply.status(status).send(errorResponse(status === 429 ? ERROR_CODES.RATE_LIMITED : ERROR_CODES.VALIDATION_ERROR, message));
+    return;
+  }
   logger.error('Unhandled error', { error: error.stack || error.message });
   reply.status(500).send(errorResponse(ERROR_CODES.INTERNAL_ERROR, 'An unexpected error occurred'));
 });
@@ -216,6 +227,7 @@ async function registerRoutes() {
   await app.register(manualRoutes, { prefix: '/api/manual' });
   await app.register(ancestralRoutes);
   await app.register(twoFactorRoutes);
+  await app.register(notificationsRoutes, { prefix: '/api/notifications' });
 
   app.post('/api/admin/run-migration', {
     preHandler: [verifyAccessToken, requireRole('admin')],

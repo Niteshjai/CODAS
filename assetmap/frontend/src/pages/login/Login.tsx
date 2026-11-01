@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { initiatePhone, verifyPhone, devLogin, registerPan, registerAadhaar, verifyAadhaarOtp, confirmRegistration, initiateEmail, verifyEmail, type IdentityData } from '../../services/auth';
 import { useAssetStore } from '../../store/assetStore';
+import { postLoginPath } from '../../utils/postLoginRedirect';
 import TwoFactorChallenge from '../../components/auth/TwoFactorChallenge';
 import { AlertCircle } from 'lucide-react';
 
@@ -274,7 +275,7 @@ export default function Onboarding() {
           setStep('2fa');
         } else if (result.user) {
           // ── Registered user → login directly ──
-          setRedirectPath('/dashboard');
+          setRedirectPath(postLoginPath());
           setUser(result.user);
           setStep('success');
         }
@@ -409,7 +410,7 @@ export default function Onboarding() {
         setTwoFactorMethod(result.method || 'totp');
         setStep('2fa');
       } else if (result.user) {
-        setRedirectPath('/dashboard');
+        setRedirectPath(postLoginPath());
         setUser(result.user);
         setStep('success');
       }
@@ -757,7 +758,7 @@ export default function Onboarding() {
               pendingSessionToken={twoFactorPendingToken}
               defaultMethod={twoFactorMethod}
               onSuccess={(user) => {
-                setRedirectPath('/dashboard');
+                setRedirectPath(postLoginPath());
                 setUser(user);
                 setStep('success');
               }}

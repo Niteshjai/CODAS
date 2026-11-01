@@ -30,6 +30,7 @@ import AncestralSearchPage from './components/ancestral/AncestralSearchPage';
 import TwoFactorSettings from './pages/Settings/TwoFactorSettings';
 import TOTPSetup from './pages/Settings/TOTPSetup';
 import EmailSetup from './pages/Settings/EmailSetup';
+import { rememberPostLoginPath } from './utils/postLoginRedirect';
 import './index.css';
 
 function ScrollToTop() {
@@ -65,6 +66,7 @@ function ReloadOnReconnect({ children }: { children: React.ReactNode }) {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
   const isAuthenticated = useAssetStore((s) => s.isAuthenticated);
   const authChecked = useAssetStore((s) => s.authChecked);
 
@@ -76,7 +78,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAuthenticated) {
+    rememberPostLoginPath(location.pathname + location.search);
+    return <Navigate to="/" replace />;
+  }
   // We no longer blindly redirect based on hasConsent to avoid the refresh bug.
   // The Dashboard will fetch the actual consents and redirect if needed.
 

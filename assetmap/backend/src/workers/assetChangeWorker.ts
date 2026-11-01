@@ -13,7 +13,8 @@ export function startAssetChangeWorker(pool: Pool) {
     let users
     try {
       users = await pool.query(`
-      SELECT DISTINCT u.id, u.mobile_encrypted,
+      SELECT DISTINCT u.id, u.mobile_encrypted, u.email_encrypted,
+             ap.email_enabled,
              ap.balance_drop_pct,
              ap.balance_drop_min_paise,
              ap.sms_enabled,
@@ -92,6 +93,10 @@ async function compareAndAlert(pool: Pool, user: any) {
           metadata: { drop, dropPct: Math.round(dropPct), yesterday: yesterdayBal, today: todayBal }
         })
 
+        await emailAlert(pool, user, alertId, 'Significant balance drop detected',
+          `Your total balance dropped by ${Math.round(dropPct)}% (${formatINR(drop)}) since yesterday. ` +
+          'If you did not initiate this, check your accounts immediately.')
+
         if (user.sms_enabled !== false) {
           const mobile = decrypt(user.mobile_encrypted)
           if (mobile) {
@@ -139,7 +144,7 @@ async function compareAndAlert(pool: Pool, user: any) {
     `, [user.id])
     
     if (!existing.rows.length) {
-      await alertService.createAlert(pool, {
+      const alertId = await alertService.createAlert(pool, {
         userId:   user.id,
         type:     'new_account_linked',
         severity: 'warning',
@@ -148,6 +153,10 @@ async function compareAndAlert(pool: Pool, user: any) {
                   `today. If you did not open these, report to your bank immediately.`,
         metadata: { newCount, previousTotal: yesterday.total_accounts, currentTotal: today.total_accounts }
       })
+
+      await emailAlert(pool, user, alertId, `${newCount} new account${newCount > 1 ? 's' : ''} linked to your Aadhaar`,
+        `We detected ${newCount} new financial account(s) linked to your Aadhaar today. ` +
+        'If you did not open these, report to your bank immediately.')
 
       if (user.sms_enabled !== false) {
         const mobile = decrypt(user.mobile_encrypted)
@@ -183,7 +192,7 @@ async function compareAndAlert(pool: Pool, user: any) {
       `, [user.id])
       
       if (!existing.rows.length) {
-        await alertService.createAlert(pool, {
+        const alertId = await alertService.createAlert(pool, {
           userId:   user.id,
           type:     'land_ownership_change',
           severity: 'critical',
@@ -192,6 +201,9 @@ async function compareAndAlert(pool: Pool, user: any) {
                     'Login to review the changes immediately.',
           metadata: { changedCount: parseInt(landChanges.rows[0].count) }
         })
+
+        await emailAlert(pool, user, alertId, 'Land record update detected',
+          'One or more of your land records were updated in the registry. Sign in to review the changes.')
 
         if (user.sms_enabled !== false) {
           const mobile = decrypt(user.mobile_encrypted)
@@ -206,6 +218,22 @@ async function compareAndAlert(pool: Pool, user: any) {
         }
       }
     }
+  }
+}
+
+// Email channel: only when the user turned "Email alerts" on in Settings and has a verified email
+async function emailAlert(pool: Pool, user: any, alertId: string, subject: string, text: string) {
+  if (user.email_enabled !== true || !user.email_encrypted) return
+  let to: string
+  try { to = decrypt(user.email_encrypted) } catch { return }
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const sent = await alertService.sendEmail({
+    to,
+    subject: `AssetMap alert: ${subject}`,
+    html:    `<p>${escaped}</p><p>Sign in to AssetMap to review. You can turn off email alerts in Account Settings.</p>`,
+  }).catch(() => false)
+  if (sent) {
+    await pool.query('UPDATE user_alerts SET email_sent = true, email_sent_at = NOW() WHERE id = $1', [alertId])
   }
 }
 

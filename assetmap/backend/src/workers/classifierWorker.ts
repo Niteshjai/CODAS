@@ -1,8 +1,11 @@
 import { Queue, Worker } from 'bullmq'
 import { Pool }          from 'pg'
-import { transactionClassifier } from '../classifier/transactionClassifier'
+import { runSpendAnalysis } from '../spend/spendOrchestrator'
 import { logger }        from '../utils/logger'
 import { getRedisConnection, JOB_RETENTION } from './redisConnection'
+
+// Spend analyser pipeline per user: classify → rebuild monthly summary → analyse → insights.
+// Job data: { userId, reclassify?: boolean, month?: 'YYYY-MM' } (no PII).
 
 let classifierWorkerQueue: Queue
 
@@ -11,17 +14,24 @@ export function startClassifierWorker(pool: Pool): void {
 
   classifierWorkerQueue = new Queue('transaction-classifier', {
     connection,
-    defaultJobOptions: JOB_RETENTION, // job data is only { userId }
+    defaultJobOptions: JOB_RETENTION,
     skipVersionCheck: true,
   } as any)
 
   const worker = new Worker(
     'transaction-classifier',
     async (job) => {
-      const { userId } = job.data
-      logger.info('[Classifier] Processing user', { userId })
-      const result = await transactionClassifier.processUserTransactions(pool, userId)
-      logger.info('[Classifier] Done', { userId, processed: result.processed, failed: result.failed })
+      const { userId, reclassify, month } = job.data as { userId: string; reclassify?: boolean; month?: string }
+      logger.info('[Classifier] Processing user', { userId, reclassify: Boolean(reclassify) })
+      const result = await runSpendAnalysis(pool, userId, { reclassify: Boolean(reclassify), month: month ?? null })
+      logger.info('[Classifier] Done', {
+        userId,
+        classified: result.classification.classified,
+        reclassified: result.classification.reclassified,
+        needsReview: result.classification.needsReview,
+        insights: result.insights.length,
+        generatedBy: result.generatedBy,
+      })
     },
     {
       connection,

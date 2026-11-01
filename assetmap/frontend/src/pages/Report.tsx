@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { generateReport } from '../services/assets';
+import { generateReport, saveBlob, reportErrorMessage } from '../services/assets';
 import { FeatureGate } from '../components/ui/FeatureGate';
 import { usePlanStore } from '../store/planStore';
 
@@ -9,33 +9,35 @@ export default function Report() {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const { planStatus, fetchPlanStatus } = usePlanStore();
+  const { planStatus, fetchPlanStatus, invalidate } = usePlanStore();
 
   useEffect(() => {
     fetchPlanStatus();
   }, [fetchPlanStatus]);
 
+  const [pdfBlob, setPdfBlob] = useState<{ blob: Blob; fileName: string } | null>(null);
+
+  // Free the preview URL when it is replaced or the page unmounts
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+
   async function handleGenerate() {
     setLoading(true);
     setError('');
     try {
-      const blob = await generateReport();
-      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-      setPdfUrl(url);
-    } catch {
-      setError('Failed to generate report. Please try again.');
+      const report = await generateReport();
+      setPdfBlob(report);
+      setPdfUrl(URL.createObjectURL(report.blob));
+      invalidate();          // usage changed: force a fresh plan-status fetch
+      void fetchPlanStatus();
+    } catch (err: any) {
+      if ((err?.response?.status ?? err?.statusCode) !== 402) setError(reportErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }
 
   function handleDownload() {
-    if (pdfUrl) {
-      const a = document.createElement('a');
-      a.href = pdfUrl;
-      a.download = `Codas-Report-${new Date().toISOString().split('T')[0]}.pdf`;
-      a.click();
-    }
+    if (pdfBlob) saveBlob(pdfBlob.blob, pdfBlob.fileName);
   }
 
   return (
@@ -75,12 +77,12 @@ export default function Report() {
               </div>
               <h2 className="text-lg font-semibold text-surface-50 mb-2">Generate Asset Report</h2>
               <p className="text-surface-100/50 text-sm mb-6 max-w-[28rem] mx-auto">
-                This report includes your net worth summary, asset breakdown by category,
-                account details, and property records. It's watermarked and encrypted.
+                A PDF of everything linked to your account: net worth, allocation by asset class,
+                each financial account (numbers masked), land records and assets you added.
               </p>
 
               <div className="space-y-2 text-left max-w-[24rem] mx-auto mb-6">
-                {['Net worth summary', 'Asset breakdown by category', 'Individual account details', 'Land & property records', 'Consent status', 'Watermarked for security'].map((item) => (
+                {['Net worth summary', 'Allocation by asset class', 'Financial accounts (numbers masked)', 'Land & property records', 'Assets you added manually', 'Built from your latest synced data'].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-sm text-surface-100/60">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2">
                       <polyline points="20 6 9 17 4 12" />
@@ -92,7 +94,7 @@ export default function Report() {
 
               {planStatus?.limits && planStatus.limits['pdfReportsPerMonth'] !== null && (
                 <div className="text-sm font-medium text-surface-100/70 mb-4">
-                  Usage: {planStatus.usage['limit_pdf_reports_pm'] || 0} of {planStatus.limits['pdfReportsPerMonth']} reports this month
+                  Usage: {planStatus.usage?.['pdf_report'] || 0} of {planStatus.limits['pdfReportsPerMonth']} reports this month
                 </div>
               )}
 

@@ -276,8 +276,11 @@ export const accountSettings = {
         SELECT alert_type, severity, title, body, is_read, created_at
           FROM user_alerts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 500`),
       auditTrail: await q(`
-        SELECT action, entity_type, created_at
-          FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1000`),
+        SELECT action, entity_type, "timestamp" AS at
+          FROM audit_logs WHERE user_id = $1 ORDER BY "timestamp" DESC LIMIT 1000`),
     }
   },
 }
+
+/** Test hooks — lets tests plant a known code without exposing it through the API */
+export const __testing = { hashOtp, emailOtpKey }

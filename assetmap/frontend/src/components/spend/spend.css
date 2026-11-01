@@ -1,0 +1,33 @@
+/* Spend Analyser chart tokens. Bucket hues are categorical slots 1–4 of the validated
+   reference palette, in fixed order (needs, wants, savings, debt); dark steps are selected
+   for the dark card surface, not flipped. Light aqua/yellow sit under 3:1 on white, so every
+   bucket mark is paired with a visible text label. */
+.spend-viz {
+  --spend-needs: #2a78d6;
+  --spend-wants: #eb6834;
+  --spend-savings: #1baf7a;
+  --spend-debt: #eda100;
+  --spend-track: color-mix(in oklab, var(--muted-foreground) 16%, transparent);
+  --spend-target: var(--foreground);
+  --spend-good: #006300;
+  --spend-warn: #9a5b00;
+  --spend-bad: #b42828;
+  --spend-ai: #6250d6;
+}
+
+.dark .spend-viz {
+  --spend-needs: #3987e5;
+  --spend-wants: #d95926;
+  --spend-savings: #199e70;
+  --spend-debt: #c98500;
+  --spend-track: color-mix(in oklab, var(--muted-foreground) 22%, transparent);
+  --spend-good: #2fbf4a;
+  --spend-warn: #fab219;
+  --spend-bad: #f07373;
+  --spend-ai: #9085e9;
+}
+
+.spend-viz .tabular { font-variant-numeric: tabular-nums; }
+
+.spend-scroll-x { scrollbar-width: none; }
+.spend-scroll-x::-webkit-scrollbar { display: none; }

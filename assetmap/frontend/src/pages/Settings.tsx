@@ -1,169 +1,364 @@
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Lock, Moon, Shield, Check } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import {
+  ArrowLeft, Bell, Download, History, Loader2, LogOut, Palette, Shield, ShieldCheck, Trash2, UserRound,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { api } from '../services/api';
-import ConsentManagerModal from '../components/settings/ConsentManagerModal';
+import { useAssetStore } from '../store/assetStore';
+import { usePlanStore } from '../store/planStore';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { ErrorCard } from '../components/errors/ErrorCard';
+import EmailDialog from '../components/settings/EmailDialog';
+import ConsentPanel from '../components/settings/ConsentPanel';
+import {
+  formatDate, InfoRow, LinkRow, SettingsSection, settingsErrorMessage, StatusPill, SubHeading, ToggleRow,
+} from '../components/settings/settingsUi';
 
-type Theme = 'light' | 'dark' | 'system';
+type NotificationKey = 'email' | 'sms' | 'push' | 'marketing' | 'balanceDrop' | 'newAccount' | 'landChange';
+
+interface SettingsData {
+  account: {
+    name: string;
+    mobile: string | null;
+    email: string | null;
+    memberSince: string | null;
+    plan: { id: string; name: string };
+  };
+  notifications: Record<NotificationKey, boolean>;
+  channels: {
+    emailOnFile: boolean;
+    smsAllowed: boolean;
+    pushAllowed: boolean;
+    requiredPlan: string | null;
+    pushRegistered: boolean;
+  };
+}
+
+const DELETE_PHRASE = 'DELETE MY DATA';
+
+function clearLocalSession() {
+  try {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+  } catch { /* storage may be unavailable */ }
+  useAssetStore.getState().logout();
+  usePlanStore.getState().invalidate();
+}
 
 export default function Settings() {
   const navigate = useNavigate();
-  const [theme, setTheme] = useState<Theme>('light');
-  const [savedMessage, setSavedMessage] = useState('');
-  const [showConsentModal, setShowConsentModal] = useState(false);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean | 'error' | null>(null);
+  const [data, setData] = useState<SettingsData | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [saving, setSaving] = useState<Partial<Record<NotificationKey, boolean>>>({});
+  const [twoFactor, setTwoFactor] = useState<boolean | 'error' | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePhrase, setDeletePhrase] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    async function fetchTwoFactorStatus() {
-      try {
-        const res = await api.get('/2fa/status');
-        setTwoFactorEnabled(res.data.data.isEnabled);
-      } catch (err) {
-        console.error('Failed to fetch 2FA status', err);
-        setTwoFactorEnabled('error');
-      }
+  const load = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const res = await api.get('/settings');
+      setData(res.data.data);
+    } catch (err) {
+      setLoadError(err);
     }
-    fetchTwoFactorStatus();
   }, []);
 
-  // Show a brief "Saved!" toast when any setting changes
-  function flashSaved(msg: string) {
-    setSavedMessage(msg);
-    setTimeout(() => setSavedMessage(''), 2000);
-  }
+  useEffect(() => {
+    void load();
+    api.get('/2fa/status')
+      .then(res => setTwoFactor(!!res.data?.data?.isEnabled))
+      .catch(() => setTwoFactor('error'));
+  }, [load]);
+
+  // Optimistic toggle: flip now, persist, revert with a message if the server says no
+  const setNotification = async (key: NotificationKey, value: boolean) => {
+    if (!data) return;
+    const previous = data.notifications[key];
+    setData(d => d && ({ ...d, notifications: { ...d.notifications, [key]: value } }));
+    setSaving(s => ({ ...s, [key]: true }));
+    try {
+      const res = await api.patch('/settings/notifications', { [key]: value });
+      setData(d => d && ({ ...d, notifications: res.data.data }));
+    } catch (err) {
+      setData(d => d && ({ ...d, notifications: { ...d.notifications, [key]: previous } }));
+      toast.error(settingsErrorMessage(err, "We couldn't save that setting. Please try again."));
+    } finally {
+      setSaving(s => ({ ...s, [key]: false }));
+    }
+  };
+
+  const downloadData = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get('/settings/export', { responseType: 'blob' });
+      const blob = res.data instanceof Blob ? res.data : new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `assetmap-my-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Your data download has started');
+    } catch (err) {
+      toast.error(settingsErrorMessage(err, "We couldn't prepare your data. Please try again."));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const signOutEverywhere = async () => {
+    setSigningOut(true);
+    try {
+      await api.post('/settings/sessions/revoke-all');
+      clearLocalSession();
+      toast.success('Signed out of all devices');
+      navigate('/', { replace: true });
+    } catch (err) {
+      toast.error(settingsErrorMessage(err, "We couldn't sign you out everywhere. Please try again."));
+      setSigningOut(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (deletePhrase.trim() !== DELETE_PHRASE) return;
+    setDeleting(true);
+    try {
+      await api.post('/auth/user/delete', { confirmPhrase: DELETE_PHRASE });
+      clearLocalSession();
+      toast.success('Your account and personal data have been deleted');
+      navigate('/', { replace: true });
+    } catch (err) {
+      toast.error(settingsErrorMessage(err, "We couldn't delete your data. Please try again or contact support."));
+      setDeleting(false);
+    }
+  };
+
+  const n = data?.notifications;
+  const ch = data?.channels;
+  const planName = (id: string | null) => (id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Plus');
 
   return (
     <div className="page-gradient-bg min-h-screen text-foreground font-sans pb-20">
-      {/* Save confirmation toast */}
-      <div
-        className={`fixed top-6 right-6 z-50 flex items-center gap-2 bg-zinc-900 dark:bg-zinc-800 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-300 ${
-          savedMessage ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
-        }`}
-      >
-        <Check className="size-4 text-lime-400" strokeWidth={2.5} />
-        {savedMessage}
-      </div>
-
       <header className="sticky top-0 z-20 pt-4">
-        <div className="w-full px-6 md:px-10 py-2 flex items-center justify-between">
-          <button 
+        <div className="w-full px-4 sm:px-6 md:px-10 py-2">
+          <button
+            type="button"
             onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-foreground bg-card/50 hover:bg-card/80 border border-zinc-300/50 dark:border-zinc-700/50 shadow-sm px-3 py-1.5 rounded-full transition-all font-medium text-sm backdrop-blur-sm"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground bg-card/70 hover:bg-card border border-border shadow-sm px-3 py-1.5 rounded-full transition-colors font-medium text-sm backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeft className="size-4" aria-hidden />
             Back
           </button>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 mt-0">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-display font-light tracking-tight text-foreground">Account Settings</h1>
-          <p className="text-zinc-600 dark:text-zinc-400 mt-2">Manage your preferences, security, and application settings.</p>
+      <main className="mx-auto w-full max-w-[48rem] px-4 sm:px-6">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl font-display font-light tracking-tight">Account Settings</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 text-balance">
+            Manage your account, security, notifications and how your data is used.
+          </p>
         </div>
 
-        <div className="flex flex-col gap-6">
-          <SettingSection title="Security & Authentication" icon={<Lock className="size-5" />}>
-            <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 last:border-0 hover:bg-muted/50 transition cursor-pointer" onClick={() => navigate('/settings/2fa')}>
-              <div>
-                <p className="text-sm font-medium">Two-Factor Authentication (2FA)</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Manage your 2FA authentication methods.</p>
+        {loadError && !data ? (
+          <ErrorCard error={loadError} title="We couldn't load your settings" onRetry={() => void load()} />
+        ) : !data ? (
+          <div className="flex flex-col gap-6" role="status" aria-busy="true" aria-label="Loading settings">
+            {[4, 3, 6].map((rows, i) => (
+              <div key={i} className="rounded-3xl border border-border bg-card p-6 space-y-4">
+                <div className="h-6 w-48 rounded-lg bg-muted animate-pulse" />
+                {Array.from({ length: rows }).map((_, j) => <div key={j} className="h-10 rounded-xl bg-muted/70 animate-pulse" />)}
               </div>
-              <div className="flex items-center gap-3 text-zinc-400">
-                {twoFactorEnabled === null ? (
-                  <div className="size-4 rounded-full border-2 border-border border-t-zinc-600 animate-spin" />
-                ) : twoFactorEnabled === 'error' ? (
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400">Error</span>
-                ) : (
-                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${twoFactorEnabled ? 'bg-lime-100 dark:bg-lime-950/40 text-lime-700' : 'bg-muted text-zinc-600 dark:text-zinc-400'}`}>
-                    {twoFactorEnabled ? 'On' : 'Off'}
-                  </span>
-                )}
-                <span className="material-symbols-outlined text-xl">chevron_right</span>
-              </div>
-            </div>
-          </SettingSection>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {/* ── Account */}
+            <SettingsSection id="account" title="Account" description="Your identity details come from Aadhaar verification." icon={<UserRound className="size-5" />}>
+              <InfoRow label="Name" value={data.account.name} description="As verified with Aadhaar — contact support to correct it." />
+              <InfoRow label="Mobile number" value={data.account.mobile ?? '—'} description="Used to sign in." />
+              <InfoRow
+                label="Email"
+                value={data.account.email ?? <span className="text-muted-foreground font-normal">Not added</span>}
+                description="For email alerts and account notices."
+                action={
+                  <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setEmailOpen(true)}>
+                    {data.account.email ? 'Change' : 'Add email'}
+                  </Button>
+                }
+              />
+              <LinkRow
+                label="Plan & billing"
+                description={`Member since ${formatDate(data.account.memberSince)}`}
+                value={<StatusPill tone={data.account.plan.id === 'free' ? 'muted' : 'success'}>{data.account.plan.name}</StatusPill>}
+                onClick={() => navigate(data.account.plan.id === 'free' ? '/pricing' : '/billing')}
+              />
+            </SettingsSection>
 
-          <SettingSection title="Notifications" icon={<Bell className="size-5" />}>
-            <ToggleRow label="Email Alerts" description="Receive summaries of your portfolio performance." defaultChecked={true} onToggle={(v) => flashSaved(v ? 'Email alerts on' : 'Email alerts off')} />
-            <ToggleRow label="Push Notifications" description="Real-time alerts for large transactions." defaultChecked={true} onToggle={(v) => flashSaved(v ? 'Push notifications on' : 'Push notifications off')} />
-            <ToggleRow label="Marketing Updates" description="News, feature updates, and offers." defaultChecked={false} onToggle={(v) => flashSaved(v ? 'Marketing updates on' : 'Marketing updates off')} />
-          </SettingSection>
+            {/* ── Security */}
+            <SettingsSection id="security" title="Security" description="Protect sign-in and see who accessed your data." icon={<ShieldCheck className="size-5" />}>
+              <LinkRow
+                label="Two-factor authentication"
+                description="Add an authenticator app or email code at sign-in."
+                value={
+                  twoFactor === null ? <Loader2 className="size-4 animate-spin" aria-label="Loading 2FA status" />
+                  : twoFactor === 'error' ? <StatusPill tone="muted">Unavailable</StatusPill>
+                  : <StatusPill tone={twoFactor ? 'success' : 'warning'}>{twoFactor ? 'On' : 'Off'}</StatusPill>
+                }
+                onClick={() => navigate('/settings/2fa')}
+              />
+              <LinkRow
+                label="Activity & access log"
+                description="Every sign-in, consent and data access on your account."
+                icon={<History className="size-4" />}
+                onClick={() => navigate('/dashboard?tab=audit')}
+              />
+              <LinkRow
+                label="Sign out of all devices"
+                description="Ends every session, including this one."
+                icon={<LogOut className="size-4" />}
+                onClick={() => setSignOutOpen(true)}
+              />
+            </SettingsSection>
 
-          <SettingSection title="Privacy & Data" icon={<Shield className="size-5" />}>
-            <ToggleRow label="Data Sync via AA" description="Automatically fetch new transactions via Account Aggregator." defaultChecked={true} onToggle={(v) => flashSaved(v ? 'Data sync enabled' : 'Data sync paused')} />
-            <div className="px-6 py-4 border-t border-border">
-              <button
-                onClick={() => setShowConsentModal(true)}
-                className="text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition active:scale-95"
-              >
-                Manage Consent Approvals
-              </button>
-            </div>
-          </SettingSection>
+            {/* ── Notifications */}
+            <SettingsSection id="notifications" title="Notifications" description="Choose how and when we alert you." icon={<Bell className="size-5" />}>
+              <SubHeading>Channels</SubHeading>
+              <ToggleRow id="n-inapp" label="In-app alerts" description="Always on — shown under the bell in your dashboard." checked disabled onChange={() => {}} />
+              <ToggleRow
+                id="n-email" label="Email alerts"
+                description={ch!.emailOnFile
+                  ? 'Important changes like balance drops and new accounts, sent to your email.'
+                  : <>Add an email address first. <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={() => setEmailOpen(true)}>Add email</button></>}
+                checked={n!.email && ch!.emailOnFile} disabled={!ch!.emailOnFile} saving={saving.email}
+                onChange={(v) => void setNotification('email', v)}
+              />
+              <ToggleRow
+                id="n-sms" label="SMS alerts" description="Urgent security alerts by text message to your mobile."
+                checked={n!.sms} saving={saving.sms}
+                locked={!ch!.smsAllowed} lockLabel={planName(ch!.requiredPlan)} onLockedClick={() => navigate('/pricing')}
+                onChange={(v) => void setNotification('sms', v)}
+              />
+              <ToggleRow
+                id="n-push" label="Push notifications"
+                description={ch!.pushRegistered
+                  ? 'Alerts on devices where you allowed AssetMap notifications.'
+                  : 'Delivered to the AssetMap mobile app once you allow notifications there.'}
+                checked={n!.push} saving={saving.push}
+                locked={!ch!.pushAllowed} lockLabel={planName(ch!.requiredPlan)} onLockedClick={() => navigate('/pricing')}
+                onChange={(v) => void setNotification('push', v)}
+              />
 
-          <SettingSection title="Appearance" icon={<Moon className="size-5" />}>
-            <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">App Theme</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Choose your preferred visual style.</p>
+              <SubHeading>What to alert me about</SubHeading>
+              <ToggleRow id="n-drop" label="Large balance drops" description="When your total balance falls sharply since the previous day."
+                checked={n!.balanceDrop} saving={saving.balanceDrop} onChange={(v) => void setNotification('balanceDrop', v)} />
+              <ToggleRow id="n-newacc" label="New accounts linked to your Aadhaar" description="Helps you catch accounts you didn't open."
+                checked={n!.newAccount} saving={saving.newAccount} onChange={(v) => void setNotification('newAccount', v)} />
+              <ToggleRow id="n-land" label="Property record changes" description="When a land record in your name is updated in the registry."
+                checked={n!.landChange} saving={saving.landChange} onChange={(v) => void setNotification('landChange', v)} />
+
+              <SubHeading>From AssetMap</SubHeading>
+              <ToggleRow id="n-marketing" label="Product news & offers" description="Occasional updates about new features. Off unless you opt in; we never share your data with advertisers."
+                checked={n!.marketing} saving={saving.marketing} onChange={(v) => void setNotification('marketing', v)} />
+            </SettingsSection>
+
+            {/* ── Data & privacy */}
+            <SettingsSection id="privacy" title="Data & privacy" description="Control what we fetch and what we keep." icon={<Shield className="size-5" />}>
+              <ConsentPanel />
+              <LinkRow
+                label="Download my data"
+                description="A JSON copy of your profile, consents, assets, alerts and activity log."
+                icon={exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                onClick={() => { if (!exporting) void downloadData(); }}
+              />
+              <LinkRow
+                tone="danger"
+                label="Delete account & data"
+                description="Permanently erase your personal and financial data. Audit logs are kept as the law requires."
+                icon={<Trash2 className="size-4" />}
+                onClick={() => { setDeletePhrase(''); setDeleteOpen(true); }}
+              />
+            </SettingsSection>
+
+            {/* ── Appearance */}
+            <SettingsSection id="appearance" title="Appearance" icon={<Palette className="size-5" />}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 py-4">
+                <div>
+                  <p className="text-sm font-medium">Theme</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">System follows your device setting.</p>
+                </div>
+                <ThemeToggle style="three-way" className="self-start sm:self-auto" />
               </div>
-              <div className="flex bg-muted p-1 rounded-full">
-                {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { setTheme(t); flashSaved(`Theme set to ${t}`); }}
-                    className={`px-4 py-1.5 text-xs font-medium rounded-full capitalize transition-all duration-200 ${
-                      theme === t
-                        ? 'bg-card shadow-sm text-foreground scale-105'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </SettingSection>
-        </div>
+            </SettingsSection>
+          </div>
+        )}
       </main>
 
-      {showConsentModal && (
-        <ConsentManagerModal onClose={() => setShowConsentModal(false)} />
+      {data && (
+        <EmailDialog open={emailOpen} onOpenChange={setEmailOpen} hasEmail={!!data.account.email} onSaved={() => void load()} />
       )}
+
+      <AlertDialog open={signOutOpen} onOpenChange={(o) => { if (!signingOut) setSignOutOpen(o); }}>
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-[28rem] rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out of all devices?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every active session ends, including this one. You'll need your mobile OTP to sign in again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl" disabled={signingOut}>Cancel</AlertDialogCancel>
+            <Button className="rounded-xl" disabled={signingOut} onClick={() => void signOutEverywhere()}>
+              {signingOut && <Loader2 className="animate-spin" />} Sign out everywhere
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => { if (!deleting) setDeleteOpen(o); }}>
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-[30rem] rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account and data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently erases your profile, linked accounts, property records, wills, family vault memberships and
+              alerts. It can't be undone. Consider downloading your data first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form
+            noValidate
+            onSubmit={(e) => { e.preventDefault(); void deleteAccount(); }}
+            className="space-y-2"
+          >
+            <Label htmlFor="delete-phrase">Type <span className="font-mono font-semibold">{DELETE_PHRASE}</span> to confirm</Label>
+            <Input
+              id="delete-phrase" autoComplete="off" value={deletePhrase} disabled={deleting}
+              onChange={(e) => setDeletePhrase(e.target.value)} className="h-11 rounded-xl font-mono"
+            />
+            <AlertDialogFooter className="pt-3">
+              <AlertDialogCancel type="button" className="rounded-xl" disabled={deleting}>Cancel</AlertDialogCancel>
+              <Button type="submit" variant="destructive" className="rounded-xl" disabled={deleting || deletePhrase.trim() !== DELETE_PHRASE}>
+                {deleting && <Loader2 className="animate-spin" />} Delete permanently
+              </Button>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-function SettingSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-card/80 backdrop-blur-lg rounded-[24px] shadow-sm border border-border/50 overflow-hidden hover:shadow-md transition-shadow duration-300">
-      <div className="p-6 flex items-center gap-3 border-b border-border/50">
-        <div className="p-2 bg-card/50 backdrop-blur-sm rounded-xl shadow-sm border border-border/50 text-zinc-700 dark:text-zinc-300">
-          {icon}
-        </div>
-        <h3 className="text-lg font-display font-semibold">{title}</h3>
-      </div>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function ToggleRow({ label, description, defaultChecked, onToggle }: { label: string; description: string; defaultChecked: boolean; onToggle?: (value: boolean) => void }) {
-  const [checked, setChecked] = useState(defaultChecked);
-  return (
-    <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 last:border-0 hover:bg-muted/50 transition">
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-      </div>
-      <button 
-        onClick={() => { const next = !checked; setChecked(next); onToggle?.(next); }}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-lime-400' : 'bg-zinc-300 dark:bg-zinc-600'}`}
-      >
-        <span className={`inline-block h-4 w-4 transform rounded-full bg-card shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
-      </button>
-    </div>
-  );
-}
-

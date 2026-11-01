@@ -154,6 +154,9 @@ const ACTION_DESCRIPTIONS: Record<AuditAction, string> = {
   FAMILY_MEMBER_REMOVED: 'Family member removed',
   FAMILY_MEMBER_LEFT: 'Left a family vault',
   FAMILY_SHARING_UPDATED: 'Family sharing settings changed',
+  SPEND_ANALYSIS_RUN: 'Spending analysis run',
+  SPEND_CATEGORY_CORRECTED: 'Transaction category corrected',
+  SPEND_PROFILE_UPDATED: 'Spending needs profile updated',
 };
 
 function formatAuditLog(row: any): AuditLogEntry {

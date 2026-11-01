@@ -9,6 +9,7 @@ export interface Guide {
   steps: string[];
   tips?: string[];
   cta?: { label: string; to: string };
+  keywords?: string;   // extra search terms / synonyms
 }
 
 export type GuideCategory = 'Getting started' | 'Your assets' | 'Family & legacy' | 'Account & security';
@@ -18,11 +19,12 @@ export interface Faq {
   q: string;
   a: string;
   topic: 'Security & privacy' | 'Data & consent' | 'Features' | 'Plans & billing';
+  keywords?: string;
 }
 
 export const GUIDES: Guide[] = [
   {
-    id: 'sign-in',
+    id: 'sign-in', keywords: 'login log in register signup otp aadhaar kyc pan',
     title: 'Sign in and verify your identity',
     summary: 'Create your account with your mobile number and a one-time Aadhaar verification.',
     minutes: 3,
@@ -40,7 +42,7 @@ export const GUIDES: Guide[] = [
     ],
   },
   {
-    id: 'link-accounts',
+    id: 'link-accounts', keywords: 'aa account aggregator setu consent bank link connect',
     title: 'Link your bank and investment accounts',
     summary: 'Give consent through the RBI Account Aggregator framework to fetch your financial data read-only.',
     minutes: 4,
@@ -58,7 +60,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open consent', to: '/consent' },
   },
   {
-    id: 'asset-discovery',
+    id: 'asset-discovery', keywords: 'net worth portfolio balance manual add asset',
     title: 'Find and understand your assets',
     summary: 'See everything you own in one place and drill into each account.',
     minutes: 2,
@@ -72,7 +74,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open Asset Discovery', to: '/dashboard?tab=discovery' },
   },
   {
-    id: 'property',
+    id: 'property', keywords: 'land records khasra survey plot map',
     title: 'View your land and property records',
     summary: 'Fetch land records linked to your identity and track their details.',
     minutes: 3,
@@ -87,7 +89,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open Property', to: '/dashboard?tab=land' },
   },
   {
-    id: 'unclaimed',
+    id: 'unclaimed', keywords: 'dormant lost money dividend iepf recovery',
     title: 'Search for unclaimed money',
     summary: 'Look for dormant deposits, unclaimed dividends and forgotten policies.',
     minutes: 2,
@@ -100,7 +102,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open Unclaimed', to: '/dashboard?tab=unclaimed' },
   },
   {
-    id: 'nominees',
+    id: 'nominees', keywords: 'nomination nominee update claim',
     title: 'Check and update nominees',
     summary: 'Make sure every account has a nominee so your family can claim it.',
     minutes: 3,
@@ -113,7 +115,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open nominee check', to: '/nominee' },
   },
   {
-    id: 'will',
+    id: 'will', keywords: 'testament estate inheritance beneficiary executor pdf witness',
     title: 'Create your Digital Will',
     summary: 'Write a will in four steps and download it as a PDF to sign.',
     minutes: 6,
@@ -129,7 +131,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open Digital Will', to: '/dashboard?tab=will' },
   },
   {
-    id: 'family-vault',
+    id: 'family-vault', keywords: 'family invite member spouse share sharing goals',
     title: 'Share with your family using Family Vault',
     summary: 'See your family\'s combined net worth, shared goals and estate readiness.',
     minutes: 4,
@@ -145,7 +147,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open Family Vault', to: '/dashboard?tab=family' },
   },
   {
-    id: 'two-factor',
+    id: 'two-factor', keywords: '2fa mfa authenticator totp backup codes security',
     title: 'Turn on two-factor authentication',
     summary: 'Add an authenticator app or email code as a second step at sign-in.',
     minutes: 3,
@@ -159,7 +161,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'Open two-factor settings', to: '/settings/2fa' },
   },
   {
-    id: 'plans',
+    id: 'plans', keywords: 'pricing upgrade downgrade subscription payment razorpay invoice pro plus free',
     title: 'Choose a plan and manage billing',
     summary: 'Compare Free, Plus and Pro, upgrade, and see your invoices.',
     minutes: 2,
@@ -173,7 +175,7 @@ export const GUIDES: Guide[] = [
     cta: { label: 'View plans', to: '/pricing' },
   },
   {
-    id: 'privacy',
+    id: 'privacy', keywords: 'delete erase erasure dpdp audit log revoke',
     title: 'Control your data and privacy',
     summary: 'See who accessed your data, revoke consent, or ask us to delete your account.',
     minutes: 2,
@@ -188,73 +190,73 @@ export const GUIDES: Guide[] = [
 
 export const FAQS: Faq[] = [
   {
-    id: 'secure',
+    id: 'secure', keywords: 'encryption safe hack breach aes',
     topic: 'Security & privacy',
     q: 'Is my data secure?',
     a: 'Personal details are encrypted with AES-256-GCM, and your Aadhaar number, mobile and email are stored only as salted one-way hashes for lookup. Sessions use signed, httpOnly cookies, and you can add two-factor authentication.',
   },
   {
-    id: 'aadhaar',
+    id: 'aadhaar', keywords: 'uidai privacy stored',
     topic: 'Security & privacy',
     q: 'Do you store my Aadhaar number?',
     a: 'No. Aadhaar is used once for verification through UIDAI. We keep only a salted hash so the same Aadhaar can\'t open two accounts — the number itself can\'t be recovered from it.',
   },
   {
-    id: 'move-money',
+    id: 'move-money', keywords: 'transfer payment withdraw read-only',
     topic: 'Data & consent',
     q: 'Can the app move money from my accounts?',
     a: 'No. The Account Aggregator connection is read-only. It can fetch balances and holdings you consented to share — it cannot make payments or transfers.',
   },
   {
-    id: 'revoke',
+    id: 'revoke', keywords: 'stop sharing withdraw consent',
     topic: 'Data & consent',
     q: 'How do I stop sharing my financial data?',
     a: 'Revoke the consent from your Account Aggregator app. New data stops flowing immediately. To also delete what we already hold, open a support ticket with the topic "Privacy & data".',
   },
   {
-    id: 'missing-account',
+    id: 'missing-account', keywords: 'not showing missing bank',
     topic: 'Data & consent',
     q: 'An account is missing. What should I do?',
     a: 'Make sure you selected it during Account Aggregator consent and that the bank supports the framework. You can grant consent again from the consent screen, or add the asset manually from Asset Discovery.',
   },
   {
-    id: 'stale',
+    id: 'stale', keywords: 'old balance refresh sync update',
     topic: 'Data & consent',
     q: 'Why is a balance out of date?',
     a: 'Values refresh when the institution shares new data through the Account Aggregator. Each asset shows when it last synced; property records are re-checked nightly.',
   },
   {
-    id: 'will-legal',
+    id: 'will-legal', keywords: 'legal valid witness registration',
     topic: 'Features',
     q: 'Is the Digital Will legally valid?',
     a: 'A will in India is valid when signed by you in front of two witnesses who also sign. Download the PDF, sign it with two witnesses who are not beneficiaries, and keep it safe. Registration is optional but recommended.',
   },
   {
-    id: 'family-pro',
+    id: 'family-pro', keywords: 'free member plan',
     topic: 'Features',
     q: 'Do my family members need Pro to join my Family Vault?',
     a: 'No. Only the vault owner needs Pro. Invited members join free, and each member decides which asset types they share.',
   },
   {
-    id: 'family-invite',
+    id: 'family-invite', keywords: 'invite sms link expired resend',
     topic: 'Features',
     q: 'My family member didn\'t get the invite. What now?',
     a: 'Ask them to sign in with the exact mobile number you invited — pending invitations also appear on their Family Vault page. You can resend the invite from their card; links expire after 7 days.',
   },
   {
-    id: 'downgrade',
+    id: 'downgrade', keywords: 'downgrade lower free cancel subscription',
     topic: 'Plans & billing',
     q: 'Can I switch to a cheaper plan?',
     a: 'You can upgrade at any time. Moving to a lower or free plan isn\'t available while a paid plan is active.',
   },
   {
-    id: 'payments',
+    id: 'payments', keywords: 'card upi razorpay invoice billing',
     topic: 'Plans & billing',
     q: 'How are payments processed?',
     a: 'Payments are handled by Razorpay. We never see or store your card or UPI details. Your invoices are on the Billing page.',
   },
   {
-    id: 'delete',
+    id: 'delete', keywords: 'delete erase remove account dpdp',
     topic: 'Security & privacy',
     q: 'How do I delete my account?',
     a: 'Open a support ticket with the topic "Privacy & data" and ask for deletion. We verify the request and erase your personal data, except records we must keep by law (such as audit logs).',
@@ -288,7 +290,7 @@ export function searchHelp(query: string) {
     return words.every(w => t.includes(w));
   };
   return {
-    guides: GUIDES.filter(g => matches([g.title, g.summary, g.category, ...g.steps, ...(g.tips ?? [])].join(' '))),
-    faqs: FAQS.filter(f => matches(`${f.q} ${f.a} ${f.topic}`)),
+    guides: GUIDES.filter(g => matches([g.title, g.summary, g.category, g.keywords ?? '', ...g.steps, ...(g.tips ?? [])].join(' '))),
+    faqs: FAQS.filter(f => matches(`${f.q} ${f.a} ${f.topic} ${f.keywords ?? ''}`)),
   };
 }

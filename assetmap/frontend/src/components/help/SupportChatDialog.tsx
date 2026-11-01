@@ -258,7 +258,8 @@ function Thread({ ticket, onUpdate }: { ticket: SupportTicket; onUpdate: (t: Sup
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); }
               }}
               disabled={sending}
-              placeholder="Write a reply… (Shift+Enter for a new line)"
+              placeholder="Write a reply…"
+              aria-describedby="chat-reply-hint"
               className={`${fieldClass} max-h-32 min-h-[2.75rem] resize-none rounded-2xl`}
             />
             <button
@@ -271,6 +272,7 @@ function Thread({ ticket, onUpdate }: { ticket: SupportTicket; onUpdate: (t: Sup
             </button>
           </form>
         )}
+        {!closed ? <p id="chat-reply-hint" className="mt-1.5 hidden px-1 text-[11px] text-muted-foreground sm:block">Enter to send · Shift+Enter for a new line</p> : null}
       </div>
     </>
   );

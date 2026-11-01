@@ -1,247 +1,284 @@
-import { useState, useEffect } from 'react';
-import { Layers, RotateCw, ChevronDown, PieChart, TrendingUp, AlertTriangle } from 'lucide-react';
-import { api } from '../../services/api';
-import { CardSkeleton } from '../loading/CardSkeleton';
-import { ChartSkeleton } from '../loading/ChartSkeleton';
-import { ListSkeleton } from '../loading/ListSkeleton';
-import { ErrorCard } from '../errors/ErrorCard';
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import {
+  AlertCircle, ArrowRight, Landmark, Layers, Loader2, MoreHorizontal, PieChart, Repeat, RotateCw, ShieldCheck, SlidersHorizontal, Sparkles, Target,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { api } from '../../services/api'
+import { ErrorCard, userFacingMessage } from '../errors/ErrorCard'
+import { CardSkeleton } from '../loading/CardSkeleton'
+import { ChartSkeleton } from '../loading/ChartSkeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
+import { useSpendStore } from '../../store/spendStore'
+import { monthLabel, safeInAppUrl } from './format'
+import { pillBtn, primaryBtn } from './SpendUi'
+import OverviewTab from './OverviewTab'
+import TransactionsTab from './TransactionsTab'
+import ReviewTab from './ReviewTab'
+import BudgetsTab from './BudgetsTab'
+import SubscriptionsTab from './SubscriptionsTab'
+import NeedsProfileSheet from './NeedsProfileSheet'
+import type { AnalyzeResult, SpendStatus, SpendView } from './types'
+import './spend.css'
+
+const VIEWS: Array<{ id: SpendView; label: string; icon: typeof PieChart }> = [
+  { id: 'overview', label: 'Overview', icon: PieChart },
+  { id: 'transactions', label: 'Transactions', icon: Layers },
+  { id: 'review', label: 'Review', icon: AlertCircle },
+  { id: 'budgets', label: 'Budgets', icon: Target },
+  { id: 'subscriptions', label: 'Subscriptions', icon: Repeat },
+]
+
+function EmptyState({ status, onAnalyze, analyzing }: { status: SpendStatus; onAnalyze: () => void; analyzing: boolean }) {
+  const navigate = useNavigate()
+  const es = status.emptyState!
+  const href = safeInAppUrl(es.actionUrl)
+  return (
+    <div className="bg-card rounded-3xl border border-border shadow-sm p-6 sm:p-10 max-w-[44rem] mx-auto text-center">
+      <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-muted text-foreground" aria-hidden>
+        <Landmark className="size-7" />
+      </div>
+      <h2 className="mt-4 text-xl font-semibold text-foreground">{es.title}</h2>
+      <p className="mt-2 text-sm text-muted-foreground max-w-[32rem] mx-auto">{es.body}</p>
+      <button
+        type="button"
+        className={cn(primaryBtn, 'mt-6 h-11 px-6')}
+        disabled={analyzing}
+        onClick={() => (href ? navigate(href) : onAnalyze())}
+      >
+        {analyzing ? <Loader2 className="size-4 animate-spin" /> : href ? <ArrowRight className="size-4" /> : <Sparkles className="size-4" />}
+        {es.actionLabel}
+      </button>
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+        {[
+          { icon: Layers, title: 'Every payment categorised', body: 'UPI, cards, NACH and bank transfers sorted into categories you can correct.' },
+          { icon: Target, title: 'Needs vs wants', body: 'See how your spending compares with the split you choose.' },
+          { icon: ShieldCheck, title: 'Private by design', body: 'Only masked descriptions are ever sent to AI. Never your name or account numbers.' },
+        ].map((f) => (
+          <div key={f.title} className="rounded-2xl bg-muted/60 p-4">
+            <f.icon className="size-4 text-foreground" aria-hidden />
+            <p className="mt-2 text-sm font-medium text-foreground">{f.title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{f.body}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function SpendDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'budgets' | 'subscriptions'>('overview');
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<unknown>(null);
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { status, statusError, month, loadStatus, loadCategories, setMonth, invalidate, clearChanged } = useSpendStore()
+  const [analyzing, setAnalyzing] = useState(false)
+  const [needsOpen, setNeedsOpen] = useState(false)
 
+  const rawView = searchParams.get('view')
+  const scrollToBreakdown = rawView === 'breakdown'
+  const view: SpendView = VIEWS.some((v) => v.id === rawView) ? (rawView as SpendView) : 'overview'
+  const category = searchParams.get('category')
+  const typeParam = searchParams.get('type')
+  const txType = typeParam === 'debit' || typeParam === 'credit' ? typeParam : null
+
+  useEffect(() => { void loadStatus(); void loadCategories() }, [loadStatus, loadCategories])
+
+  // Insight links like ?view=breakdown land on the overview, scrolled to the breakdown
   useEffect(() => {
-    fetchSummary();
-  }, []);
+    if (!scrollToBreakdown || !status?.hasData) return
+    const t = setTimeout(() => document.getElementById('spend-breakdown')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400)
+    return () => clearTimeout(t)
+  }, [scrollToBreakdown, status?.hasData])
 
-  const fetchSummary = async () => {
-    setLoading(true);
-    setLoadError(null);
+  const updateParams = useCallback((patch: Record<string, string | null>) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev)
+      p.set('tab', 'analytics')
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null) p.delete(k)
+        else p.set(k, v)
+      }
+      return p
+    })
+  }, [setSearchParams])
+
+  const setView = (v: SpendView) => updateParams({ view: v === 'overview' ? null : v, category: null, type: null, q: null, range: null })
+  const openCategory = (cat: string) => updateParams({ view: 'transactions', category: cat, type: null, q: null, range: null })
+
+  const analyze = async () => {
+    setAnalyzing(true)
     try {
-      const res = await api.get('/spend/summary');
-      setData(res.data.data);
+      const res = await api.post('/spend/analyze', month ? { month } : {})
+      const r = res.data.data as AnalyzeResult
+      if (r.queued) {
+        toast(r.message ?? 'Analysis queued. Check back in a few minutes.')
+      } else {
+        clearChanged()
+        const c = r.classification
+        const parts: string[] = []
+        if (c && c.classified > 0) parts.push(`${c.classified} new transaction${c.classified === 1 ? '' : 's'} categorised`)
+        if (c && c.needsReview > 0) parts.push(`${c.needsReview} need${c.needsReview === 1 ? 's' : ''} your review`)
+        const n = r.insights?.length ?? 0
+        const dismissed = r.dismissedCount ?? 0
+        // "Nothing unusual" only when there are no facts at all, not when the user dismissed them
+        parts.push(n
+          ? `${n} insight${n === 1 ? '' : 's'} ready`
+          : dismissed > 0
+            ? `no new insights (${dismissed} you dismissed still appl${dismissed === 1 ? 'ies' : 'y'})`
+            : 'nothing unusual found')
+        toast.success(r.hasData === false ? 'No transactions to analyse yet.' : `Analysis done: ${parts.join(', ')}.`, {
+          description: r.generatedBy === 'template' && n > 0 ? 'AI wording was unavailable, so insights were written from templates.' : undefined,
+        })
+      }
+      invalidate()
     } catch (err) {
-      setLoadError(err);
+      toast.error(userFacingMessage(err))
+    } finally {
+      setAnalyzing(false)
     }
-    setLoading(false);
-  };
+  }
 
   const reclassify = async () => {
     try {
-      await api.post('/spend/reclassify');
-      alert('Classification queued. Results will update shortly.');
+      const res = await api.post('/spend/reclassify')
+      toast(res.data.data?.message ?? 'Re-categorisation queued.', { description: "Transactions you've corrected yourself stay as they are." })
     } catch (err) {
-      console.error(err);
+      toast.error(userFacingMessage(err))
     }
-  };
-
-  if (loading && !data) {
-    return (
-      <div role="status" aria-busy="true" aria-label="Loading spend analysis" className="w-full max-w-[1400px] mx-auto space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CardSkeleton rows={1} />
-          <CardSkeleton rows={1} />
-          <CardSkeleton rows={1} />
-        </div>
-        <ChartSkeleton />
-      </div>
-    );
   }
 
-  // Failed load is not "no data": offer a retry
-  if (!data && loadError) {
+  // ── Loading / error / empty ──────────────────────────────────────────────
+  if (!status && statusError) {
     return (
       <div className="w-full max-w-[36rem] mx-auto py-10">
-        <ErrorCard error={loadError} title="We couldn't load your spending" onRetry={() => { void fetchSummary(); }} />
+        <ErrorCard error={statusError} title="We couldn't load your spending" onRetry={() => { void loadStatus() }} />
       </div>
-    );
+    )
   }
-
-  if (!data) {
+  if (!status) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 animate-in fade-in duration-300">
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No data found.</p>
+      <div role="status" aria-busy="true" aria-label="Loading spend analysis" className="w-full max-w-[1400px] mx-auto space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[0, 1, 2, 3].map((i) => <CardSkeleton key={i} rows={1} />)}</div>
+        <ChartSkeleton />
       </div>
-    );
+    )
   }
+
+  const hasData = status.hasData && !!month
+  const ai = status.ai.availability
+  const aiOff = ai === 'degraded' || ai === 'not_configured'
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both w-full max-w-[1400px] mx-auto pb-20">
-      
-      {/* ════════ HEADER ════════ */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-[26px] font-sans font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Spend Analyser</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">AI-powered categorization and insights</p>
+    <div className="spend-viz animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both w-full max-w-[1400px] mx-auto pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-5">
+        <div className="min-w-0">
+          <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Spend Analyser</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {hasData
+              ? <>{status.classifiedCount.toLocaleString('en-IN')} transactions categorised from your linked accounts{aiOff && <> · <span title="Insights and answers are calculated without AI wording right now">AI wording off</span></>}</>
+              : 'Understand where your money goes, sorted by what matters to you'}
+          </p>
         </div>
-        <div className="flex gap-3 shrink-0">
-          <button onClick={reclassify} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#1A1D27] hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200 dark:border-[#2E3148] text-zinc-800 dark:text-zinc-200 text-sm font-medium transition active:scale-95 shadow-sm">
-            <RotateCw className="size-4" /> Reclassify
-          </button>
-          <button className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-sm font-medium transition-all active:scale-95 shadow-lg shadow-zinc-900/20 dark:shadow-none">
-            This Month <ChevronDown className="size-4" />
-          </button>
-        </div>
+        {hasData && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={month!} onValueChange={(m) => setMonth(m)}>
+              <SelectTrigger aria-label="Month" className="h-9 w-auto min-w-[9.5rem] rounded-full border-border bg-card text-foreground font-medium shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[18rem]">
+                {status.months.map((m) => (
+                  <SelectItem key={m.month} value={m.month} aria-label={`${monthLabel(m.month)}, ${m.txCount} transactions`}>{monthLabel(m.month)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button type="button" className={pillBtn} onClick={() => setNeedsOpen(true)}>
+              <SlidersHorizontal className="size-4" /> <span>Your needs</span>
+            </button>
+            <button type="button" className={primaryBtn} onClick={analyze} disabled={analyzing}>
+              {analyzing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} Analyse
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={cn(pillBtn, 'w-9 px-0')} aria-label="More actions"><MoreHorizontal className="size-4" /></button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[16rem]">
+                <DropdownMenuItem onSelect={() => { void reclassify() }} className="flex-col items-start gap-0.5">
+                  <span className="inline-flex items-center gap-2 font-medium"><RotateCw className="size-4" /> Re-categorise everything</span>
+                  <span className="text-xs text-muted-foreground pl-6">Re-runs categories using what you've taught it. Your own corrections are kept.</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
 
-      {/* ════════ TABS ════════ */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-8 pb-1">
-        {[
-          { id: 'overview', label: 'Overview', icon: PieChart },
-          { id: 'transactions', label: 'Transactions', icon: Layers },
-          { id: 'budgets', label: 'Budgets', icon: TrendingUp },
-          { id: 'subscriptions', label: 'Subscriptions', icon: RotateCw },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id as any)}
-            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap transition active:scale-95 ${
-              activeTab === t.id 
-                ? 'bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-900' 
-                : 'bg-white dark:bg-[#1A1D27] text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-white/5 border border-zinc-200/50 dark:border-[#2E3148]'
-            }`}
-          >
-            <t.icon className="size-4" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ════════ CONTENT ════════ */}
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Main Chart */}
-          <div className="lg:col-span-2 bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148]">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-6">Expense Breakdown</h2>
-            <div className="flex flex-col gap-4">
-              {data.expenses && data.expenses.length > 0 ? data.expenses.map((exp: any) => (
-                <div key={exp.category} className="flex justify-between items-center p-4 rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/5">
-                  <div className="flex items-center gap-4">
-                    <div className="size-10 rounded-full bg-zinc-200 dark:bg-[#2E3148] flex items-center justify-center">
-                      🏷️
-                    </div>
-                    <div>
-                      <div className="text-zinc-900 dark:text-white font-medium text-sm">{exp.category}</div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{exp.transaction_count} transactions</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-zinc-900 dark:text-white font-semibold">₹{(exp.total_paise / 100).toLocaleString()}</div>
-                  </div>
-                </div>
-              )) : (
-                <div className="text-center py-8 text-muted-foreground">No expenses recorded yet.</div>
-              )}
+      {!hasData ? (
+        <EmptyState status={status} onAnalyze={analyze} analyzing={analyzing} />
+      ) : (
+        <>
+          {status.pendingCount > 0 && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-sm">
+              <span className="text-foreground">
+                {status.pendingCount} new transaction{status.pendingCount === 1 ? '' : 's'} from your bank {status.pendingCount === 1 ? "hasn't" : "haven't"} been categorised yet.
+              </span>
+              <button type="button" className={cn(pillBtn, 'h-8 text-xs')} onClick={analyze} disabled={analyzing}>Categorise now</button>
             </div>
-          </div>
-
-          {/* Insights Panel */}
-          <div className="bg-white dark:bg-[#1A1D27] rounded-2xl p-6 shadow-sm border border-transparent dark:border-[#2E3148]">
-            <div className="flex items-center gap-2 mb-6">
-              <AlertTriangle className="size-5 text-amber-500" />
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">AI Insights</h2>
-            </div>
-            
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-4">
-              <h3 className="text-sm font-medium text-amber-500 mb-1">High Spend Detected</h3>
-              <p className="text-xs text-amber-500/80">Food & Dining is up 40% compared to last month.</p>
-            </div>
-            
-            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
-              <h3 className="text-sm font-medium text-blue-400 mb-1">New Subscription</h3>
-              <p className="text-xs text-blue-400/80">Spotify Premium was charged for the first time.</p>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {activeTab === 'transactions' && (
-        <TransactionList />
-      )}
-      
-      {activeTab === 'budgets' && (
-        <div className="py-20 px-8 text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1A1D27] rounded-2xl text-center shadow-sm border border-zinc-200/50 dark:border-[#2E3148]">
-          Budgets UI coming soon...
-        </div>
-      )}
-
-      {activeTab === 'subscriptions' && (
-        <div className="py-20 px-8 text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1A1D27] rounded-2xl text-center shadow-sm border border-zinc-200/50 dark:border-[#2E3148]">
-          Subscriptions UI coming soon...
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-function TransactionList() {
-  const [txs, setTxs] = useState<any[] | null>(null);
-  const [txError, setTxError] = useState<unknown>(null);
-
-  const loadTxs = () => {
-    setTxError(null);
-    api.get('/spend/transactions')
-      .then(res => setTxs(res.data.data.transactions ?? []))
-      .catch(setTxError);
-  };
-
-  useEffect(() => { loadTxs(); }, []);
-
-  if (txError && txs === null) {
-    return <ErrorCard error={txError} title="We couldn't load your transactions" onRetry={loadTxs} />;
-  }
-  if (txs === null) {
-    return <ListSkeleton rows={6} />;
-  }
-
-  return (
-    <div className="bg-white dark:bg-[#1A1D27] rounded-2xl border border-transparent shadow-sm dark:border-[#2E3148] overflow-hidden">
-      <table className="w-full text-left">
-        <thead className="bg-zinc-50/50 dark:bg-white/5 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-b border-zinc-100 dark:border-white/10">
-          <tr>
-            <th className="px-6 py-4 font-medium">Date</th>
-            <th className="px-6 py-4 font-medium">Merchant</th>
-            <th className="px-6 py-4 font-medium">Category</th>
-            <th className="px-6 py-4 font-medium text-right">Amount</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100 dark:divide-white/5">
-          {txs.map((tx: any) => (
-            <tr key={tx.id} className="hover:bg-zinc-50 dark:hover:bg-white/5 transition">
-              <td className="px-6 py-4 text-sm text-muted-foreground">
-                {new Date(tx.transaction_date).toLocaleDateString()}
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm font-medium text-foreground">{tx.merchant_name}</div>
-                <div className="text-xs text-muted-foreground max-w-[300px] truncate">{tx.narration}</div>
-              </td>
-              <td className="px-6 py-4">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                  {tx.category} • {tx.subcategory}
-                </span>
-                {tx.classified_by === 'claude_ai' && (
-                  <span className="ml-2 text-[10px] text-purple-400">AI</span>
-                )}
-              </td>
-              <td className={`px-6 py-4 text-sm font-medium text-right ${tx.transaction_type === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
-                {tx.transaction_type === 'credit' ? '+' : '-'} ₹{(tx.amount_paise / 100).toLocaleString()}
-              </td>
-            </tr>
-          ))}
-          {txs.length === 0 && (
-            <tr>
-              <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
-                No transactions found.
-              </td>
-            </tr>
           )}
-        </tbody>
-      </table>
+
+          {/* Tabs */}
+          <div className="flex gap-2 overflow-x-auto spend-scroll-x mb-5 pb-1 -mx-1 px-1" role="tablist" aria-label="Spend Analyser sections">
+            {VIEWS.map((t) => {
+              const active = view === t.id
+              const count = t.id === 'review' ? status.needsReviewCount : 0
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setView(t.id)}
+                  className={cn(
+                    'shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 h-9 text-sm font-medium whitespace-nowrap transition active:scale-95',
+                    active ? 'bg-foreground text-background shadow-sm' : 'bg-card text-muted-foreground hover:text-foreground border border-border',
+                  )}
+                >
+                  <t.icon className="size-4" aria-hidden />
+                  {t.label}
+                  {count > 0 && (
+                    <span className={cn('ml-0.5 rounded-full px-1.5 text-[11px] font-semibold tabular',
+                      active ? 'bg-background/20 text-background' : 'bg-[var(--spend-warn)]/15 text-[var(--spend-warn)]')}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <div role="tabpanel">
+            {view === 'overview' && (
+              <OverviewTab month={month!} aiAvailability={ai} onAnalyze={analyze} analyzing={analyzing}
+                onEditNeeds={() => setNeedsOpen(true)} onOpenCategory={openCategory} />
+            )}
+            {view === 'transactions' && (
+              <TransactionsTab
+                key={`${searchParams.get('q') ?? ''}|${searchParams.get('range') ?? ''}`}
+                month={month!}
+                category={category}
+                type={txType}
+                initialSearch={searchParams.get('q') ?? ''}
+                initialAllMonths={searchParams.get('range') === 'all'}
+                onFiltersChange={(f) => updateParams({ category: f.category, type: f.type })}
+              />
+            )}
+            {view === 'review' && <ReviewTab />}
+            {view === 'budgets' && <BudgetsTab month={month!} />}
+            {view === 'subscriptions' && <SubscriptionsTab month={month!} />}
+          </div>
+        </>
+      )}
+
+      <NeedsProfileSheet open={needsOpen} onOpenChange={setNeedsOpen} />
     </div>
   )
 }

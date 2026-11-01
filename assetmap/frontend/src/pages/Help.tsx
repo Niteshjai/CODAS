@@ -72,7 +72,7 @@ export default function Help() {
 
   return (
     <div className="page-gradient-bg relative min-h-screen pb-20 font-sans text-foreground">
-      <header className="sticky top-0 z-20 pt-4">
+      <header className="relative z-20 pt-4">
         <div className="mx-auto flex w-full max-w-[56rem] items-center px-4 py-2 sm:px-6">
           <button
             type="button"
@@ -92,13 +92,13 @@ export default function Help() {
         </div>
 
         <div className="relative mx-auto mb-10 w-full">
-          <Search className="pointer-events-none absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search aria-hidden className="pointer-events-none absolute left-5 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={searchRef}
             type="search"
             role="searchbox"
             aria-label="Search help articles"
-            placeholder="Search guides and FAQs — e.g. consent, nominee, will"
+            placeholder="Search guides and FAQs"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }}
@@ -117,6 +117,22 @@ export default function Help() {
             <kbd className="pointer-events-none absolute right-5 top-1/2 hidden -translate-y-1/2 rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block">/</kbd>
           )}
         </div>
+
+        {!searching ? (
+          <div className="-mt-7 mb-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span>Try:</span>
+            {['consent', 'nominee', 'will', 'delete account'].map(term => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => setQuery(term)}
+                className="rounded-full px-1.5 py-0.5 underline-offset-4 transition hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {searching ? (
           <section aria-live="polite" aria-label="Search results" className="mb-12">

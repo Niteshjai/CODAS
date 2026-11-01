@@ -424,12 +424,18 @@ export const FcmTokenSchema = {
 
 export const AlertsPreferencesSchema = {
   type: 'object',
+  minProperties: 1,
   properties: {
     email: { type: 'boolean' },
     sms: { type: 'boolean' },
-    push: { type: 'boolean' }
+    push: { type: 'boolean' },
+    marketing: { type: 'boolean' },
+    balanceDrop: { type: 'boolean' },
+    newAccount: { type: 'boolean' },
+    landChange: { type: 'boolean' }
   },
-  additionalProperties: true
+  // Keys are mapped to columns through a whitelist; anything else is rejected outright
+  additionalProperties: false
 };
 
 export const RecoveryLegacyRequestSchema = {

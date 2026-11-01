@@ -41,6 +41,9 @@ services:
       - ./backend/src/db/migrations/027_family_vault_members.sql:/docker-entrypoint-initdb.d/27-027_family_vault_members.sql
       - ./backend/src/db/migrations/028_support_tickets.sql:/docker-entrypoint-initdb.d/28-028_support_tickets.sql
       - ./backend/src/db/migrations/029_user_preferences.sql:/docker-entrypoint-initdb.d/29-029_user_preferences.sql
+      - ./backend/src/db/migrations/030_notifications.sql:/docker-entrypoint-initdb.d/30-030_notifications.sql
+      - ./backend/src/db/migrations/031_spend_ai.sql:/docker-entrypoint-initdb.d/31-031_spend_ai.sql
+      - ./backend/src/db/migrations/032_agent_orchestration.sql:/docker-entrypoint-initdb.d/32-032_agent_orchestration.sql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U assetmap']
       interval: 10s

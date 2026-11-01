@@ -6,10 +6,11 @@ AssetMap is an Aadhaar-linked asset discovery platform for India: users verify v
 
 ## Repository layout
 
-Three independent npm packages, no workspace tooling — run `npm install` and commands inside each:
+Four independent npm packages, no workspace tooling — run `npm install` and commands inside each:
 
 - `assetmap/backend/` — Fastify API (CommonJS, `tsx` for dev)
 - `assetmap/frontend/` — React 19 + Vite SPA (Tailwind v4, Zustand, Radix/shadcn primitives in `src/components/ui/`)
+- `assetmap/agent-worker/` — headless BullMQ worker running the Claude asset-orchestration agent (ESM, `tsx`); shares the backend's Postgres/Redis, has its own `CLAUDE.md`. Its schema is backend migration `032_agent_orchestration.sql`
 - `b2b_gateway/` — separate partner-facing Fastify service (ESM / `NodeNext`, so relative imports need `.js` extensions)
 
 There is **no `python-service/`** directory despite references in README, ARCHITECTURE, and `assetmap/.github/copilot-instructions.md`; it is commented out in `docker-compose.yml`.
@@ -35,6 +36,11 @@ npm run dev
 npm run lint         # oxlint
 npm run build        # tsc -b && vite build
 
+# Agent worker (no port; needs DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY, and the backend's ENCRYPTION_KEY)
+cd assetmap/agent-worker
+npm run dev          # tsx watch, loads .env if present
+npm run typecheck
+
 # B2B gateway (port 3001, requires JWT_SECRET)
 cd b2b_gateway
 npm run dev
@@ -50,7 +56,7 @@ Frontend has no test runner.
 
 ## Backend architecture
 
-- **Entry point** `src/index.ts`: registers plugins (helmet, CORS, rate-limit, cookie, JWT, multipart), a global error handler, then every route module in `registerRoutes()` with an explicit `/api/*` prefix. Exceptions: `plansRoutes`, `ancestralRoutes`, and `twoFactorRoutes` declare their own prefixes internally. After startup it launches all background workers (`src/workers/*`) and cron sweepers (`src/cron/*`) in-process — there is no separate worker process.
+- **Entry point** `src/index.ts`: registers plugins (helmet, CORS, rate-limit, cookie, JWT, multipart), a global error handler, then every route module in `registerRoutes()` with an explicit `/api/*` prefix. Exceptions: `plansRoutes`, `ancestralRoutes`, and `twoFactorRoutes` declare their own prefixes internally. After startup it launches all background workers (`src/workers/*`) and cron sweepers (`src/cron/*`) in-process — there is no separate worker process for these (the Claude orchestration agent in `assetmap/agent-worker/` is the one exception and runs as its own process).
 - **Env** is validated with Zod in `src/config/env.ts`; missing/invalid critical config calls `process.exit(1)`. New config must be added to the schema and `.env.example` together.
 - **Response envelope**: every response is `{ success, data?, error?: { code, message } }` — use `successResponse` / `errorResponse` and `ERROR_CODES` from `src/utils/constants.ts`.
 - **Auth**: RS256 JWT in an httpOnly `access_token` cookie, validated against Redis-backed sessions (`src/services/sessionStore.ts`, `src/middleware/auth.ts` exports `verifyAccessToken` / `requireRole`). 2FA (TOTP, OTP, backup codes, trusted devices) lives in `src/auth/`. Plan-gated features are enforced by `src/plans/planEnforcer.ts` (returns 402).

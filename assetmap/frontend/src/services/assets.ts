@@ -127,9 +127,39 @@ export async function getAuditLog(page = 1, limit = 20) {
   return res.data.data!;
 }
 
-export async function generateReport() {
-  const res = await api.get('/reports/generate', { responseType: 'blob' });
-  return res.data;
+/** Generates the consolidated asset report and returns it as a PDF blob + suggested file name. */
+export async function generateReport(): Promise<{ blob: Blob; fileName: string }> {
+  const res: any = await api.get('/reports/generate', { responseType: 'blob' });
+  const blob: Blob = res.data;
+  // A non-PDF 2xx body (proxy page, JSON) would otherwise be saved as a broken .pdf
+  const head = await blob.slice(0, 5).text();
+  if (!head.startsWith('%PDF')) throw new Error('The report could not be generated. Please try again.');
+  const disposition: string = res.headers?.get?.('Content-Disposition') ?? '';
+  const fileName = /filename="?([^";]+)"?/i.exec(disposition)?.[1]
+    ?? `Codas-Asset-Report-${new Date().toISOString().slice(0, 10)}.pdf`;
+  return { blob: new Blob([blob], { type: 'application/pdf' }), fileName };
+}
+
+/** Saves a blob through a temporary link, then frees the object URL. */
+export function saveBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** User-facing reason a report request failed (limit reached, plan, network…). */
+export function reportErrorMessage(err: any): string {
+  const status = err?.response?.status ?? err?.statusCode;
+  const serverMsg = err?.response?.data?.error?.message;
+  if (status === 429 && typeof serverMsg === 'string') return serverMsg;
+  if (status === 402) return 'PDF reports are available on a paid plan.';
+  return err?.userMessage || err?.message || 'The report could not be generated. Please try again.';
 }
 
 export async function fileEstate(formData: FormData) {

@@ -1,361 +1,145 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import {
-  ArrowLeft, ArrowDownLeft, ArrowUpRight, Wallet, TrendingUp, Landmark, Shield, FileText, Building2,
-  ShieldCheck, ShieldAlert, Loader2, RefreshCw, Lock, Receipt, LineChart, Layers, SearchX,
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { ArrowLeft, Lock, SearchX } from 'lucide-react';
 import { api } from '../services/api';
+import { getFinancialAssets } from '../services/assets';
+import { useAssetStore } from '../store/assetStore';
 import { AppError } from '../errors/AppError';
-import { DetailPageSkeleton, PageLoadError } from '../components/loading/DetailPageSkeleton';
-import { ErrorCard } from '../components/errors/ErrorCard';
+import { ErrorCard, userFacingMessage } from '../components/errors/ErrorCard';
+import {
+  FOCUS, SECTION, fmtDate, labelOf, last4, parseNarration,
+  type AssetDetailData, type DetailValue,
+} from '../components/asset-detail/format';
+import { ActivityChart, balanceSeries, completeFlows, hasMeaningfulTrend } from '../components/asset-detail/Charts';
+import { TransactionList } from '../components/asset-detail/TransactionList';
+import { StatusPanel, healthChecks, isFixedDeposit } from '../components/asset-detail/HealthCard';
+import { WalletCard, ActionBar } from '../components/asset-detail/WalletCard';
+import { KeyFacts, keyFacts } from '../components/asset-detail/KeyFacts';
+import { Holdings, TermMeter, hasTerm, termHasStart } from '../components/asset-detail/TypePanels';
+import { CopyButton } from '../components/asset-detail/CopyButton';
 
-// ─── Types (GET /api/assets/financial/:id/detail) ───
+// ─── Per-type copy ───
 
-type DetailValue = string | number | null;
-interface AssetDetailData {
-  asset: { id: string; fiType: string; institutionName: string; accountRef: string; balance: number; currency: string; fetchedAt: string };
-  details: Record<string, DetailValue>;
-  holdings: { name: string; units: number | null; nav: number | null; value: number | null }[];
-  nominee: { status: 'registered' | 'missing' | 'in_progress' | 'unknown'; lastCheckedAt: string | null };
-  history: { date: string; balance: number }[];
-  transactions: { id: string; date: string; narration: string; type: 'CREDIT' | 'DEBIT'; amount: number; balanceAfter: number | null }[];
-}
-
-// ─── Formatting ───
-
-const inr = (n: number, decimals = 2) =>
-  `₹${n.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
-const inrShort = (n: number) =>
-  n >= 1e7 ? `₹${+(n / 1e7).toFixed(2)}Cr` : n >= 1e5 ? `₹${+(n / 1e5).toFixed(1)}L` : n >= 1e3 ? `₹${(n / 1e3).toFixed(0)}K` : `₹${Math.round(n)}`;
-const fmtDate = (v: string | null | undefined, withTime = false) => {
-  if (!v) return null;
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}) });
+const TYPE_LABEL: Record<string, string> = {
+  DEPOSIT: 'Bank account', EQUITY: 'Demat account', MUTUAL_FUND: 'Mutual fund folio',
+  INSURANCE_POLICIES: 'Insurance policy', NPS: 'NPS account', GSTN: 'GST record',
 };
-const titleCase = (v: DetailValue) =>
-  typeof v === 'string' ? v.replace(/[_-]+/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : v;
-function relativeTime(v: string) {
-  const mins = Math.round((Date.now() - new Date(v).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
-  const days = Math.round(hrs / 24);
-  return days < 30 ? `${days} day${days > 1 ? 's' : ''} ago` : fmtDate(v)!;
-}
-const daysUntil = (v: DetailValue) => {
-  if (typeof v !== 'string') return null;
-  const t = new Date(v).getTime();
-  return Number.isNaN(t) ? null : Math.ceil((t - Date.now()) / 86400000);
-};
-
-// ─── Per-type presentation ───
-
-const TYPE_META: Record<string, { label: string; valueLabel: string; icon: ReactNode }> = {
-  DEPOSIT:            { label: 'Bank account',     valueLabel: 'Available balance', icon: <Wallet className="size-6" strokeWidth={1.75} /> },
-  EQUITY:             { label: 'Stocks & demat',   valueLabel: 'Current value',     icon: <TrendingUp className="size-6" strokeWidth={1.75} /> },
-  MUTUAL_FUND:        { label: 'Mutual funds',     valueLabel: 'Current value',     icon: <Building2 className="size-6" strokeWidth={1.75} /> },
-  INSURANCE_POLICIES: { label: 'Insurance policy', valueLabel: 'Policy value',      icon: <Shield className="size-6" strokeWidth={1.75} /> },
-  NPS:                { label: 'National Pension', valueLabel: 'Current value',     icon: <Landmark className="size-6" strokeWidth={1.75} /> },
-  GSTN:               { label: 'GST record',       valueLabel: 'Value',             icon: <FileText className="size-6" strokeWidth={1.75} /> },
+const VALUE_LABEL: Record<string, string> = {
+  DEPOSIT: 'Available balance', EQUITY: 'Current value', MUTUAL_FUND: 'Current value',
+  INSURANCE_POLICIES: 'Policy value', NPS: 'Current value',
 };
 const isInvestment = (t: string) => t === 'EQUITY' || t === 'MUTUAL_FUND' || t === 'NPS';
+const numOf = (v: DetailValue) => (typeof v === 'number' ? v : null);
+const strOf = (v: DetailValue) => (typeof v === 'string' && v ? v : null);
 
-/** Detail rows for the side card; rows with no data from the institution are left out. */
-function detailRows(d: AssetDetailData): { label: string; value: ReactNode; mono?: boolean }[] {
-  const x = d.details;
-  const n = (v: DetailValue) => (typeof v === 'number' ? v : null);
-  const rows: { label: string; value: ReactNode | null; mono?: boolean }[] = [
-    { label: 'Institution', value: d.asset.institutionName },
-    { label: d.asset.fiType === 'INSURANCE_POLICIES' ? 'Policy number' : d.asset.fiType === 'NPS' ? 'PRAN' : 'Account number', value: d.asset.accountRef, mono: true },
-    { label: d.asset.fiType === 'INSURANCE_POLICIES' ? 'Policy type' : 'Account type', value: titleCase(x.accountType) },
-    { label: 'Status', value: titleCase(x.status) },
-  ];
-  if (d.asset.fiType === 'DEPOSIT') {
-    rows.push(
-      { label: 'IFSC', value: x.ifsc, mono: true },
-      { label: 'Branch', value: x.branch },
-      { label: 'Opened on', value: fmtDate(x.openedOn as string) },
-    );
-  }
-  if (d.asset.fiType === 'INSURANCE_POLICIES') {
-    rows.push(
-      { label: 'Plan', value: x.planName },
-      { label: 'Policy start', value: fmtDate(x.openedOn as string) },
-    );
-  }
-  if (d.asset.fiType === 'NPS') rows.push({ label: 'Tier', value: titleCase(x.tier) });
-  if (n(x.holdingsCount) && isInvestment(d.asset.fiType)) rows.push({ label: d.asset.fiType === 'MUTUAL_FUND' ? 'Schemes / folios' : 'Holdings', value: String(x.holdingsCount) });
-  rows.push({ label: 'Currency', value: d.asset.currency });
-  return rows.filter((r): r is { label: string; value: ReactNode; mono?: boolean } => r.value !== null && r.value !== undefined && r.value !== '');
-}
-
-/** Key figures shown under the balance: what matters most for this kind of asset. */
-function keyFigures(d: AssetDetailData): { label: string; value: string; tone?: 'up' | 'down' | 'warn' }[] {
-  const x = d.details;
-  const n = (v: DetailValue) => (typeof v === 'number' ? v : null);
-  const out: { label: string; value: string; tone?: 'up' | 'down' | 'warn' }[] = [];
+/** The line under the bank name on the card. */
+function subLine(d: AssetDetailData): string {
   const t = d.asset.fiType;
-
-  if (t === 'DEPOSIT') {
-    if (n(x.principal) !== null) out.push({ label: 'Principal', value: inr(n(x.principal)!, 0) });
-    if (n(x.interestRate) !== null) out.push({ label: 'Interest rate', value: `${n(x.interestRate)}% p.a.` });
-    if (n(x.maturityAmount) !== null) out.push({ label: 'Maturity value', value: inr(n(x.maturityAmount)!, 0) });
-    const days = daysUntil(x.maturityDate);
-    if (x.maturityDate) out.push({ label: 'Matures on', value: `${fmtDate(x.maturityDate as string)}${days !== null ? days >= 0 ? ` · in ${days} days` : ' · matured' : ''}`, tone: days !== null && days <= 30 ? 'warn' : undefined });
-  }
-  if (isInvestment(t)) {
-    if (n(x.investedValue) !== null) out.push({ label: 'Invested', value: inr(n(x.investedValue)!, 0) });
-    if (n(x.gainLoss) !== null) {
-      const g = n(x.gainLoss)!;
-      out.push({ label: 'Gain / loss', value: `${g >= 0 ? '+' : '−'}${inr(Math.abs(g), 0)}${n(x.gainLossPct) !== null ? ` (${g >= 0 ? '+' : ''}${n(x.gainLossPct)}%)` : ''}`, tone: g >= 0 ? 'up' : 'down' });
-    }
-  }
-  if (t === 'INSURANCE_POLICIES') {
-    if (n(x.sumAssured) !== null) out.push({ label: 'Sum assured', value: inr(n(x.sumAssured)!, 0) });
-    if (n(x.premium) !== null) out.push({ label: 'Premium', value: `${inr(n(x.premium)!, 0)}${x.premiumFrequency ? ` / ${String(titleCase(x.premiumFrequency)).toLowerCase()}` : ''}` });
-    const due = daysUntil(x.nextPremiumDue);
-    if (x.nextPremiumDue) out.push({ label: 'Next premium due', value: fmtDate(x.nextPremiumDue as string)!, tone: due !== null && due <= 15 ? 'warn' : undefined });
-    if (x.maturityDate) out.push({ label: 'Policy ends', value: fmtDate(x.maturityDate as string)! });
-  }
-  return out;
+  const type = labelOf(d.details.accountType);
+  if (isFixedDeposit(d)) return type ?? 'Fixed deposit';
+  if (t === 'DEPOSIT') return type && type.toLowerCase() !== 'bank account' ? `${type} · Bank account` : 'Bank account';
+  if (t === 'NPS') return labelOf(d.details.tier) ? `NPS account · Tier ${labelOf(d.details.tier)}` : 'NPS account';
+  if (t === 'INSURANCE_POLICIES') return strOf(d.details.planName) ?? 'Insurance policy';
+  return TYPE_LABEL[t] ?? 'Account';
 }
 
-// ─── Building blocks ───
-
-function Card({ title, icon, action, children, className = '' }: { title?: string; icon?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section className={`rounded-2xl border border-border bg-card text-card-foreground shadow-sm p-5 sm:p-6 ${className}`}>
-      {title && (
-        <header className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            {icon && <span className="text-muted-foreground">{icon}</span>}
-            {title}
-          </h2>
-          {action}
-        </header>
-      )}
-      {children}
-    </section>
-  );
+/**
+ * Insurance with no surrender value shows the cover instead. The API turns a missing balance into 0,
+ * so a policy with neither is "not shared" (or, for a term plan, has no cash value), never ₹0.
+ */
+function heroValue(d: AssetDetailData): { label: string; value: number | null; note?: string; sumAssured: boolean } {
+  const sa = numOf(d.details.sumAssured);
+  if (d.asset.fiType === 'INSURANCE_POLICIES' && d.asset.balance <= 0) {
+    if (sa !== null && sa > 0) return { label: 'Sum assured', value: sa, sumAssured: true };
+    const term = /TERM/i.test(String(d.details.accountType ?? ''));
+    return { label: term ? 'Term cover' : 'Policy value', value: null, note: term ? 'No cash value' : 'Not shared', sumAssured: false };
+  }
+  return { label: isFixedDeposit(d) ? 'Current value' : VALUE_LABEL[d.asset.fiType] ?? 'Value', value: d.asset.balance, sumAssured: false };
 }
 
-function EmptyState({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-border bg-muted/40 px-6 py-10">
-      <div className="size-10 rounded-full bg-muted text-muted-foreground grid place-items-center mb-3">{icon}</div>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground mt-1 max-w-[22rem] text-balance">{body}</p>
-    </div>
-  );
+type DetailRow = { label: string; value: string; mono?: boolean; copy?: boolean };
+
+/** `term`: what the term meter already shows (its start and end dates are left out here). */
+function detailItems(d: AssetDetailData, term: { start: boolean; end: boolean }): DetailRow[] {
+  const x = d.details;
+  const t = d.asset.fiType;
+  const ins = t === 'INSURANCE_POLICIES';
+  const items: { label: string; value: string | null; mono?: boolean; copy?: boolean }[] = [
+    { label: ins ? 'Policy no.' : t === 'NPS' ? 'PRAN' : t === 'MUTUAL_FUND' ? 'Folio' : t === 'EQUITY' ? 'Demat' : 'Account no.', value: d.asset.accountRef && d.asset.accountRef !== '—' ? d.asset.accountRef : null, mono: true },
+    { label: ins ? 'Policy type' : 'Type', value: labelOf(x.accountType) },
+    { label: 'Plan', value: strOf(x.planName) },
+    { label: 'IFSC', value: strOf(x.ifsc), mono: true, copy: true },
+    { label: 'Branch', value: strOf(x.branch) },
+    { label: 'Status', value: labelOf(x.status) },
+    { label: ins ? 'Start date' : 'Opened', value: term.start ? null : fmtDate(strOf(x.openedOn)) },
+    { label: ins ? 'Policy ends' : 'Maturity date', value: !term.end && (isFixedDeposit(d) || ins) ? fmtDate(strOf(x.maturityDate)) : null },
+    { label: 'Tier', value: labelOf(x.tier) },
+    { label: 'Nominee checked', value: fmtDate(d.nominee.lastCheckedAt) },
+    { label: 'Currency', value: d.asset.currency && d.asset.currency !== 'INR' ? d.asset.currency : null },
+  ];
+  return items.filter((i): i is DetailRow => !!i.value);
 }
 
-function NomineeCard({ data, onAction }: { data: AssetDetailData['nominee']; onAction: () => void }) {
-  const cfg = {
-    registered:  { icon: <ShieldCheck className="size-5" />, tone: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10', title: 'Nominee registered', body: 'This account has a nominee on record with the institution.', cta: null },
-    in_progress: { icon: <Loader2 className="size-5 animate-spin" />, tone: 'text-sky-600 dark:text-sky-400 bg-sky-500/10', title: 'Nominee update in progress', body: "We're tracking your nominee update with the institution.", cta: 'Track update' },
-    missing:     { icon: <ShieldAlert className="size-5" />, tone: 'text-rose-600 dark:text-rose-400 bg-rose-500/10', title: 'No nominee on record', body: 'Without a nominee, your family may face a long claim process for this money.', cta: 'Add a nominee' },
-    unknown:     { icon: <Shield className="size-5" />, tone: 'text-muted-foreground bg-muted', title: 'Nominee status unknown', body: "The institution didn't share nominee details. Check and update it in a few steps.", cta: 'Check nominee' },
-  }[data.status];
+function detailsTitle(t: string) {
+  return t === 'INSURANCE_POLICIES' ? 'Policy details' : t === 'MUTUAL_FUND' ? 'Folio details' : t === 'EQUITY' ? 'Demat details' : 'Account details';
+}
 
+// ─── Layout pieces ───
+
+const PAGE = 'min-h-screen bg-muted/50 dark:bg-background text-foreground [--ad-in:#4d7c0f] dark:[--ad-in:#65a30d] [--ad-out:#6366f1]';
+const ROW_A = 'grid grid-cols-1 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:grid-cols-[26rem_minmax(0,1fr)] gap-4 md:gap-8 items-start';
+const ROW_B = 'mt-4 md:mt-8 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_21rem] gap-4 lg:gap-6 items-start lg:items-stretch';
+const MAIN = 'mx-auto max-w-[72rem] px-4 sm:px-6 pt-4 sm:pt-8 pb-[calc(3rem+env(safe-area-inset-bottom))]';
+
+function TopBar({ onBack, crumb }: { onBack: () => void; crumb: string | null }) {
   return (
-    <Card>
-      <div className="flex items-start gap-3">
-        <div className={`size-10 rounded-xl grid place-items-center shrink-0 ${cfg.tone}`}>{cfg.icon}</div>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">{cfg.title}</h2>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cfg.body}</p>
-          {data.lastCheckedAt && <p className="text-[11px] text-muted-foreground mt-2">Checked {relativeTime(data.lastCheckedAt)}</p>}
-        </div>
-      </div>
-      {cfg.cta && (
-        <button
-          onClick={onAction}
-          className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-foreground text-background px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          {cfg.cta}
+    <nav aria-label="Breadcrumb" className="sticky top-0 z-40 h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto max-w-[72rem] h-full px-4 sm:px-6 flex items-center gap-3">
+        <button type="button" onClick={onBack} aria-label="Back" className={`sm:hidden size-11 -ml-2 shrink-0 rounded-full grid place-items-center text-foreground hover:bg-muted transition-colors ${FOCUS}`}>
+          <ArrowLeft className="size-5" />
         </button>
-      )}
-    </Card>
-  );
-}
-
-function ValueHistory({ history, valueLabel }: { history: AssetDetailData['history']; valueLabel: string }) {
-  const points = history.map(h => ({ label: new Date(h.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), full: fmtDate(h.date)!, value: h.balance }));
-  if (points.length < 2) {
-    return (
-      <EmptyState
-        icon={<LineChart className="size-5" />}
-        title="Not enough history yet"
-        body="AssetMap records this account's value every time it syncs. The trend appears after the next sync."
-      />
-    );
-  }
-  const first = points[0].value;
-  const last = points[points.length - 1].value;
-  const change = last - first;
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground mb-3">
-        {valueLabel} across {points.length} syncs ·{' '}
-        {Math.abs(change) < 1 ? (
-          <span className="font-medium text-foreground">no change since {points[0].full}</span>
-        ) : (
-          <>
-            <span className={change > 0 ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-rose-600 dark:text-rose-400 font-medium'}>
-              {change > 0 ? '+' : '−'}{inr(Math.abs(change), 0)}
-            </span>{' '}since {points[0].full}
-          </>
+        <button type="button" onClick={onBack} className={`hidden sm:inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted transition-colors ${FOCUS}`}>
+          <ArrowLeft className="size-4" /> Back
+        </button>
+        {crumb && (
+          <ol className="flex min-w-0 items-center gap-2 text-sm">
+            <li className="hidden sm:flex items-center gap-2 shrink-0">
+              <Link to="/dashboard" className={`rounded text-muted-foreground hover:text-foreground transition-colors ${FOCUS}`}>Accounts</Link>
+              <span aria-hidden className="text-muted-foreground/60">/</span>
+            </li>
+            <li aria-current="page" className="min-w-0 truncate font-medium text-foreground">{crumb}</li>
+          </ol>
         )}
-      </p>
-      <div className="h-56 -ml-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={points} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="assetHistoryFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#84cc16" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#84cc16" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} dy={6} interval="preserveStartEnd" minTickGap={24} />
-            <YAxis axisLine={false} tickLine={false} width={56} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={inrShort} tickCount={5} allowDecimals={false}
-              domain={[0, (max: number) => Math.max(max * 1.15, 1)]} />
-            <Tooltip
-              cursor={{ stroke: 'var(--border)' }}
-              content={({ active, payload }) => active && payload?.length ? (
-                <div className="rounded-lg border border-border bg-popover text-popover-foreground px-3 py-2 shadow-lg">
-                  <p className="text-[11px] text-muted-foreground">{payload[0].payload.full}</p>
-                  <p className="text-sm font-semibold">{inr(payload[0].value as number)}</p>
-                </div>
-              ) : null}
-            />
-            <Area type="monotone" dataKey="value" stroke="#65a30d" strokeWidth={2} fill="url(#assetHistoryFill)" dot={{ r: 3, fill: '#65a30d' }} />
-          </AreaChart>
-        </ResponsiveContainer>
       </div>
-    </div>
+    </nav>
   );
 }
 
-function Transactions({ items }: { items: AssetDetailData['transactions'] }) {
-  const [filter, setFilter] = useState<'ALL' | 'CREDIT' | 'DEBIT'>('ALL');
-  const [limit, setLimit] = useState(15);
-  const shown = items.filter(t => filter === 'ALL' || t.type === filter);
-
-  const groups = useMemo(() => {
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-    const map = new Map<string, typeof items>();
-    for (const t of shown.slice(0, limit)) {
-      const ds = new Date(t.date).toDateString();
-      const key = ds === today ? 'Today' : ds === yesterday ? 'Yesterday' : fmtDate(t.date)!;
-      map.set(key, [...(map.get(key) ?? []), t]);
-    }
-    return [...map.entries()];
-  }, [shown, limit]);
-
-  if (!items.length) {
-    return (
-      <EmptyState
-        icon={<Receipt className="size-5" />}
-        title="No transactions shared yet"
-        body="Transactions appear here once the bank shares them through your Account Aggregator consent."
-      />
-    );
-  }
-
+function Skeleton() {
+  const b = 'bg-muted animate-pulse motion-reduce:animate-none';
   return (
-    <div>
-      <div role="tablist" aria-label="Filter transactions" className="inline-flex rounded-full bg-muted p-1 mb-4">
-        {(['ALL', 'CREDIT', 'DEBIT'] as const).map(f => (
-          <button
-            key={f}
-            role="tab"
-            aria-selected={filter === f}
-            onClick={() => { setFilter(f); setLimit(15); }}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === f ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            {f === 'ALL' ? 'All' : f === 'CREDIT' ? 'Money in' : 'Money out'}
-          </button>
-        ))}
-      </div>
-
-      {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-6 text-center">No {filter === 'CREDIT' ? 'credits' : 'debits'} in the shared history.</p>
-      ) : (
-        <div className="space-y-4">
-          {groups.map(([day, txns]) => (
-            <div key={day}>
-              <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">{day}</h3>
-              <ul className="divide-y divide-border">
-                {txns.map(t => (
-                  <li key={t.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`size-9 rounded-xl grid place-items-center shrink-0 ${t.type === 'CREDIT' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
-                        {t.type === 'CREDIT' ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{t.narration}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {new Date(t.date).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
-                          {t.balanceAfter !== null && <> · Bal {inr(t.balanceAfter, 0)}</>}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={`text-sm font-semibold tabular-nums whitespace-nowrap ${t.type === 'CREDIT' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
-                      {t.type === 'CREDIT' ? '+' : '−'}{inr(t.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+    <div className={PAGE} role="status" aria-busy="true" aria-label="Loading account details">
+      <TopBar onBack={() => window.history.back()} crumb={null} />
+      <div className={MAIN}>
+        <div className={ROW_A}>
+          <div>
+            <div className={`${b} w-full max-w-[26rem] aspect-[1.586/1] rounded-[1.25rem]`} />
+            <div className="mt-4 grid grid-cols-3 gap-2 max-w-[26rem]">
+              {[0, 1, 2].map(i => <div key={i} className="flex flex-col items-center gap-2 py-2"><div className={`${b} size-12 rounded-full`} /><div className={`${b} h-3 w-14 rounded`} /></div>)}
             </div>
-          ))}
-          {shown.length > limit && (
-            <button onClick={() => setLimit(l => l + 15)} className="w-full rounded-xl border border-border py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-              Show more ({shown.length - limit} remaining)
-            </button>
-          )}
+          </div>
+          <div className="space-y-4">
+            <div className={`${b} h-44 rounded-[1.25rem]`} />
+            <div className={`${b} h-24 rounded-[1.25rem]`} />
+          </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function Holdings({ items, count, fiType }: { items: AssetDetailData['holdings']; count: DetailValue; fiType: string }) {
-  if (!items.length) {
-    return (
-      <EmptyState
-        icon={<Layers className="size-5" />}
-        title={typeof count === 'number' && count > 0 ? `${count} ${fiType === 'MUTUAL_FUND' ? 'schemes' : 'holdings'} in this account` : 'No holdings shared yet'}
-        body="The institution shared the total value but not the line-by-line breakdown. It will appear here when they do."
-      />
-    );
-  }
-  return (
-    <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[11px] uppercase tracking-wider text-muted-foreground text-left">
-            <th className="font-medium px-1 pb-2">{fiType === 'MUTUAL_FUND' ? 'Scheme' : 'Holding'}</th>
-            <th className="font-medium px-1 pb-2 text-right">Units</th>
-            <th className="font-medium px-1 pb-2 text-right">{fiType === 'MUTUAL_FUND' ? 'NAV' : 'Price'}</th>
-            <th className="font-medium px-1 pb-2 text-right">Value</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {items.map((h, i) => (
-            <tr key={`${h.name}-${i}`}>
-              <td className="px-1 py-2.5 text-foreground font-medium max-w-[16rem] truncate">{h.name}</td>
-              <td className="px-1 py-2.5 text-right tabular-nums text-muted-foreground">{h.units?.toLocaleString('en-IN', { maximumFractionDigits: 3 }) ?? '—'}</td>
-              <td className="px-1 py-2.5 text-right tabular-nums text-muted-foreground">{h.nav !== null ? inr(h.nav) : '—'}</td>
-              <td className="px-1 py-2.5 text-right tabular-nums text-foreground font-semibold">{h.value !== null ? inr(h.value, 0) : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <div className={ROW_B}>
+          <div className={`${b} h-64 rounded-[1.25rem]`} />
+          <div className={`${b} h-72 rounded-[1.25rem]`} />
+        </div>
+      </div>
+      <span className="sr-only">Loading account details…</span>
     </div>
   );
 }
@@ -365,10 +149,13 @@ function Holdings({ items, count, fiType }: { items: AssetDetailData['holdings']
 export default function AssetDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const setAssets = useAssetStore(s => s.setAssets);
   const [data, setData] = useState<AssetDetailData | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [announce, setAnnounce] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -376,166 +163,181 @@ export default function AssetDetail() {
     setError(null);
     api.get(`/assets/financial/${id}/detail`)
       .then(res => { if (!cancelled) setData(res.data.data as AssetDetailData); })
-      .catch(err => { if (!cancelled) setError(err); })
+      .catch(err => { if (!cancelled) { setError(err); setData(null); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id, reloadKey]);
 
-  const goBack = () => (window.history.length > 2 ? navigate(-1) : navigate('/dashboard'));
+  const capped = (data?.transactions.length ?? 0) >= 200;
+  const series = useMemo(() => (data ? balanceSeries(data) : []), [data]);
+  const flows = useMemo(() => (data ? completeFlows(data.transactions, capped) : []), [data, capped]);
 
-  if (loading && !data) return <DetailPageSkeleton label="Loading account details" />;
+  const goBack = () => (window.history.length > 2 ? navigate(-1) : navigate('/dashboard'));
+  const openNominee = () => navigate('/nominee');
+
+  // Re-sync through the user's active AA consent. A sync replaces the snapshot rows,
+  // so the account comes back with a new id: find it again by type + bank + last 4 digits.
+  const refresh = async () => {
+    if (!data || refreshing) return;
+    setRefreshing(true);
+    setAnnounce('');
+    const l4 = (s: string) => s.replace(/[^0-9]/g, '').slice(-4);
+    try {
+      await api.post('/assets/refresh', {});
+      const list = await getFinancialAssets();
+      if (Array.isArray(list)) setAssets(list);
+      const match = list.find(a => a.fiType === data.asset.fiType && a.institutionName === data.asset.institutionName && l4(a.accountRef) === l4(data.asset.accountRef));
+      toast.success('Account refreshed', { description: 'Latest balance and transactions loaded.' });
+      setAnnounce('Account refreshed');
+      if (match && match.id !== data.asset.id) navigate(`/asset/${match.id}`, { replace: true });
+      else setReloadKey(k => k + 1);
+    } catch (err) {
+      const status = err instanceof AppError ? err.statusCode : null;
+      if (status === 403) {
+        toast.error('Data-sharing consent needed', { description: 'Renew your Account Aggregator consent to refresh.', action: { label: 'Renew', onClick: () => navigate('/consent') } });
+      } else if (status !== null && status < 500) {
+        toast.error("Couldn't refresh", { description: userFacingMessage(err) });
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading && !data) return <Skeleton />;
 
   if (!data) {
     const notFound = error instanceof AppError && error.statusCode === 404;
     return (
-      <PageLoadError>
-        {notFound ? (
-          <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
-            <div className="size-12 rounded-full bg-muted text-muted-foreground grid place-items-center mx-auto mb-4"><SearchX className="size-6" /></div>
-            <h1 className="text-lg font-semibold text-foreground">Account not found</h1>
-            <p className="text-sm text-muted-foreground mt-1">It may have been removed after your latest sync.</p>
-            <button onClick={() => navigate('/dashboard')} className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-2.5 text-sm font-semibold hover:opacity-90">
-              Back to dashboard
-            </button>
-          </div>
-        ) : (
-          <ErrorCard error={error} title="We couldn't load this account" onRetry={() => setReloadKey(k => k + 1)} />
-        )}
-      </PageLoadError>
+      <div className={PAGE}>
+        <TopBar onBack={goBack} crumb={null} />
+        <main className="px-4 sm:px-6">
+          {notFound ? (
+            <div className={`${SECTION} p-8 text-center max-w-[28rem] mx-auto mt-16`}>
+              <div className="size-12 rounded-full bg-muted text-muted-foreground grid place-items-center mx-auto mb-4" aria-hidden><SearchX className="size-6" /></div>
+              <h1 className="text-lg font-semibold text-foreground">Account not found</h1>
+              <p className="text-sm text-muted-foreground mt-1">It may have been replaced by your latest sync.</p>
+              <button type="button" onClick={() => navigate('/dashboard')} className={`mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-zinc-900 text-white dark:bg-lime-300 dark:text-zinc-900 px-5 text-sm font-semibold hover:opacity-90 ${FOCUS}`}>
+                Back to dashboard
+              </button>
+            </div>
+          ) : (
+            <div className="max-w-[28rem] mx-auto mt-16">
+              <ErrorCard error={error} title="We couldn't load this account" onRetry={() => setReloadKey(k => k + 1)} />
+            </div>
+          )}
+        </main>
+      </div>
     );
   }
 
   const { asset } = data;
-  const meta = TYPE_META[asset.fiType] ?? { label: asset.fiType, valueLabel: 'Value', icon: <Wallet className="size-6" strokeWidth={1.75} /> };
-  const figures = keyFigures(data);
-  const rows = detailRows(data);
-  const showTransactions = asset.fiType === 'DEPOSIT' || data.transactions.length > 0;
-  const showHoldings = asset.fiType === 'EQUITY' || asset.fiType === 'MUTUAL_FUND';
+  const t = asset.fiType;
+  const fd = isFixedDeposit(data);
+  const ins = t === 'INSURANCE_POLICIES';
+  const savings = t === 'DEPOSIT' && !fd;
+  const hero = heroValue(data);
+  const checks = healthChecks(data, { nominee: openNominee, refresh: () => void refresh(), refreshing });
+  const l4 = last4(asset.accountRef);
+  const crumb = `${asset.institutionName || TYPE_LABEL[t] || 'Account'}${l4 ? ` ••${l4}` : ''}`;
 
-  // Balance the two columns: with no holdings/transactions the details move to the main column
-  const leftIsLong = showHoldings || showTransactions;
-  const detailsCard = (
-    <Card title={asset.fiType === 'INSURANCE_POLICIES' ? 'Policy details' : 'Account details'} icon={<FileText className="size-4" />}>
-      <dl className="divide-y divide-border">
-        {rows.map(r => (
-          <div key={r.label} className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
-            <dt className="text-xs text-muted-foreground">{r.label}</dt>
-            <dd className={`text-sm text-foreground text-right truncate ${r.mono ? 'font-mono tracking-wide' : 'font-medium'}`}>{r.value}</dd>
+  // Deposit / policy term: drawn once, as the footer of the facts card. Its dates leave Details,
+  // and its "time left" is dropped when the status card already leads with the maturity.
+  const termStart = strOf(data.details.openedOn);
+  const termEnd = fd || ins ? strOf(data.details.maturityDate) : null;
+  const showTerm = hasTerm(termEnd);
+  const term = showTerm && (
+    <TermMeter kind={ins ? 'policy' : 'deposit'} start={termStart} end={termEnd} headline={!checks.some(c => c.key === 'maturity')} />
+  );
+
+  // A single fact is not worth a card of its own: it joins Details instead.
+  const facts = keyFacts(data, hero.sumAssured);
+  const factsCard = facts.length >= 2 || showTerm;
+  const items: DetailRow[] = [
+    ...detailItems(data, { start: showTerm && termHasStart(termStart, termEnd), end: showTerm }),
+    ...(factsCard ? [] : facts.map(f => ({ label: f.label, value: f.sub ? `${f.value} · ${f.sub}` : f.value }))),
+  ];
+
+  const showBalance = hasMeaningfulTrend(series);
+  const showFlow = savings && flows.length >= 2;
+  const showChart = showBalance || showFlow;
+  const showTransactions = savings || data.transactions.length > 0;
+  const allInterest = data.transactions.length > 0 && data.transactions.every(tx => parseNarration(tx.narration, tx.mode).mode === 'INTEREST');
+  const chart = showChart && (
+    <ActivityChart
+      key={asset.id}
+      series={showBalance ? series : []}
+      flows={showFlow ? flows : []}
+      balanceTitle={isInvestment(t) ? 'Value over time' : 'Balance'}
+      refreshing={refreshing}
+    />
+  );
+
+  // Nothing for the history column (an FD or policy with no shared entries): Details runs full width
+  // in two columns instead of forming a tall, narrow aside beside an empty column.
+  const historyEmpty = !showChart && !isInvestment(t) && !showTransactions;
+  const details = (wide: boolean) => (
+    <section aria-labelledby="details-h" className={`${SECTION} p-5 sm:p-6 min-w-0 ${wide ? '' : 'lg:sticky lg:top-20'}`}>
+      <h2 id="details-h" className="text-base font-semibold text-foreground">{detailsTitle(t)}</h2>
+      <dl className={`mt-3 ${wide ? 'grid sm:grid-cols-2 sm:gap-x-10' : ''}`}>
+        {items.map(i => (
+          <div key={i.label} className="flex items-center justify-between gap-4 py-3 min-h-12 border-t border-border">
+            <dt className="text-[13px] text-muted-foreground shrink-0">{i.label}</dt>
+            <dd className="flex min-w-0 items-center justify-end gap-1">
+              <span className={`truncate font-medium text-foreground text-right ${i.mono ? 'font-mono text-[0.9375rem] tracking-[0.02em]' : 'text-sm'}`}>{i.value}</span>
+              {i.copy && <span className="-my-2 -mr-2 sm:-my-1 sm:-mr-1.5"><CopyButton value={i.value} label={i.label} /></span>}
+            </dd>
           </div>
         ))}
       </dl>
-    </Card>
+      <p className="pt-4 border-t border-border flex gap-2 text-xs leading-relaxed text-muted-foreground">
+        <Lock className="size-3.5 mt-0.5 shrink-0" aria-hidden />
+        <span>Read-only via Setu Account Aggregator. AssetMap can't move money. Synced {fmtDate(asset.fetchedAt, { time: true })}.</span>
+      </p>
+    </section>
   );
 
   return (
-    <div className="page-gradient-bg min-h-screen text-foreground">
-      <nav className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
-        <div className="mx-auto max-w-[72rem] px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-          <button
-            onClick={goBack}
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            <ArrowLeft className="size-4" /> Back
-          </button>
-          <button
-            onClick={() => setReloadKey(k => k + 1)}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
-            aria-label="Reload account details"
-          >
-            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Synced {relativeTime(asset.fetchedAt)}</span>
-          </button>
-        </div>
-      </nav>
+    <div className={PAGE}>
+      <TopBar onBack={goBack} crumb={crumb} />
 
-      <main className="mx-auto max-w-[72rem] px-4 sm:px-6 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        {/* Hero: who, what, how much */}
-        <section className="rounded-2xl border border-border bg-card shadow-sm p-5 sm:p-6">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="size-14 rounded-2xl bg-lime-300 text-zinc-900 grid place-items-center shrink-0 shadow-sm">{meta.icon}</div>
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">{asset.institutionName}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
-                  <span>{meta.label}</span>
-                  <span aria-hidden>·</span>
-                  <span className="font-mono tracking-wide">{asset.accountRef}</span>
-                </p>
-              </div>
-            </div>
-            <div className="md:text-right">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{meta.valueLabel}</p>
-              <p className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums mt-1">{inr(asset.balance)}</p>
-              <p className="text-xs text-muted-foreground mt-1">As of {fmtDate(asset.fetchedAt, true)}</p>
-            </div>
+      <main className={`${MAIN} animate-in fade-in duration-300 motion-reduce:animate-none`}>
+        <span className="sr-only" aria-live="polite">{announce}</span>
+
+        {/* Row A: the account and what needs doing */}
+        <div className={ROW_A}>
+          <div className="min-w-0">
+            <WalletCard data={data} subLine={subLine(data)} valueLabel={hero.label} value={hero.value} valueNote={hero.note} refreshing={refreshing} />
+            <ActionBar nominee={data.nominee.status} refreshing={refreshing} onRefresh={() => void refresh()} />
           </div>
-
-          {figures.length > 0 && (
-            <dl className="mt-5 pt-5 border-t border-border grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {figures.map(f => (
-                <div key={f.label} className="min-w-0">
-                  <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.label}</dt>
-                  <dd className={`mt-1 text-sm font-semibold tabular-nums ${f.tone === 'up' ? 'text-emerald-600 dark:text-emerald-400' : f.tone === 'down' ? 'text-rose-600 dark:text-rose-400' : f.tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
-                    {f.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <div className="lg:col-span-2 space-y-6 min-w-0">
-            <Card title="Value history" icon={<LineChart className="size-4" />}>
-              <ValueHistory history={data.history} valueLabel={meta.valueLabel} />
-            </Card>
-
-            {showHoldings && (
-              <Card title={asset.fiType === 'MUTUAL_FUND' ? 'Schemes' : 'Holdings'} icon={<Layers className="size-4" />}>
-                <Holdings items={data.holdings} count={data.details.holdingsCount} fiType={asset.fiType} />
-              </Card>
-            )}
-
-            {showTransactions && (
-              <Card title="Recent transactions" icon={<Receipt className="size-4" />}
-                action={data.transactions.length > 0 ? <span className="text-xs text-muted-foreground">{data.transactions.length} shared</span> : undefined}>
-                <Transactions items={data.transactions} />
-              </Card>
-            )}
-
-            {!leftIsLong && detailsCard}
+          <div className="min-w-0 space-y-4">
+            <StatusPanel checks={checks} data={data} />
+            {factsCard && <KeyFacts facts={facts} term={term} label={fd ? 'Deposit terms' : ins ? 'Policy terms' : 'Key facts'} />}
           </div>
-
-          <aside className="space-y-6 min-w-0">
-            <NomineeCard data={data.nominee} onAction={() => navigate('/nominee')} />
-
-            {leftIsLong && detailsCard}
-
-            <Card title="Data source" icon={<Lock className="size-4" />}>
-              <dl className="divide-y divide-border">
-                <div className="flex items-center justify-between gap-4 pb-2.5">
-                  <dt className="text-xs text-muted-foreground">Shared via</dt>
-                  <dd className="text-sm font-medium text-foreground">Account Aggregator</dd>
-                </div>
-                <div className="flex items-center justify-between gap-4 py-2.5">
-                  <dt className="text-xs text-muted-foreground">Last synced</dt>
-                  <dd className="text-sm font-medium text-foreground">{fmtDate(asset.fetchedAt, true)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-4 pt-2.5">
-                  <dt className="text-xs text-muted-foreground">Access</dt>
-                  <dd className="text-sm font-medium text-foreground">Read-only, with your consent</dd>
-                </div>
-              </dl>
-              <button
-                onClick={() => navigate('/consent')}
-                className="mt-4 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                Review data-sharing consent
-              </button>
-            </Card>
-          </aside>
         </div>
+
+        {/* Row B: history and reference */}
+        {historyEmpty ? (
+          <div className="mt-4 md:mt-8">{details(true)}</div>
+        ) : (
+          <div className={ROW_B}>
+            <div className="min-w-0 flex flex-col gap-4 lg:gap-6">
+              {chart}
+              {isInvestment(t) && <Holdings data={data} onRefresh={() => void refresh()} refreshing={refreshing} />}
+              {showTransactions && (
+                <TransactionList
+                  items={data.transactions}
+                  institutionName={asset.institutionName}
+                  capped={capped}
+                  onRefresh={() => void refresh()}
+                  refreshing={refreshing}
+                  title={fd && allInterest ? 'Interest & payouts' : 'Transactions'}
+                  shortTabs={isInvestment(t)}
+                />
+              )}
+            </div>
+            <div className="min-w-0">{details(false)}</div>
+          </div>
+        )}
       </main>
     </div>
   );

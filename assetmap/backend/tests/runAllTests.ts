@@ -20,8 +20,12 @@ import { registerInsuranceGapFinderTests } from './services/insuranceGapFinder.t
 import { registerDormantAndNomineeTests } from './services/dormantAndNominee.test';
 import { registerWillBuilderTests } from './services/willBuilder.test';
 import { registerFamilyVaultTests } from './services/familyVault.test';
+import { registerAssetReportTests } from './services/assetReport.test';
 import { registerSupportServiceTests } from './services/supportService.test';
 
+import { registerAccountSettingsTests } from './services/accountSettings.test';
+import { registerNotificationCenterTests } from './services/notificationCenter.test';
+import { registerSpendAiTests } from './services/spendAi.test';
 async function main() {
   const startTime = Date.now();
 
@@ -42,7 +46,11 @@ async function main() {
   registerDormantAndNomineeTests();
   registerWillBuilderTests();
   registerFamilyVaultTests();
+  registerAssetReportTests();
   registerSupportServiceTests();
+  registerAccountSettingsTests();
+  registerNotificationCenterTests();
+  registerSpendAiTests();
 
   // Execute all tests
   const { totalPassed, totalFailed, suites } = await runner.run();
